@@ -4,9 +4,18 @@
 
 
 // ============================================================================+
+// Global data:
+
+volatile int16_t g_ms_timestamp_ = 0;
+
+
+// ============================================================================+
 // Private data:
 
-volatile uint16_t ms_timestamp_ = 0;
+#define TIMER1_DIVIDER 1
+#define TIMER3_DIVIDER 8
+#define F_ICR1 1000
+#define F_ICR3 128
 
 
 // ============================================================================+
@@ -16,6 +25,63 @@ volatile uint16_t ms_timestamp_ = 0;
 // "TIMER3_COMPA" at 1kHz.
 void TimingInit(void)
 {
+  // Clear TIMER1 registers.
+  TCCR1A = 0;
+  TCCR1B = 0;
+  TCCR1C = 0;
+  TIMSK1 = 0;
+  // Waveform generation mode bits:
+  TCCR1B |= (1 << WGM13);
+  TCCR1B |= (1 << WGM12);
+  TCCR1A |= (0 << WGM11);
+  TCCR1A |= (0 << WGM10);
+  // Compare match output A mode bits:
+  TCCR1A |= (0 << COM1A1);
+  TCCR1A |= (0 << COM1A0);
+  // Compare match output B mode bits:
+  TCCR1A |= (0 << COM1B1);
+  TCCR1A |= (0 << COM1B0);
+  // Force output compare A bit:
+  TCCR1B |= (0 << FOC1A);
+  // Force output compare B bit:
+  TCCR1B |= (0 << FOC1B);
+  // Clock select bits:
+  switch (TIMER1_DIVIDER)
+  {
+    case 1:
+      TCCR1B |= (0 << CS12) | (0 << CS11) | (1 << CS10);
+      break;
+    case 8:
+      TCCR1B |= (0 << CS12) | (1 << CS11) | (0 << CS10);
+      break;
+    case 64:
+      TCCR1B |= (0 << CS12) | (1 << CS11) | (1 << CS10);
+      break;
+    case 256:
+      TCCR1B |= (1 << CS12) | (0 << CS11) | (0 << CS10);
+      break;
+    case 1024:
+      TCCR1B |= (1 << CS12) | (0 << CS11) | (1 << CS10);
+      break;
+    case 0:
+    default:
+      TCCR1B |= (0 << CS12) | (0 << CS11) | (0 << CS10);
+      break;
+  }
+  // Overflow interrupt enable bit:
+  TIMSK1 |= (0 << TOIE1);
+  // Input capture register (or TOP in CTC with WGM13 set):
+  TIMSK1 |= (1 << ICIE1);  // Input capture interrupt enable (or TOP in CTC).
+  ICR1 = F_CPU / TIMER1_DIVIDER / F_ICR1 - 1;  // = 19999
+  // Output compare match A
+  TIMSK1 |= (0 << OCIE1A);  // Output compare match A interrupt enable.
+  OCR1A = 0;
+  // Output compare match B
+  TIMSK1 |= (0 << OCIE1B);  // Output compare match B interrupt enable.
+  OCR1B = 0;
+  // Clear the timer.
+  TCNT1 = 0;
+
   // Clear TIMER3 registers.
   TCCR3A = 0;
   TCCR3B = 0;
@@ -40,47 +106,36 @@ void TimingInit(void)
   switch (TIMER3_DIVIDER)
   {
     case 1:
-      TCCR3B |= 0<<CS32 | 0<<CS31 | 1<<CS30;
+      TCCR3B |= (0 << CS32) | (0 << CS31) | (1 << CS30);
       break;
     case 8:
-      TCCR3B |= 0<<CS32 | 1<<CS31 | 0<<CS30;
+      TCCR3B |= (0 << CS32) | (1 << CS31) | (0 << CS30);
       break;
     case 64:
-      TCCR3B |= 0<<CS32 | 1<<CS31 | 1<<CS30;
+      TCCR3B |= (0 << CS32) | (1 << CS31) | (1 << CS30);
       break;
     case 256:
-      TCCR3B |= 1<<CS32 | 0<<CS31 | 0<<CS30;
+      TCCR3B |= (1 << CS32) | (0 << CS31) | (0 << CS30);
       break;
     case 1024:
-      TCCR3B |= 1<<CS32 | 0<<CS31 | 1<<CS30;
+      TCCR3B |= (1 << CS32) | (0 << CS31) | (1 << CS30);
       break;
     case 0:
     default:
-      TCCR3B |= 0<<CS32 | 0<<CS31 | 0<<CS30;
+      TCCR3B |= (0 << CS32) | (0 << CS31) | (0 << CS30);
       break;
   }
   // Overflow interrupt enable bit:
   TIMSK3 |= (0 << TOIE3);
-  // Input capture register (or TOP in CTC with WGM33 set to 1):
-  ICR3 = F_CPU / TIMER3_DIVIDER / F_ICR3 - 1;  // (~13 PPM error)
+  // Input capture register (or TOP in CTC with WGM33 set):
+  TIMSK3 |= (1 << ICIE3);  // Input capture interrupt enable (or TOP in CTC).
+  ICR3 = F_CPU / TIMER3_DIVIDER / F_ICR3 - 1;  // = 19530.25 (~13 PPM error)
   // Output compare match A
-  TIMSK3 |= (1 << OCIE3A);  // Output compare match A interrupt enable.
-  OCR3A = F_CPU / TIMER3_DIVIDER / F_OCR3A;  // = 2500;
+  TIMSK3 |= (0 << OCIE3A);  // Output compare match A interrupt enable.
+  OCR3A = 0;
   // Output compare match B
   TIMSK3 |= (0 << OCIE3B);  // Output compare match B interrupt enable.
-  OCR3BH = 0;
-  OCR3BL = 0;
+  OCR3B = 0;
   // Clear the timer.
-  TCNT3H = 0;
-  TCNT3L = 0;
-}
-
-// -----------------------------------------------------------------------------
-// This function delays execution of the program for "t" ms. Functions triggered
-// by interrupts will still execute during this period. This function works for
-// time periods up to 32767 ms.
-void Wait(uint16_t w)
-{
-  uint16_t timestamp = GetTimestampMillisFromNow(w);
-  while (!TimestampInPast(timestamp));
+  TCNT3 = 0;
 }

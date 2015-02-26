@@ -2,35 +2,35 @@
 
 #include <avr/interrupt.h>
 
-#include "mcu_pins.h"
+#include "led.h"
 #include "timing.h"
 
 
-void Init(void)
-{
-  // Set onboard LED pins to output.
-  LED_GREEN_DDR |= LED_GREEN_PIN;
-  LED_RED_DDR |= LED_RED_PIN;
+// ============================================================================+
+// Private functions:
 
-  // Initialize TIMER3 for millisecond timing.
+static void Init(void)
+{
   TimingInit();
+  LEDInit();
 
   // Enable interrupts.
   sei();
 }
 
+// -----------------------------------------------------------------------------
 int16_t main(void)
 {
   Init();
 
   // Main loop
-  uint16_t timestamp = GetTimestampMillisFromNow(500);
+  int16_t timestamp = GetTimestampMillisFromNow(500);
   for (;;)  // Preferred over while(1)
   {
     if(TimestampInPast(timestamp))
     {
       timestamp += 500;
-      LED_GREEN_TOGGLE;
+      GreenLEDToggle();
     }
   }
 }
