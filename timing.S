@@ -14,7 +14,7 @@
 #include <avr/io.h>
 .list
 
-.extern g_ms_timestamp_
+.extern ms_timestamp_
 
 __SREG__ = _SFR_IO_ADDR(SREG)
 
@@ -25,21 +25,21 @@ __SREG__ = _SFR_IO_ADDR(SREG)
 TIMER1_CAPT_vect:
   in r1, __SREG__  ; Save SREG in R1 (normally reserved for 0)
   push r26  ; Save R26 (X-) to the stack
-  lds r26, g_ms_timestamp_  ; Load the lower byte of ms_timestamp
+  lds r26, ms_timestamp_  ; Load the lower byte of ms_timestamp
   inc r26  ; Increment the lower byte
   breq MS_HI  ; If r26 rolled over to 0, then branch to MS_HI
 MS_SAVE:
-  sts g_ms_timestamp_, r26  ; Save lower byte to ms_timestamp
+  sts ms_timestamp_, r26  ; Save lower byte to ms_timestamp
   mov r26, r1  ; (because clr will set the Z flag)
   clr r1  ; Restore R1 to 0
   out __SREG__, r26  ; Restore the state of SREG
   pop r26  ; Restore R26 (X-) from the stack
-  reti;
+  reti
 MS_HI:
   push r27  ; Save R27 (X+) to the stack
-  lds r27, g_ms_timestamp_ + 1  ; Load the upper byte of ms_timestamp
+  lds r27, ms_timestamp_ + 1  ; Load the upper byte of ms_timestamp
   inc r27  ; Increment the upper byte of ms_timestamp
-  sts g_ms_timestamp_ + 1, r27  ; Save the upper byte to ms_timestamp
+  sts ms_timestamp_ + 1, r27  ; Save the upper byte to ms_timestamp
   pop r27  ; Restore R27 (X+) from the stack
   rjmp MS_SAVE  ; Jump back to save lower byte
 
@@ -48,4 +48,4 @@ MS_HI:
 ;;
 .global TIMER3_CAPT_vect
 TIMER3_CAPT_vect:
-  reti;
+  reti
