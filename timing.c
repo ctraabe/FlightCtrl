@@ -92,7 +92,7 @@ void TimingInit(void)
 // This function returns a timestamp corresponding to "t" ms in the future. This
 // timestamp can be checked against the current timestamp to see if a certain
 // amount of time has passed. This function works for durations up to 32767 ms.
-inline int16_t GetTimestampMillisFromNow(int16_t t)
+int16_t GetTimestampMillisFromNow(int16_t t)
 {
   int16_t ms_timestamp;
   ATOMIC_BLOCK(ATOMIC_FORCEON) { ms_timestamp = ms_timestamp_; }
@@ -103,7 +103,7 @@ inline int16_t GetTimestampMillisFromNow(int16_t t)
 // This function compares a timestamp to the current timestamp and returns TRUE
 // if the timestamp is in the past. This function works for durations up to
 // 32767 ms.
-inline uint8_t TimestampInPast(int16_t t)
+uint8_t TimestampInPast(int16_t t)
 {
   int16_t ms_timestamp;
   ATOMIC_BLOCK(ATOMIC_FORCEON) { ms_timestamp = ms_timestamp_; }
@@ -115,7 +115,7 @@ inline uint8_t TimestampInPast(int16_t t)
 // "last_time" has occurred. This function works for time periods up to 65535
 // ms. The function also automatically updates last_time so that it can be
 // easily be called periodically.
-inline uint16_t MillisSinceTimestamp(int16_t *last_time)
+uint16_t MillisSinceTimestamp(int16_t *last_time)
 {
   int16_t ms_timestamp;
   ATOMIC_BLOCK(ATOMIC_FORCEON) { ms_timestamp = ms_timestamp_; }
@@ -128,7 +128,7 @@ inline uint16_t MillisSinceTimestamp(int16_t *last_time)
 // This function delays execution of the program for "t" ms. Functions triggered
 // by interrupts will still execute during this period. This function works for
 // time periods up to 32767 ms.
-inline void Wait(uint16_t w)
+void Wait(uint16_t w)
 {
   int16_t timestamp = GetTimestampMillisFromNow(w);
   while (!TimestampInPast(timestamp));
@@ -137,7 +137,7 @@ inline void Wait(uint16_t w)
 // -----------------------------------------------------------------------------
 // This function returns the value of TIMER1, which increments with every CPU
 // clock cycle, which can be used to measure execution time.
-inline int16_t GetCycleStamp(void)
+int16_t GetCycleStamp(void)
 {
   return (int16_t)TCNT1;
 }
@@ -147,7 +147,7 @@ inline int16_t GetCycleStamp(void)
 // "last_time" has occurred. This function works for time periods up to 65535
 // ms. The function also automatically updates last_time so that it can be
 // easily be called periodically.
-inline uint16_t CyclesSince(int16_t cycle)
+uint16_t CyclesSince(int16_t cycle)
 {
   return TCNT1 - cycle - 4;  // Minus 4 cycles for loading the counter value.
 }

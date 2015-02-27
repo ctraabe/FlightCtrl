@@ -39,13 +39,13 @@ static inline uint16_t SumRecords(enum ADCSensorIndex sensor);
 // =============================================================================
 // Accessors:
 
-inline int16_t Acceleration(enum SensorAxes axis)
+int16_t Acceleration(enum SensorAxes axis)
 {
   return acceleration_[axis];  // x 5/12288 g
 }
 
 // -----------------------------------------------------------------------------
-inline uint16_t Accelerometer(enum SensorAxes axis)
+uint16_t Accelerometer(enum SensorAxes axis)
 {
   // 5/1024 g/step
   switch (axis)
@@ -63,25 +63,25 @@ inline uint16_t Accelerometer(enum SensorAxes axis)
 }
 
 // -----------------------------------------------------------------------------
-inline int16_t AngularRate(enum SensorAxes axis)
+int16_t AngularRate(enum SensorAxes axis)
 {
   return angular_rate_[axis];  // x 625/9216 deg/sec
 }
 
 // -----------------------------------------------------------------------------
-inline uint16_t BaroAltitude(void)
+uint16_t BaroAltitude(void)
 {
   return baro_altitude_;
 }
 
 // -----------------------------------------------------------------------------
-inline uint16_t BatteryVoltage(void)
+uint16_t BatteryVoltage(void)
 {
   return battery_voltage_;
 }
 
 // -----------------------------------------------------------------------------
-inline uint16_t Gyro(enum SensorAxes axis)
+uint16_t Gyro(enum SensorAxes axis)
 {
   // 5/6.144 deg/s/step
   switch (axis)
@@ -99,7 +99,7 @@ inline uint16_t Gyro(enum SensorAxes axis)
 }
 
 // -----------------------------------------------------------------------------
-inline uint16_t PressureSensor(void)
+uint16_t PressureSensor(void)
 {
   return ADCSample(ADC_PRESSURE);
 }
@@ -109,7 +109,7 @@ inline uint16_t PressureSensor(void)
 // Public functions:
 
 // This function starts the ADC in free-running mode.
-inline void ADCOn(void)
+void ADCOn(void)
 {
   ADCSRA = (1 << ADEN)  // ADC Enable
          | (1 << ADSC)  // ADC Start Conversion
@@ -123,7 +123,7 @@ inline void ADCOn(void)
 
 // -----------------------------------------------------------------------------
 // This function immediately kills the ADC.
-inline void ADCOff(void)
+void ADCOff(void)
 {
   ADCSRA = 0;  // Clear the ADC control register.
 }
@@ -149,7 +149,7 @@ void ProcessSensorReadings(void)
 // -----------------------------------------------------------------------------
 // This function delays program execution until the ADC sample array has been
 // fully refreshed at least once.
-inline void WaitOneADCCycle(void)
+void WaitOneADCCycle(void)
 {
   if (!(ADCSRA & _BV(ADSC))) return;  // ADC not running.
   while (!samples_index_) continue;

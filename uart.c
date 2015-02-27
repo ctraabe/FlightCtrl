@@ -12,7 +12,7 @@
 // =============================================================================
 // Public functions:
 
-inline void UARTInit(void)
+void UARTInit(void)
 {
   // Set the baud rate.
   UBRR0 = F_CPU / 8 / USART0_BAUD - 1;
@@ -26,7 +26,7 @@ inline void UARTInit(void)
 }
 
 // -----------------------------------------------------------------------------
-inline void UARTTxByte(uint8_t byte)
+void UARTTxByte(uint8_t byte)
 {
   // TODO: should USART Data Register Empty Interrupt be used instead?
   loop_until_bit_is_set(UCSR0A, UDRE0);
