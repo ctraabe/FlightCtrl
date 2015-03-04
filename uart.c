@@ -1,6 +1,6 @@
 #include "uart.h"
 
-#include <avr/interrupt.h>
+#include <avr/io.h>
 
 
 // =============================================================================
@@ -19,10 +19,16 @@ void UARTInit(void)
   // Set UART Double Speed (U2X).
   UCSR0A = (1 << U2X0);
   // Enable USART0 receiver and transmitter and interrupts.
-  UCSR0B = (1 << TXEN0)  // Enable the USART0 transmitter.
-         | (0 << RXEN0)  // Enable the USART0 receiver.
-         | (0 << TXCIE0)  // Enable the Transmit Complete interrupt.
-         | (0 << RXCIE0);  // Enable the Receive Complete interrupt.
+  UCSR0B = (0 << RXCIE0)  // RX Complete Interrupt Enable
+         | (0 << TXCIE0)  // TX Complete Interrupt Enable
+         | (0 << UDRIE0)  // Data Register Empty Interrupt Enable
+         | (1 << TXEN0)  // Transmitter Enable
+         | (0 << RXEN0)  // Receiver Enable
+         | (0 << UCSZ02);  // 9-bit Character Size Enable
+  UCSR0C = (0 << UMSEL01) | (0 << UMSEL00)  // USART Mode (asynchronous)
+         | (0 << UPM01) | (0 << UPM00)  // Parity Bit Mode (none)
+         | (0 << USBS0)  // 2 Stop Bit Enable
+         | (1 << UCSZ01) | (1 << UCSZ00);  // Character Size (8-bits)
 }
 
 // -----------------------------------------------------------------------------

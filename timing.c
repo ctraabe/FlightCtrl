@@ -13,13 +13,13 @@
 #define F_ICR3 128
 
 // The following is not declared static so that it will be visible to timing.S.
-volatile int16_t ms_timestamp_;
+volatile int16_t ms_timestamp_ = 0;
 
 
 // =============================================================================
 // Public functions:
 
-// This function initializes TIMER1 and TIMER3. This timer trigger interrupts
+// This function initializes TIMER1 and TIMER3. These timers trigger interrupts
 // at 1 kHz and 128 Hz respectively.
 void TimingInit(void)
 {
@@ -86,6 +86,15 @@ void TimingInit(void)
   // Input capture register (or TOP in CTC with WGM33 set):
   TIMSK3 = (1 << ICIE3);  // Input capture interrupt enable (or TOP in CTC).
   ICR3 = F_CPU / TIMER3_DIVIDER / F_ICR3 - 1;  // = 19530.25 (~13 PPM error)
+}
+
+// -----------------------------------------------------------------------------
+// This function returns the current timestamp.
+int16_t GetTimestamp(void)
+{
+  int16_t ms_timestamp;
+  ATOMIC_BLOCK(ATOMIC_FORCEON) { ms_timestamp = ms_timestamp_; }
+  return ms_timestamp;
 }
 
 // -----------------------------------------------------------------------------

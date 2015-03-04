@@ -12,6 +12,10 @@
 void TimingInit(void);
 
 // -----------------------------------------------------------------------------
+// This function returns the current timestamp.
+int16_t GetTimestamp(void);
+
+// -----------------------------------------------------------------------------
 // This function returns a timestamp corresponding to "t" ms in the future. This
 // timestamp can be checked against the current timestamp to see if a certain
 // amount of time has passed. This function works for durations up to 32767 ms.
