@@ -4,6 +4,7 @@
 
 #include "adc.h"
 #include "led.h"
+#include "sbus.h"
 #include "timing.h"
 #include "uart.h"
 
@@ -16,6 +17,7 @@ static void Init(void)
   TimingInit();
   LEDInit();
   UARTInit();
+  SBusInit();
 
   // Enable interrupts.
   sei();
