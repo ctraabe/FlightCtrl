@@ -11,8 +11,6 @@ LDFLAGS   = -flto -Ofast -fwhole-program -pedantic -Wall -Wextra -Wundef \
             -Wl,--relax,--gc-sections
 ALLFLAGS  = -mmcu=$(MCU) -DF_CPU="$(F_CPU)UL"
 
-# LDFLAGS   = -flto -Ofast -pedantic -Werror -Wall -Wextra -Wundef \
-
 CC     := avr-gcc
 CP     := avr-objcopy
 DUMP   := avr-objdump
@@ -27,12 +25,20 @@ else
   BUILD_PATH := build
 endif
 
-SOURCES   = $(wildcard *.c)
+SOURCES  := $(wildcard *.c)
 SOURCES  += $(wildcard *.S)
+ASSEMBLY := $(addsuffix .lst, $(addprefix $(BUILD_PATH)/, $(SOURCES)))
 
 LST    := $(BUILD_PATH)/$(TARGET).lst
 ELF    := $(BUILD_PATH)/$(TARGET).elf
 HEX    := $(BUILD_PATH)/$(TARGET).hex
+
+# Rules to make the assembly listings
+$(BUILD_PATH)/%.c.lst: %.c
+	$(CC) -c $(LDFLAGS) $(CCFLAGS) $(ALLFLAGS) -Wa,-adhlns=$@ -o /dev/null $<
+
+$(BUILD_PATH)/%.S.lst: %.S
+	$(CC) -c $(LDFLAGS) $(CCFLAGS) $(ALLFLAGS) -Wa,-adhlns=$@ -o /dev/null $<
 
 # Declare targets that are not files
 .PHONY: program clean
@@ -45,15 +51,26 @@ $(HEX): $(ELF)
 
 # Target to build the .elf file
 # NOTE: -lm includes the math library (libm.a)
-$(ELF): $(SOURCES)
-	mkdir -p $(BUILD_PATH)
+$(ELF): $(SOURCES) $(BUILD_PATH)
 	$(CC) $(LDFLAGS) $(CCFLAGS) $(ALLFLAGS) $(LSTFLAGS) -o $(ELF) $(SOURCES) -lm
 
 # Target to program the board
 program: $(HEX)
 	$(DUDE) -c avrisp2 -p $(MCU) -U flash:w:$(HEX):i
 
+# Target to make assembly listings.
+# WARNING!!!: Because this makefile employs link-time optimization, the final
+# program may be different from what appears in these files!!!
+# Listings are first cleared here since there are no dependency checks.
+assembly: clean_assembly $(BUILD_PATH) $(ASSEMBLY)
+
 # Target to clean up the directory (leaving only source)
-clean:
-	rm -f $(HEX) $(ELF) $(LST)
+clean: $(BUILD_PATH)
+	rm -f $(HEX) $(ELF) $(LST) $(ASSEMBLY)
 	rmdir $(BUILD_PATH)
+
+clean_assembly:
+	rm -f $(ASSEMBLY)
+
+$(BUILD_PATH):
+	mkdir -p $(BUILD_PATH)
