@@ -10,12 +10,10 @@
 // Private data:
 
 #define USART1_BAUD (100000L)
-#define SBUS_START_BYTE (0x0F)
-#define SBUS_END_BYTE (0x00)
 
 // The following is not declared static so that it will be visible to sbus.S.
-volatile uint8_t sbus_rx_buffer_[2][SBUS_MESSAGE_LENGTH];
-volatile uint8_t sbus_data_ready_ = 0;
+volatile uint8_t sbus_rx_buffer_[2][SBUS_RX_BUFFER_LENGTH];  // double buffer
+volatile uint8_t sbus_data_ready_ = -1;  // -1 indicates no new data
 
 
 // =============================================================================
