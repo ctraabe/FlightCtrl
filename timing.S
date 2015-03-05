@@ -8,6 +8,9 @@
 ; Atmel AT1886: Mixing Assembly and C with AVRGCC (has many errors though)
 ; ATmega164A/PA/324A/PA/644A/PA/1284/P Datasheet (Instruction Set Summary)
 
+; Worst case stack usage: 2 bytes
+; Worst case runtime: 31 cycles
+
 ; Encapsulating the include in a .nolist statement prevents a bunch of
 ; unnecessary output in the .lst file.
 .nolist
@@ -18,9 +21,11 @@
 
 __SREG__ = _SFR_IO_ADDR(SREG)
 
+
 ; This interrupt handler increments a 16-bit word every time TIMER1 reaches the
 ; value in ICR1 (which should occur at 1kHz).
 ;;
+.section .text.TIMER1_CAPT_vect,"ax",@progbits
 .global TIMER1_CAPT_vect
 TIMER1_CAPT_vect:
   in r1, __SREG__  ; Save SREG in R1 (normally reserved for 0)
@@ -28,6 +33,7 @@ TIMER1_CAPT_vect:
   lds r26, ms_timestamp_  ; Load the lower byte of ms_timestamp
   inc r26  ; Increment the lower byte
   breq MS_HI  ; If r26 rolled over to 0, then branch to MS_HI
+
 MS_SAVE:
   sts ms_timestamp_, r26  ; Save lower byte to ms_timestamp
   mov r26, r1  ; (because clr will set the Z flag)
@@ -35,6 +41,7 @@ MS_SAVE:
   out __SREG__, r26  ; Restore the state of SREG
   pop r26  ; Restore R26 (X-) from the stack
   reti
+
 MS_HI:
   push r27  ; Save R27 (X+) to the stack
   lds r27, ms_timestamp_ + 1  ; Load the upper byte of ms_timestamp
@@ -43,9 +50,11 @@ MS_HI:
   pop r27  ; Restore R27 (X+) from the stack
   rjmp MS_SAVE  ; Jump back to save lower byte
 
+
 ; This interrupt handler is activated every time TIMER3 reaches the value in
 ; ICR3, which should occur at approx. 128Hz.
 ;;
+.section .text.TIMER3_CAPT_vect,"ax",@progbits
 .global TIMER3_CAPT_vect
 TIMER3_CAPT_vect:
   reti

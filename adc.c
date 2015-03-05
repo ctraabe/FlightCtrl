@@ -1,6 +1,5 @@
 #include "adc.h"
 
-#include <avr/interrupt.h>
 #include <avr/io.h>
 #include <util/atomic.h>
 

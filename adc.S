@@ -5,6 +5,9 @@
 ;   ADMUX = index_ % ADC_N_CHANNELS;
 ;   samples_[samples_index_] = ADC;
 
+; Stack usage: 4 bytes
+; Runtime: 46 cycles
+
 ; The following references were very helpful in making this file:
 ; 8-bit AVR Instruction Set
 ; Atmel AT1886: Mixing Assembly and C with AVRGCC (has many errors though)
@@ -22,9 +25,11 @@
 
 __SREG__ = _SFR_IO_ADDR(SREG)
 
+
 ; This interrupt handler increments a 16-bit word every time TIMER1 reaches the
 ; value in ICR1 (which should occur at 1kHz).
 ;;
+.section .text.ADC_vect,"ax",@progbits
 .global ADC_vect
 ADC_vect:
 
