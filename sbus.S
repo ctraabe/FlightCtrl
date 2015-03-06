@@ -29,7 +29,7 @@
 
 .extern ms_timestamp_  ; int16_t
 .extern sbus_rx_buffer_  ; uint8_t[2][SBUS_RX_BUFFER_LENGTH]
-.extern sbus_data_ready_  ; uint8_t
+.extern sbus_data_ready_  ; int8_t
 
 __SREG__ = _SFR_IO_ADDR(SREG)
 
@@ -68,7 +68,7 @@ USART1_RX_vect:
 
   ; Reset if any Rx errors.
   lds r24, UCSR1A  ; Load USART1 status register into r24
-  andi r24, ((FE1 << 1) | (DOR1 << 1) | (UPE1 << 1))  ; Check for Rx errors
+  andi r24, ((1 << FE1) | (1 << DOR1) | (1 << UPE1))  ; Check for Rx errors
   brne SBUS_RX_RESET  ; If r24 is not 0, then some Rx error occurred
 
   ; Check for ongoing reception (rx_counter != 0)
