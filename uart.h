@@ -13,4 +13,4 @@ void UARTInit(void);
 void UARTTxByte(uint8_t byte);
 
 
-#endif // UART_H_
+#endif  // UART_H_

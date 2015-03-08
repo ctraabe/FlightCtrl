@@ -5,4 +5,4 @@
 
 int16_t main(void) __attribute__ ((noreturn));
 
-#endif //MAIN_H_
+#endif  // MAIN_H_

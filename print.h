@@ -12,4 +12,4 @@ uint8_t PrintU16(uint16_t value, uint8_t *char_array);
 uint8_t PrintS8(int8_t value, uint8_t *char_array);
 uint8_t PrintS16(int16_t value, uint8_t *char_array);
 
-#endif //PRINT_H
+#endif  // PRINT_H

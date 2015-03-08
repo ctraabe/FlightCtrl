@@ -42,4 +42,4 @@
 #define RED_LED_PORT (PORTB)
 
 
-#endif //MCU_PINS_H_
+#endif  // MCU_PINS_H_

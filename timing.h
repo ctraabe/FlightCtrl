@@ -53,4 +53,4 @@ int16_t GetCycleStamp(void);
 uint16_t CyclesSince(int16_t cycle);
 
 
-#endif // TIMING_H_
+#endif  // TIMING_H_

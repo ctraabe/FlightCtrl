@@ -66,6 +66,6 @@ void ProcessSensorReadings(void);
 void WaitOneADCCycle(void);
 
 
-#endif // __ASSEMBLER__
+#endif  // __ASSEMBLER__
 
-#endif // ADC_H_
+#endif  // ADC_H_

@@ -32,6 +32,6 @@ void SBusInit(void);
 void ProcessSBus(void);
 
 
-#endif // __ASSEMBLER__
+#endif  // __ASSEMBLER__
 
-#endif // SBUS_H_
+#endif  // SBUS_H_
