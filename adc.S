@@ -1,7 +1,7 @@
 ; This file provides the interrupt handler for the ADC. It performs the
 ; following C code, but had been hand optimized to reduce the number of cycles
 ; required by nearly 50% (freeing about 2% total processing):
-;   index_ = (index_ + 1) % (ADC_SAMPLE_LENGTH * ADC_N_CHANNELS);
+;   index_ = (index_ + 1) % (ADC_N_SAMPLES * ADC_N_CHANNELS);
 ;   ADMUX = index_ % ADC_N_CHANNELS;
 ;   samples_[samples_index_] = ADC;
 
@@ -20,7 +20,7 @@
 #include <avr/io.h>
 .list
 
-.extern samples_  ; uint16_t[ADC_SAMPLE_LENGTH][ADC_N_CHANNELS]
+.extern samples_  ; uint16_t[ADC_N_SAMPLES][ADC_N_CHANNELS]
 .extern samples_index_  ; uint8_t
 
 __SREG__ = _SFR_IO_ADDR(SREG)
@@ -42,10 +42,10 @@ ADC_vect:
   push YL  ; Save YL (R28) to the stack
   push YH  ; Save YH (R29) to the stack
 
-  ; index_ = (index_ + 1) % (ADC_SAMPLE_LENGTH * ADC_N_CHANNELS)
+  ; index_ = (index_ + 1) % (ADC_N_SAMPLES * ADC_N_CHANNELS)
   lds YL, samples_index_  ; Load the value at SRAM &samples_index_ into YL
   inc YL  ; YL++
-  andi YL, (ADC_SAMPLE_LENGTH * ADC_N_CHANNELS - 1)  ; YL % ...
+  andi YL, (ADC_N_SAMPLES * ADC_N_CHANNELS - 1)  ; YL % ...
   sts samples_index_, YL  ; Save the value in YH to &samples_index_
 
   ; ADMUX = index_ % ADC_N_CHANNELS

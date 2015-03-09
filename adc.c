@@ -20,7 +20,7 @@ enum ADCSensorIndex {
 };
 
 // The following are not declared static so that they will be visible to adc.S.
-volatile uint16_t samples_[ADC_SAMPLE_LENGTH][ADC_N_CHANNELS];
+volatile uint16_t samples_[ADC_N_SAMPLES][ADC_N_CHANNELS];
 volatile uint8_t samples_index_ = 0;
 
 static uint16_t baro_altitude_, battery_voltage_;
@@ -59,6 +59,13 @@ uint16_t Accelerometer(enum SensorAxes axis)
     default:
       return ADCSample(ADC_ACCEL_Z);
   }
+}
+
+// -----------------------------------------------------------------------------
+enum ADCState ADCState(void)
+{
+  if (ADCSRA & _BV(ADSC)) return ADC_ACTIVE;
+  else return ADC_INACTIVE;
 }
 
 // -----------------------------------------------------------------------------
@@ -140,7 +147,7 @@ void ProcessSensorReadings(void)
   angular_rate_[Y_AXIS] = -SumRecords(ADC_GYRO_Y) - gyro_offset_[Y_AXIS];
   angular_rate_[Z_AXIS] = -SumRecords(ADC_GYRO_Z) - gyro_offset_[Z_AXIS];
 
-  baro_altitude_ = 1024 * ADC_SAMPLE_LENGTH - SumRecords(ADC_PRESSURE);
+  baro_altitude_ = 1024 * ADC_N_SAMPLES - SumRecords(ADC_PRESSURE);
 
   battery_voltage_ = SumRecords(ADC_BATT_V);
 }
@@ -172,7 +179,7 @@ static inline uint16_t SumRecords(enum ADCSensorIndex sensor)
   uint16_t result = 0;
   ATOMIC_BLOCK(ATOMIC_FORCEON)
   {
-    for (uint8_t i = 0; i < ADC_SAMPLE_LENGTH; i++)
+    for (uint8_t i = 0; i < ADC_N_SAMPLES; i++)
       result += samples_[i][sensor];
   }
   return result;
