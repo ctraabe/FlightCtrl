@@ -2,6 +2,9 @@
 #define ADC_H_
 
 
+// =============================================================================
+// Definitions:
+
 // ADC_N_SAMPLES defines the size of the ADC sample array. It is the number of
 // samples that are combined to report a sensor reading. Increasing this number
 // will improve fidelity and noise rejection, but will also increase latency.
