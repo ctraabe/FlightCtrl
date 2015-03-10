@@ -33,11 +33,11 @@
 
 #include "pressure_altitude.h"
 
+#include <avr/eeprom.h>
 #include <avr/io.h>
 
 #include "adc.h"
 #include "mymath.h"
-#include "print.h"
 #include "timing.h"
 #include "uart.h"
 
@@ -46,6 +46,12 @@
 // Private data:
 
 #define TIMER0_DIVIDER (1)
+
+uint8_t EEMEM eeprom_coarse_offset = 0;
+uint16_t EEMEM eeprom_coarse_offset_steps_to_baro_altitude_steps
+  = (uint16_t)-69 * ADC_N_SAMPLES;
+uint16_t EEMEM eeprom_fine_offset_steps_to_baro_altitude_steps
+  = (uint16_t)-35 * ADC_N_SAMPLES;
 
 
 // ============================================================================+
@@ -99,25 +105,25 @@ void PressureSensorInit(void)
 // top of this file).
 void ResetPressureSensorRange(void) {
   const int16_t kBaroAltQuarterValue = 1024 / 4 * ADC_N_SAMPLES;
-  const int16_t kCoarseStepsToBaroAltSteps = 69 * ADC_N_SAMPLES;
-  const int16_t kFineStepsToBaroAltSteps = 35 * ADC_N_SAMPLES;
 
   // TODO: Never block communication to motors when running.
   // if (MotorsOn()) return;
 
   // Return if the ADC is not running.
-  if (ADCState() != ADC_ACTIVE)
-  {
-    return;
-  }
+  if (ADCState() != ADC_ACTIVE) return;
 
   // Initialize the fine adjustment to a middle value.
   int16_t offset_fine = 127;
   OCR0A = offset_fine;
 
-  // Search for the optimal course offset.
+  // Search for the optimal coarse offset.
   int16_t offset_coarse = 0;
-  // TODO: Read the previously recorded pressure offset from EEPROM.
+
+  // Load the previously found coarse_offset and offset calibration from EEPROM.
+  offset_coarse =  eeprom_read_byte(&eeprom_coarse_offset);
+  int16_t coarse_offset_steps_to_baro_altitude_steps
+     = eeprom_read_word(&eeprom_coarse_offset_steps_to_baro_altitude_steps);
+
   for (uint8_t i = 0; i < 30; i++)
   {
     UARTTxByte('*');
@@ -126,19 +132,25 @@ void ResetPressureSensorRange(void) {
     ProcessSensorReadings();
 
     int16_t adjustment;
-    adjustment = (kBaroAltQuarterValue - (int16_t)BaroAltitude())
-      / kCoarseStepsToBaroAltSteps;
+    adjustment = ((int16_t)BaroAltitude() - kBaroAltQuarterValue)
+      / coarse_offset_steps_to_baro_altitude_steps;
     if (adjustment == 0) break;
     offset_coarse += adjustment;
   }
-  // TODO: Record the found offset_coarse to EEPROM
+
+  // Save the found offset_coarse to EEPROM.
+  eeprom_update_byte(&eeprom_coarse_offset, offset_coarse);
+
+  // Load offset calibration from EEPROM.
+  int16_t fine_offset_steps_to_baro_altitude_steps
+     = eeprom_read_word(&eeprom_fine_offset_steps_to_baro_altitude_steps);
 
   // Search for the optimal fine offset
   for (uint8_t i = 0; i < 30; i++)
   {
     int16_t adjustment;
-    adjustment = (kBaroAltQuarterValue - (int16_t)BaroAltitude())
-      / kFineStepsToBaroAltSteps;
+    adjustment = ((int16_t)BaroAltitude() - kBaroAltQuarterValue)
+      / fine_offset_steps_to_baro_altitude_steps;
     if (adjustment == 0) break;
     offset_fine += adjustment;
 
@@ -148,8 +160,41 @@ void ResetPressureSensorRange(void) {
     ProcessSensorReadings();
   }
 
-  if ((offset_fine < 10) || (offset_fine > 245))
-  {
-    // TODO: implement out of range error
-  }
+  // TODO: implement out of range error
+  // if ((offset_fine < 10) || (offset_fine > 245)) error;
+}
+
+// -----------------------------------------------------------------------------
+// This function attempts to calibrate the offset for more accurate shifts in
+// the pressure altitude measurement range. Deviation from the theoretical
+// relationship is possible due to imprecise resistor values.
+void PressureSensorOffsetCalibration (void)
+{
+  // TODO: Never block communication to motors when running.
+  // if (MotorsOn()) return;
+
+  // Return if the ADC is not running.
+  if (ADCState() != ADC_ACTIVE) return;
+
+  // Make sure that the pressure sensor is reporting a value that is near a
+  // quarter of its range.
+  ResetPressureSensorRange();
+
+  int16_t initial_reading;
+
+  initial_reading = BaroAltitude();
+  OCR0B += 1 << 3;  // 2^3 = 8. Adds approximately 1.6V to pressure sensor.
+  Wait(250);
+  eeprom_update_word(&eeprom_coarse_offset_steps_to_baro_altitude_steps,
+    (uint16_t)S16RoundRShiftS16(BaroAltitude() - initial_reading, 3));
+  OCR0B -= 1 << 3;
+  Wait(250);
+
+  initial_reading = BaroAltitude();
+  OCR0A += 1 << 4;  // 2^4 = 16. Adds approximately 1.6V to pressure sensor.
+  Wait(250);
+  eeprom_update_word(&eeprom_fine_offset_steps_to_baro_altitude_steps,
+    S16RoundRShiftS16(BaroAltitude() - initial_reading, 4));
+  OCR0A -= 1 << 4;
+  Wait(250);
 }
