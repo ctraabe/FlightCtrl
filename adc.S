@@ -1,8 +1,14 @@
-; This file provides the interrupt handler for the ADC. It performs the
-; following C code, but had been hand optimized to reduce the number of cycles
-; required by nearly 50% (freeing about 2% total processing):
-;   index_ = (index_ + 1) % (ADC_N_SAMPLES * ADC_N_CHANNELS);
-;   ADMUX = index_ % ADC_N_CHANNELS;
+; This file provides the interrupt handler for the ADC. It first records the
+; previous sample, then sets the next channel (sensor) to be read, and initiates
+; the analog-to-digital conversion on that channel. Readings are recorded into a
+; ring array (such that the oldest sample in the array is replaced with the
+; newest). This interrupt is triggered at 20,000,000 / 128 / 13 ~ 12kHz.
+
+; This interrupt handler performs the following equivalent C code, but has been
+; hand optimized to reduce the number of cycles required by nearly 50% (freeing
+; about 2% total processing):
+;   samples_index_ = (samples_index_ + 1) % (ADC_N_SAMPLES * ADC_N_CHANNELS);
+;   ADMUX = samples_index_ % ADC_N_CHANNELS;
 ;   samples_[samples_index_] = ADC;
 
 ; Stack usage: 4 bytes
@@ -42,13 +48,13 @@ ADC_vect:
   push YL  ; Save YL (R28) to the stack
   push YH  ; Save YH (R29) to the stack
 
-  ; index_ = (index_ + 1) % (ADC_N_SAMPLES * ADC_N_CHANNELS)
+  ; samples_index_ = (samples_index_ + 1) % (ADC_N_SAMPLES * ADC_N_CHANNELS)
   lds YL, samples_index_  ; Load the value at SRAM &samples_index_ into YL
   inc YL  ; YL++
   andi YL, (ADC_N_SAMPLES * ADC_N_CHANNELS - 1)  ; YL % ...
   sts samples_index_, YL  ; Save the value in YH to &samples_index_
 
-  ; ADMUX = index_ % ADC_N_CHANNELS
+  ; ADMUX = samples_index_ % ADC_N_CHANNELS
   mov YH, YL  ; Copy YL to YH
   andi YH, (ADC_N_CHANNELS - 1)  ; YH % 8
   sts ADMUX, YH  ; Set ADMUX to the value in YH
@@ -58,8 +64,8 @@ ADC_vect:
   lds XH, ADCH  ; Load the upper ADC byte in into XH
   clr YH
   add YL, YL  ; Double the index since samples_ is an array of 2-byte values
-  subi YL, lo8(-(samples_))  ; Add &samples[0] to 2*index_ (lower byte)
-  sbci YH, hi8(-(samples_))  ; Add &samples[0] to 2*index_ (upper byte)
+  subi YL, lo8(-(samples_))  ; Add &samples[0] to 2*samples_index_ (lower byte)
+  sbci YH, hi8(-(samples_))  ; Add &samples[0] to 2*samples_index_ (upper byte)
   std Y+1, XH  ; Put the byte in XH to the SRAM address in Y + 1
   st Y, XL  ; Put the byte in XL to the SRAM address in Y
 
