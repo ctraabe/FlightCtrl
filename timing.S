@@ -49,12 +49,3 @@ MS_HI:
   sts ms_timestamp_ + 1, r27  ; Save the upper byte to ms_timestamp
   pop r27  ; Restore R27 (X+) from the stack
   rjmp MS_SAVE  ; Jump back to save lower byte
-
-
-; This interrupt handler is activated every time TIMER3 reaches the value in
-; ICR3, which should occur at approx. 128Hz.
-;;
-.section .text.TIMER3_CAPT_vect,"ax",@progbits
-.global TIMER3_CAPT_vect
-TIMER3_CAPT_vect:
-  reti

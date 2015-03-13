@@ -43,4 +43,10 @@
 #define RED_LED_PORT (PORTB)
 
 
+// Buzzer
+#define BUZZER_DDR (DDRC)
+#define BUZZER_PIN (_BV(PORTC7))
+#define BUZZER_PORT (PORTC)
+
+
 #endif  // MCU_PINS_H_

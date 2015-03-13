@@ -3,12 +3,20 @@
 #include <avr/interrupt.h>
 
 #include "adc.h"
+#include "buzzer.h"
 #include "led.h"
 #include "pressure_altitude.h"
 #include "print.h"
 #include "sbus.h"
 #include "timing.h"
 #include "uart.h"
+
+
+// ============================================================================+
+// Private data:
+
+static volatile uint8_t flag_128hz = 0;
+static volatile uint16_t main_overrun_count = 0;
 
 
 // =============================================================================
@@ -32,33 +40,64 @@ static void Init(void)
 }
 
 // -----------------------------------------------------------------------------
+// This function is called upon the interrupt that occurs when TIMER3 reaches
+// the value in ICR3. This should occur at a rate of 128 Hz.
+ISR(TIMER3_CAPT_vect)
+{
+  enum {
+    COUNTER_128HZ = 0xFF >> 7,
+    COUNTER_64HZ = 0xFF >> 6,
+    COUNTER_32HZ = 0xFF >> 5,
+    COUNTER_16HZ = 0xFF >> 4,
+    COUNTER_8HZ = 0xFF >> 3,
+    COUNTER_4HZ = 0xFF >> 2,
+    COUNTER_2HZ = 0xFF >> 1,
+    COUNTER_1HZ = 0xFF >> 0,
+  };
+
+  sei();  // Allow other interrupts to be serviced.
+
+  static uint8_t counter = 0;
+  switch ((uint8_t)(counter ^ (counter + 1))) {
+    case COUNTER_1HZ:
+    case COUNTER_2HZ:
+    case COUNTER_4HZ:
+    case COUNTER_8HZ:
+    case COUNTER_16HZ:
+      UpdateBuzzer();
+    case COUNTER_32HZ:
+    case COUNTER_64HZ:
+    case COUNTER_128HZ:
+      if (flag_128hz) main_overrun_count++;
+      else flag_128hz = 1;
+    default:
+      counter++;
+      break;
+  }
+}
+
+// -----------------------------------------------------------------------------
 int16_t main(void)
 {
   Init();
 
   // Main loop
-  int16_t timestamp = GetTimestampMillisFromNow(500);
-  uint8_t message[10], flag = 0, counter = 200;
   for (;;)  // Preferred over while(1)
   {
-    if (TimestampInPast(timestamp))
+    if (flag_128hz)
     {
-      timestamp += 200;
-      // ProcessSensorReadings();
-      uint8_t i = PrintU16(BiasedPressureSensor(), &message[0]);
+      ProcessSensorReadings();
+
+      uint8_t message[10];
+      uint8_t i = PrintU16(BiasedPressure(), &message[0]);
       i += PrintEOL(&message[i]);
-      for (uint8_t j = 0; j < i; j++)
-      {
-        UARTTxByte(message[j]);
-      }
-      if (!--counter)
-      {
-        counter = 200;
-        if (flag) OCR0B -= 8;
-        else OCR0B += 8;
-        flag = !flag;
-      }
+      for (uint8_t j = 0; j < i; j++) UARTTxByte(message[j]);
+
+      ProcessSBus();
+
+      flag_128hz = 0;
     }
-    ProcessSBus();
   }
+
+  // for (;;) continue;
 }
