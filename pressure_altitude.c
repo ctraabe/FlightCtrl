@@ -130,7 +130,9 @@ void ResetPressureSensorRange(void)
 
   for (uint8_t i = 0; i < 30; i++)
   {
+    Wait(250);
     ProcessSensorReadings();
+
     int16_t adjustment;
     adjustment = (kBaroAltQuarterValue - (int16_t)BiasedPressure())
       / coarse_bias_steps_to_pressure_steps_;
@@ -139,7 +141,6 @@ void ResetPressureSensorRange(void)
 
     UARTTxByte('*');
     OCR0B = (uint8_t)S16Limit(bias_coarse, 0, 255);
-    Wait(250);
   }
 
   // Save the found bias_coarse to EEPROM.

@@ -25,18 +25,16 @@ static void Init(void)
   LoadAccelerometerOffsets();
 
   sei();  // Enable interrupts
+
+  ADCOn();  // Start reading the sensors
+
+  ResetPressureSensorRange();
 }
 
 // -----------------------------------------------------------------------------
 int16_t main(void)
 {
   Init();
-
-  ADCOn();
-
-  Wait(1000);
-
-  ResetPressureSensorRange();
 
   // Main loop
   int16_t timestamp = GetTimestampMillisFromNow(500);
