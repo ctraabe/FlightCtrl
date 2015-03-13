@@ -22,8 +22,9 @@ static void Init(void)
   SBusInit();
   PressureSensorInit();
 
-  // Enable interrupts.
-  sei();
+  LoadAccelerometerOffsets();
+
+  sei();  // Enable interrupts
 }
 
 // -----------------------------------------------------------------------------
@@ -45,9 +46,8 @@ int16_t main(void)
     if (TimestampInPast(timestamp))
     {
       timestamp += 200;
-      // GreenLEDToggle();
       // ProcessSensorReadings();
-      uint8_t i = PrintU16(PressureSensor(), &message[0]);
+      uint8_t i = PrintU16(BiasedPressureSensor(), &message[0]);
       i += PrintEOL(&message[i]);
       for (uint8_t j = 0; j < i; j++)
       {
@@ -61,6 +61,6 @@ int16_t main(void)
         flag = !flag;
       }
     }
-      ProcessSBus();
+    ProcessSBus();
   }
 }

@@ -48,17 +48,34 @@ enum ADCState ADCState(void);
 int16_t AngularRate(enum SensorAxes axis);
 
 // -----------------------------------------------------------------------------
-uint16_t BaroAltitude(void);
+uint16_t BatteryVoltage(void);
 
 // -----------------------------------------------------------------------------
-uint16_t BatteryVoltage(void);
+uint16_t BiasedPressure(void);
+
+// -----------------------------------------------------------------------------
+uint16_t BiasedPressureSensor(void);
 
 // -----------------------------------------------------------------------------
 uint16_t Gyro(enum SensorAxes axis);
 
 // -----------------------------------------------------------------------------
-uint16_t PressureSensor(void);
+// This function assumes that the Mikrokopter is motionless on the ground. It
+// finds the average gyro readings over the period of 1 second (approximately)
+// and considers the results to be the zero values of the gyros.
+void ZeroGyros(void);
 
+// -----------------------------------------------------------------------------
+// This function assumes that the Mikrokopter is motionless (on the ground). It
+// finds the average accelerometer readings over the period of 1 second
+// (approximately) and considers the results to be the zero values of the
+// accelerometers.
+void ZeroAccelerometers(void);
+
+// -----------------------------------------------------------------------------
+// This function loads the accelerometer offsets from EEPROM so that
+// accelerometers don't have to be re-calibrated every flight.
+void LoadAccelerometerOffsets(void);
 
 // =============================================================================
 // Public functions:

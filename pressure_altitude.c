@@ -33,10 +33,11 @@
 
 #include "pressure_altitude.h"
 
-#include <avr/eeprom.h>
+#include <stdlib.h>
 #include <avr/io.h>
 
 #include "adc.h"
+#include "eeprom.h"
 #include "mymath.h"
 #include "timing.h"
 #include "uart.h"
@@ -47,17 +48,21 @@
 
 #define TIMER0_DIVIDER (1)
 
-uint8_t EEMEM eeprom_coarse_offset = 0;
-uint16_t EEMEM eeprom_coarse_offset_steps_to_baro_altitude_steps
-  = (uint16_t)-69 * ADC_N_SAMPLES;
-uint16_t EEMEM eeprom_fine_offset_steps_to_baro_altitude_steps
-  = (uint16_t)-35 * ADC_N_SAMPLES;
+int16_t coarse_bias_steps_to_pressure_steps_ = 0;
+int16_t fine_bias_steps_to_pressure_steps_ = 0;
+
+
+// =============================================================================
+// Private function declarations:
+
+static void LoadPressureSensorBiasCalibration(void);
+static void CheckPressureSensorBiasCalibration(void);
 
 
 // ============================================================================+
 // Public functions:
 
-// TIMER0 is used to drive the PWM signals that set the coarse and fine offsets
+// TIMER0 is used to drive the PWM signals that set the coarse and fine biases
 // for the pressure sensor.
 void PressureSensorInit(void)
 {
@@ -96,6 +101,9 @@ void PressureSensorInit(void)
       TCCR0B |= (0 << CS02) | (0 << CS01) | (0 << CS00);
       break;
   }
+  OCR0B = eeprom_read_byte(&eeprom.pressure_coarse_bias);
+
+  LoadPressureSensorBiasCalibration();
 }
 
 // -----------------------------------------------------------------------------
@@ -103,7 +111,8 @@ void PressureSensorInit(void)
 // the output of the pressure sensor amplifier. This effectively shifts the 140
 // m measurable range to encompass the starting altitude (see explanation at the
 // top of this file).
-void ResetPressureSensorRange(void) {
+void ResetPressureSensorRange(void)
+{
   const int16_t kBaroAltQuarterValue = 1024 / 4 * ADC_N_SAMPLES;
 
   // TODO: Never block communication to motors when running.
@@ -113,62 +122,53 @@ void ResetPressureSensorRange(void) {
   if (ADCState() != ADC_ACTIVE) return;
 
   // Initialize the fine adjustment to a middle value.
-  int16_t offset_fine = 127;
-  OCR0A = offset_fine;
+  int16_t bias_fine = 127;
+  OCR0A = bias_fine;
 
-  // Search for the optimal coarse offset.
-  int16_t offset_coarse = 0;
-
-  // Load the previously found coarse_offset and offset calibration from EEPROM.
-  offset_coarse =  eeprom_read_byte(&eeprom_coarse_offset);
-  int16_t coarse_offset_steps_to_baro_altitude_steps
-     = eeprom_read_word(&eeprom_coarse_offset_steps_to_baro_altitude_steps);
+  // Search for the optimal coarse bias.
+  int16_t bias_coarse = OCR0B;
 
   for (uint8_t i = 0; i < 30; i++)
   {
-    UARTTxByte('*');
-    OCR0B = (uint8_t)S16Limit(offset_coarse, 0, 255);
-    Wait(250);
     ProcessSensorReadings();
-
     int16_t adjustment;
-    adjustment = ((int16_t)BaroAltitude() - kBaroAltQuarterValue)
-      / coarse_offset_steps_to_baro_altitude_steps;
+    adjustment = (kBaroAltQuarterValue - (int16_t)BiasedPressure())
+      / coarse_bias_steps_to_pressure_steps_;
     if (adjustment == 0) break;
-    offset_coarse += adjustment;
+    bias_coarse += adjustment;
+
+    UARTTxByte('*');
+    OCR0B = (uint8_t)S16Limit(bias_coarse, 0, 255);
+    Wait(250);
   }
 
-  // Save the found offset_coarse to EEPROM.
-  eeprom_update_byte(&eeprom_coarse_offset, offset_coarse);
+  // Save the found bias_coarse to EEPROM.
+  eeprom_update_byte(&eeprom.pressure_coarse_bias, bias_coarse);
 
-  // Load offset calibration from EEPROM.
-  int16_t fine_offset_steps_to_baro_altitude_steps
-     = eeprom_read_word(&eeprom_fine_offset_steps_to_baro_altitude_steps);
-
-  // Search for the optimal fine offset
+  // Search for the optimal fine bias
   for (uint8_t i = 0; i < 30; i++)
   {
     int16_t adjustment;
-    adjustment = ((int16_t)BaroAltitude() - kBaroAltQuarterValue)
-      / fine_offset_steps_to_baro_altitude_steps;
+    adjustment = (kBaroAltQuarterValue - (int16_t)BiasedPressure())
+      / fine_bias_steps_to_pressure_steps_;
     if (adjustment == 0) break;
-    offset_fine += adjustment;
+    bias_fine += adjustment;
 
     UARTTxByte('.');
-    OCR0A = (uint8_t)S16Limit(offset_fine, 0, 255);
+    OCR0A = (uint8_t)S16Limit(bias_fine, 0, 255);
     Wait(250);
     ProcessSensorReadings();
   }
 
   // TODO: implement out of range error
-  // if ((offset_fine < 10) || (offset_fine > 245)) error;
+  // if ((bias_fine < 10) || (bias_fine > 245)) error;
 }
 
 // -----------------------------------------------------------------------------
-// This function attempts to calibrate the offset for more accurate shifts in
+// This function attempts to calibrate the bias for more accurate shifts in
 // the pressure altitude measurement range. Deviation from the theoretical
 // relationship is possible due to imprecise resistor values.
-void PressureSensorOffsetCalibration (void)
+void PressureSensorBiasCalibration (void)
 {
   // TODO: Never block communication to motors when running.
   // if (MotorsOn()) return;
@@ -182,19 +182,76 @@ void PressureSensorOffsetCalibration (void)
 
   int16_t initial_reading;
 
-  initial_reading = BaroAltitude();
+  initial_reading = BiasedPressure();
   OCR0B += 1 << 3;  // 2^3 = 8. Adds approximately 1.6V to pressure sensor.
   Wait(250);
-  eeprom_update_word(&eeprom_coarse_offset_steps_to_baro_altitude_steps,
-    (uint16_t)S16RoundRShiftS16(BaroAltitude() - initial_reading, 3));
+  coarse_bias_steps_to_pressure_steps_ = S16RoundRShiftS16(BiasedPressure()
+    - initial_reading, 3);
   OCR0B -= 1 << 3;
   Wait(250);
 
-  initial_reading = BaroAltitude();
+  initial_reading = BiasedPressure();
   OCR0A += 1 << 4;  // 2^4 = 16. Adds approximately 1.6V to pressure sensor.
   Wait(250);
-  eeprom_update_word(&eeprom_fine_offset_steps_to_baro_altitude_steps,
-    S16RoundRShiftS16(BaroAltitude() - initial_reading, 4));
+  fine_bias_steps_to_pressure_steps_ = S16RoundRShiftS16(BiasedPressure()
+    - initial_reading, 4);
   OCR0A -= 1 << 4;
   Wait(250);
+
+  CheckPressureSensorBiasCalibration();
+
+  // TODO: make this contingent on successful CheckPressureSensorBiasCalibration
+  eeprom_update_word(&eeprom.coarse_bias_steps_to_pressure_steps,
+    (uint16_t)coarse_bias_steps_to_pressure_steps_);
+  eeprom_update_word(&eeprom.fine_bias_steps_to_pressure_steps,
+    (uint16_t)fine_bias_steps_to_pressure_steps_);
 }
+
+
+// =============================================================================
+// Private functions:
+
+// This function loads the pressure sensor bias calibration from EEPROM so that
+// it doesn't have to be re-calibrated every flight.
+static void LoadPressureSensorBiasCalibration(void)
+{
+  coarse_bias_steps_to_pressure_steps_ = (int16_t)eeprom_read_word(
+    &eeprom.coarse_bias_steps_to_pressure_steps);
+  fine_bias_steps_to_pressure_steps_ = (int16_t)eeprom_read_word(
+    &eeprom.fine_bias_steps_to_pressure_steps);
+
+  CheckPressureSensorBiasCalibration();
+}
+
+// -----------------------------------------------------------------------------
+static void CheckPressureSensorBiasCalibration(void)
+{
+  const int16_t expected_coarse_bias_steps_to_pressure_steps
+    = -69 * ADC_N_SAMPLES;
+  const int16_t expected_fine_bias_steps_to_pressure_steps
+    = -35 * ADC_N_SAMPLES;
+  const int16_t acceptable_deviation_percent = 10;
+
+  int16_t coarse_bias_deviation = abs(coarse_bias_steps_to_pressure_steps_
+    - expected_coarse_bias_steps_to_pressure_steps);
+
+  if (coarse_bias_deviation > (abs(expected_coarse_bias_steps_to_pressure_steps)
+    * acceptable_deviation_percent) / 100)
+  {
+    // TODO: set error
+    coarse_bias_steps_to_pressure_steps_
+      = expected_coarse_bias_steps_to_pressure_steps;
+  }
+
+  int16_t fine_bias_deviation = abs(fine_bias_steps_to_pressure_steps_
+    - expected_fine_bias_steps_to_pressure_steps);
+
+  if (fine_bias_deviation > (abs(expected_fine_bias_steps_to_pressure_steps)
+    * acceptable_deviation_percent) / 100)
+  {
+    // TODO: set error
+    fine_bias_steps_to_pressure_steps_
+      = expected_fine_bias_steps_to_pressure_steps;
+  }
+}
+
