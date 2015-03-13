@@ -43,13 +43,13 @@
 #include "uart.h"
 
 
-// ============================================================================+
+// =============================================================================
 // Private data:
 
 #define TIMER0_DIVIDER (1)
 
-int16_t coarse_bias_steps_to_pressure_steps_ = 0;
-int16_t fine_bias_steps_to_pressure_steps_ = 0;
+static int16_t coarse_bias_steps_to_pressure_steps_ = 0;
+static int16_t fine_bias_steps_to_pressure_steps_ = 0;
 
 
 // =============================================================================
@@ -59,7 +59,7 @@ static void LoadPressureSensorBiasCalibration(void);
 static void CheckPressureSensorBiasCalibration(void);
 
 
-// ============================================================================+
+// =============================================================================
 // Public functions:
 
 // TIMER0 is used to drive the PWM signals that set the coarse and fine biases

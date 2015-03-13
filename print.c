@@ -1,5 +1,9 @@
 #include "print.h"
 
+
+// =============================================================================
+// Public functions:
+
 uint8_t PrintEOL(uint8_t *char_array)
 {
   char_array[0] = '\r';
