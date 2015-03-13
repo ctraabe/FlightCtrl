@@ -3,13 +3,14 @@ TARGET := $(notdir $(shell pwd))
 MCU    := atmega1284p
 F_CPU  := 20000000
 
-CCFLAGS   = -std=gnu99 -Wstrict-prototypes
-LSTFLAGS  = -Wa,-adhlns=$(LST)
+CCFLAGS    = -std=gnu99 -Wstrict-prototypes
+LSTFLAGS   = -Wa,-adhlns=$(LST)
 # Temporarily removed -Werror until gcc 4.8.3 comes to Ubuntu
-LDFLAGS   = -flto -Ofast -fwhole-program -pedantic -Wall -Wextra -Wundef \
-            -fshort-enums -ffreestanding -ffunction-sections -fdata-sections \
-            -Wl,--relax,--gc-sections
-ALLFLAGS  = -mmcu=$(MCU) -DF_CPU="$(F_CPU)UL"
+LDFLAGS    = -flto -Ofast -fwhole-program -pedantic -Wall -Wextra -Wundef \
+             -fshort-enums -ffreestanding -ffunction-sections -fdata-sections \
+             -Wl,--relax,--gc-sections
+ALLFLAGS   = -mmcu=$(MCU) -DF_CPU="$(F_CPU)UL"
+DUDEFLAGS  = -c avrisp2 -p $(MCU)
 
 CC     := avr-gcc
 CP     := avr-objcopy
@@ -29,9 +30,9 @@ SOURCES  := $(wildcard *.c)
 SOURCES  += $(wildcard *.S)
 ASSEMBLY := $(addsuffix .lst, $(addprefix $(BUILD_PATH)/, $(SOURCES)))
 
-LST    := $(BUILD_PATH)/$(TARGET).lst
 ELF    := $(BUILD_PATH)/$(TARGET).elf
 HEX    := $(BUILD_PATH)/$(TARGET).hex
+LST    := $(BUILD_PATH)/$(TARGET).lst
 
 # Rules to make the assembly listings
 $(BUILD_PATH)/%.c.lst: %.c
@@ -43,20 +44,23 @@ $(BUILD_PATH)/%.S.lst: %.S
 # Declare targets that are not files
 .PHONY: program clean
 
-# Note that without an argument, make simply tries to build the first target
-# (not rule), which in this case is this target to build the .hex
+all: $(HEX) $(LST)
+
 $(HEX): $(ELF)
+	$(CP) -O ihex -R .eeprom $< $@
+
+# Target to make assembly listing of link-time full-program optimized output.
+$(LST): $(ELF)
 	$(DUMP) -d $(ELF) > $(LST)
-	$(CP) -O ihex $(ELF) $(HEX)
 
 # Target to build the .elf file
 # NOTE: -lm includes the math library (libm.a)
 $(ELF): $(SOURCES) $(BUILD_PATH)
-	$(CC) $(LDFLAGS) $(CCFLAGS) $(ALLFLAGS) $(LSTFLAGS) -o $(ELF) $(SOURCES) -lm
+	$(CC) $(LDFLAGS) $(CCFLAGS) $(ALLFLAGS) $(LSTFLAGS) -o $@ $(SOURCES) -lm
 
-# Target to program the board
+# Target to program the microprocessor flash only
 program: $(HEX)
-	$(DUDE) -c avrisp2 -p $(MCU) -U flash:w:$(HEX):i
+	$(DUDE) $(DUDEFLAGS) -U flash:w:$(HEX):i
 
 # Target to make assembly listings.
 # WARNING!!!: Because this makefile employs link-time optimization, the final
