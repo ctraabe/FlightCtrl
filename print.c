@@ -51,12 +51,14 @@ uint8_t PrintU16(uint16_t value, uint8_t *char_array)
 // 8-bit signed integers go from -128 to +127, so require 4 characters.
 uint8_t PrintS8(int8_t value, uint8_t *char_array)
 {
-  if (value < 0) {
+  if (value < 0)
+  {
     char_array[0] = '-';
     // Weird typecasting required for the case that value == -128
     return 1 + PrintU8((uint16_t)(-(int16_t)value), char_array + 1);
   }
-  else {
+  else
+  {
     char_array[0] = '+';
     return 1 + PrintU8((uint16_t)value, char_array + 1);
   }
@@ -66,12 +68,14 @@ uint8_t PrintS8(int8_t value, uint8_t *char_array)
 // 16-bit signed integers go from -32768 to +32767, so require 6 characters.
 uint8_t PrintS16(int16_t value, uint8_t *char_array)
 {
-  if (value < 0) {
+  if (value < 0)
+  {
     char_array[0] = '-';
     // Weird typecasting required for the case that value == -32768
     return 1 + PrintU16((uint32_t)(-(int32_t)value), char_array + 1);
   }
-  else {
+  else
+  {
     char_array[0] = '+';
     return 1 + PrintU16((uint32_t)value, char_array + 1);
   }
