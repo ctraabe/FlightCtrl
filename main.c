@@ -3,6 +3,7 @@
 #include <avr/interrupt.h>
 
 #include "adc.h"
+#include "battery.h"
 #include "buzzer.h"
 #include "i2c.h"
 #include "led.h"
@@ -28,6 +29,7 @@ static void Init(void)
 {
   TimingInit();
   LEDInit();
+  BuzzerInit();
   I2CInit();
   UARTInit();
   SBusInit();
@@ -40,6 +42,8 @@ static void Init(void)
   ADCOn();  // Start reading the sensors
 
   ResetPressureSensorRange();
+
+  DetectBattery();
   DetectMotors();
 }
 
@@ -93,11 +97,6 @@ int16_t main(void)
     {
       ProcessSensorReadings();
 
-      // uint8_t message[10];
-      // uint8_t i = PrintU16(BiasedPressure(), &message[0]);
-      // i += PrintEOL(&message[i]);
-      // for (uint8_t j = 0; j < i; j++) UARTTxByte(message[j]);
-
       ProcessSBus();
       TxMotorSetpoints();
 
@@ -106,6 +105,11 @@ int16_t main(void)
 
     if (flag_2Hz)
     {
+      uint8_t message[10];
+      uint8_t i = PrintU16(BatteryVoltage(), &message[0]);
+      i += PrintEOL(&message[i]);
+      for (uint8_t j = 0; j < i; j++) UARTTxByte(message[j]);
+
       GreenLEDToggle();
       flag_2Hz = 0;
     }

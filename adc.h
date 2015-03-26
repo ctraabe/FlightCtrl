@@ -11,7 +11,8 @@
 // Due to the structure of the ADC interrupt handler this number must be a power
 // of 2 between 1 and 32 (inclusively). The ADC sample array will be fully
 // refreshed at 20,000,000 / 128 / 13 / (ADC_N_CHANNELS * ADC_N_SAMPLES) Hz.
-#define ADC_N_SAMPLES (1 << 3)  // 8
+#define ADC_N_SAMPLES_POW_OF_2 (3)  // 2^3 = 8
+#define ADC_N_SAMPLES (1 << ADC_N_SAMPLES_POW_OF_2)  // 8
 #define ADC_N_CHANNELS (8)  // Do not modify!!!
 
 
@@ -76,6 +77,7 @@ void ZeroAccelerometers(void);
 // This function loads the accelerometer offsets from EEPROM so that
 // accelerometers don't have to be re-calibrated every flight.
 void LoadAccelerometerOffsets(void);
+
 
 // =============================================================================
 // Public functions:

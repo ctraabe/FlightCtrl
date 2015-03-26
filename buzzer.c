@@ -22,12 +22,19 @@ static inline void BuzzerOff(void);
 // =============================================================================
 // Public functions:
 
+void BuzzerInit(void)
+{
+  BUZZER_DDR |= BUZZER_PIN;
+}
+
+// -----------------------------------------------------------------------------
 // This function commands the buzzer to sound for the requested duration in
 // milliseconds (up to 2 seconds).
 void BeepDuration(uint16_t duration)
 {
-  // Note: With link-time full-program optimization, this function will likely
-  // get inlined and pending_pattern_ will be evaluated at compile-time!!!
+  // Note: With link-time full-program optimization and constant arguments, this
+  // function will likely get inlined and pending_pattern_ will be evaluated at
+  // compile-time!!!
   pending_pattern_ = (1L << ((duration * 16) / 1000)) - 1;
   pending_times_ = 1;
 }
@@ -35,11 +42,12 @@ void BeepDuration(uint16_t duration)
 // -----------------------------------------------------------------------------
 // This function commands the buzzer to sound n times. Each repetition will
 // sound for the requested duration, followed by a silence of the same duration.
-// The maximum allowable duration is 1s.
+// The maximum allowable duration is 1 second.
 void BeepNTimes(uint8_t n, uint16_t duration)
 {
-  // Note: With link-time full-program optimization, this function will likely
-  // get inlined and pending_pattern_ will be evaluated at compile-time!!!
+  // Note: With link-time full-program optimization and constant arguments, this
+  // function will likely get inlined and pending_pattern_ will be evaluated at
+  // compile-time!!!
   pending_pattern_ = ((1L << (2 * (duration * 16) / 1000)) - 1)
     ^ ((1L << ((duration * 16) / 1000)) - 1);
   pending_times_ = n;
@@ -91,7 +99,7 @@ void UpdateBuzzer(void)
     if (!mask)
     {
       // First find the most significant non-zero byte (little endian).
-      for (byte = 3; pattern.bytes[byte]; --byte) continue;
+      for (byte = 3; !pattern.bytes[byte]; byte--) continue;
       // Now set the mask to the location of the most-significant non-zero bit.
       for (mask = 0x80; !(pattern.bytes[byte] & mask); mask >>= 1) continue;
 

@@ -1,11 +1,11 @@
 #include "adc.h"
 
 #include <stdlib.h>
-#include <avr/eeprom.h>
 #include <avr/io.h>
 #include <util/atomic.h>
 
 #include "eeprom.h"
+#include "mymath.h"
 
 
 // =============================================================================
@@ -158,7 +158,10 @@ void ProcessSensorReadings(void)
 
   biased_pressure_ = SumRecords(ADC_PRESSURE);
 
-  battery_voltage_ = SumRecords(ADC_BATT_V);
+  // The ADC records voltage in 31 steps per Volt. The following converts to the
+  // desired 1 step per 0.1 V. The following gyration avoids overflow.
+  battery_voltage_ = U16RoundRShiftU16(82 * U16RoundRShiftU16(SumRecords(
+    ADC_BATT_V), ADC_N_SAMPLES_POW_OF_2 + 1) , 7);  //  1/10 Volts
 }
 
 // -----------------------------------------------------------------------------

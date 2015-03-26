@@ -7,6 +7,9 @@
 // =============================================================================
 // Public functions:
 
+void BuzzerInit(void);
+
+// -----------------------------------------------------------------------------
 // This function commands the buzzer to sound for the requested duration in
 // milliseconds (up to 2 seconds).
 void BeepDuration(uint16_t duration);
@@ -14,7 +17,7 @@ void BeepDuration(uint16_t duration);
 // -----------------------------------------------------------------------------
 // This function commands the buzzer to sound n times. Each repetition will
 // sound for the requested duration, followed by a silence of the same duration.
-// The maximum allowable duration is 1s.
+// The maximum allowable duration is 1 second.
 void BeepNTimes(uint8_t n, uint16_t duration);
 
 // -----------------------------------------------------------------------------
