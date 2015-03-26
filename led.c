@@ -13,35 +13,35 @@ void LEDInit(void)
 // -----------------------------------------------------------------------------
 void GreenLEDOff(void)
 {
-  GREEN_LED_PORT |= GREEN_LED_PIN;
+  LED_PORT |= GREEN_LED_PIN;
 }
 
 // -----------------------------------------------------------------------------
 void GreenLEDOn(void)
 {
-  GREEN_LED_PORT &= ~GREEN_LED_PIN;
+  LED_PORT &= ~GREEN_LED_PIN;
 }
 
 // -----------------------------------------------------------------------------
 void GreenLEDToggle(void)
 {
-  GREEN_LED_PORT ^= GREEN_LED_PIN;
+  LED_PORT ^= GREEN_LED_PIN;
 }
 
 // -----------------------------------------------------------------------------
 void RedLEDOff(void)
 {
-  RED_LED_PORT &= ~RED_LED_PIN;
+  LED_PORT &= ~RED_LED_PIN;
 }
 
 // -----------------------------------------------------------------------------
 void RedLEDOn(void)
 {
-  RED_LED_PORT |= RED_LED_PIN;
+  LED_PORT |= RED_LED_PIN;
 }
 
 // -----------------------------------------------------------------------------
 void RedLEDToggle(void)
 {
-  RED_LED_PORT ^= RED_LED_PIN;
+  LED_PORT ^= RED_LED_PIN;
 }

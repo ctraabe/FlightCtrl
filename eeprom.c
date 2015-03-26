@@ -4,5 +4,5 @@
 
 
 struct EEPROM EEMEM eeprom = {
-  .acc_offset = { 0 },
+  .n_motors = 8,
 };

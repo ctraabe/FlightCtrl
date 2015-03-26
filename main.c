@@ -4,7 +4,9 @@
 
 #include "adc.h"
 #include "buzzer.h"
+#include "i2c.h"
 #include "led.h"
+#include "motors.h"
 #include "pressure_altitude.h"
 #include "print.h"
 #include "sbus.h"
@@ -15,7 +17,7 @@
 // ============================================================================+
 // Private data:
 
-static volatile uint8_t flag_128hz = 0;
+static volatile uint8_t flag_128hz = 0, flag_2Hz = 0;
 static volatile uint16_t main_overrun_count = 0;
 
 
@@ -26,6 +28,7 @@ static void Init(void)
 {
   TimingInit();
   LEDInit();
+  I2CInit();
   UARTInit();
   SBusInit();
   PressureSensorInit();
@@ -37,6 +40,7 @@ static void Init(void)
   ADCOn();  // Start reading the sensors
 
   ResetPressureSensorRange();
+  DetectMotors();
 }
 
 // -----------------------------------------------------------------------------
@@ -61,6 +65,7 @@ ISR(TIMER3_CAPT_vect)
   switch ((uint8_t)(counter ^ (counter + 1))) {
     case COUNTER_1HZ:
     case COUNTER_2HZ:
+      flag_2Hz = 1;
     case COUNTER_4HZ:
     case COUNTER_8HZ:
     case COUNTER_16HZ:
@@ -88,14 +93,21 @@ int16_t main(void)
     {
       ProcessSensorReadings();
 
-      uint8_t message[10];
-      uint8_t i = PrintU16(BiasedPressure(), &message[0]);
-      i += PrintEOL(&message[i]);
-      for (uint8_t j = 0; j < i; j++) UARTTxByte(message[j]);
+      // uint8_t message[10];
+      // uint8_t i = PrintU16(BiasedPressure(), &message[0]);
+      // i += PrintEOL(&message[i]);
+      // for (uint8_t j = 0; j < i; j++) UARTTxByte(message[j]);
 
       ProcessSBus();
+      TxMotorSetpoints();
 
       flag_128hz = 0;
+    }
+
+    if (flag_2Hz)
+    {
+      GreenLEDToggle();
+      flag_2Hz = 0;
     }
   }
 

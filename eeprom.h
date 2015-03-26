@@ -19,6 +19,7 @@ struct EEPROM
   uint8_t pressure_coarse_bias;
   uint16_t coarse_bias_steps_to_pressure_steps;
   uint16_t fine_bias_steps_to_pressure_steps;
+  uint8_t n_motors;
 };
 
 extern struct EEPROM eeprom;

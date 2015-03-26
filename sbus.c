@@ -22,7 +22,7 @@ struct SBusData
   uint8_t binary;
   uint8_t valid;
   int16_t timestamp;
-} sbus_data_;
+} __attribute__((packed)) sbus_data_;
 
 
 // =============================================================================
