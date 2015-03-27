@@ -4,6 +4,17 @@
 
 #include <inttypes.h>
 
+
+enum PressureAltitudeErrorBitfield {
+  PRESSURE_ERROR_BIAS_RANGE = 1<<0,
+  PRESSURE_ERROR_COARSE_CALIBRATION = 1<<1,
+  PRESSURE_ERROR_FINE_CALIBRATION = 1<<2,
+};
+
+
+// =============================================================================
+// Public functions:
+
 // TIMER0 is used to drive the PWM signals that set the coarse and fine biases
 // for the pressure sensor.
 void PressureSensorInit(void);

@@ -5,9 +5,7 @@
 #include <inttypes.h>
 
 
-enum BLCError
-{
-  BLC_ERROR_NONE = 0,
+enum BLCErrorBitfield {
   BLC_ERROR_MISSING_MOTOR = 1<<0,
   BLC_ERROR_EXTRA_MOTOR = 1<<1,
   BLC_ERROR_INCONSISTENT_SETTINGS = 1<<2,
@@ -17,7 +15,7 @@ enum BLCError
 // =============================================================================
 // Accessors
 
-enum BLCError blc_error_bitfield(void);
+uint8_t BLCErrorBitfield(void);
 
 
 // =============================================================================

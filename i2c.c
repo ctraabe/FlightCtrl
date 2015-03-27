@@ -37,7 +37,7 @@ static void I2CStop(void);
 // =============================================================================
 // Accessors
 
-enum I2CError i2c_error(void)
+enum I2CError I2CError(void)
 {
   return i2c_error_;
 }

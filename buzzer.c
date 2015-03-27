@@ -1,7 +1,5 @@
 #include "buzzer.h"
 
-#include <avr/io.h>
-
 #include "mcu_pins.h"
 
 

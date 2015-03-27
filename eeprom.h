@@ -12,17 +12,14 @@
 #include <avr/eeprom.h>
 
 
-struct EEPROM
-{
+extern struct EEPROM {
   uint8_t space[2014];  // 2kB space reserved for original Mikrokopter firmware.
   int16_t acc_offset[3];
   uint8_t pressure_coarse_bias;
   uint16_t coarse_bias_steps_to_pressure_steps;
   uint16_t fine_bias_steps_to_pressure_steps;
   uint8_t n_motors;
-};
-
-extern struct EEPROM eeprom;
+} eeprom;
 
 
 #endif  // EEPROM_H_

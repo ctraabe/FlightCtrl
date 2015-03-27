@@ -22,19 +22,23 @@
 #define BUZZER_PORT (PORTC)
 #define BUZZER_PIN (_BV(PORTC7))
 
-
 // LED
 #define LED_DDR (DDRB)
 #define LED_PORT (PORTB)
 #define GREEN_LED_PIN (_BV(PORTB1))
 #define RED_LED_PIN (_BV(PORTB0))
 
-
 // I2C (MOTORS)
 #define I2C_DDR (DDRC)
 #define I2C_PORT (PORTC)
 #define I2C_SCL_PIN (_BV(PORTC0))
 #define I2C_SDA_PIN (_BV(PORTC1))
+
+// Pressure Sensor
+#define PRESSURE_BIAS_DDR (DDRB)
+#define PRESSURE_BIAS_PORT (PORTB)
+#define PRESSURE_BIAS_COARSE_PIN (_BV(PORTB4))
+#define PRESSURE_BIAS_FINE_PIN (_BV(PORTB3))
 
 
 #endif  // MCU_PINS_H_

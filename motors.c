@@ -4,9 +4,6 @@
 
 #include "eeprom.h"
 #include "i2c.h"
-// TODO: Remove
-#include "led.h"
-#include "print.h"
 #include "uart.h"
 
 
@@ -76,7 +73,7 @@ struct BLCStatus
 
 static volatile struct BLCStatus blc_status_[MOTORS_MAX] = { { 0 } };
 
-static uint8_t blc_error_bitfield_ = BLC_ERROR_NONE;
+static uint8_t blc_error_bitfield_ = 0x00;
 static uint8_t blc_feature_bitfield_ = 0x00;
 static uint8_t n_motors_ = 0;
 static uint8_t setpoint_length_ = sizeof(uint8_t);
@@ -92,7 +89,7 @@ static void TxMotorSetpoint(uint8_t address);
 // =============================================================================
 // Accessors
 
-enum BLCError blc_error_bitfield(void)
+uint8_t BLCErrorBitfield(void)
 {
   return blc_error_bitfield_;
 }
@@ -120,7 +117,7 @@ void DetectMotors(void)
       (volatile uint8_t *)&blc_status_[i], sizeof(struct BLCStatus));
     I2CWaitUntilCompletion();
     // I2C will give an error if there is no response.
-    if (!i2c_error())
+    if (!I2CError())
     {
       motors |= (1 << i);  // Mark this motor as present
 

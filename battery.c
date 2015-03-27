@@ -4,16 +4,14 @@
 #include "buzzer.h"
 #include "motors.h"
 #include "timing.h"
-// TODO: Remove
-#include "led.h"
 
 
 // =============================================================================
 // Private data:
 
-uint8_t voltage_low_limit_ = 132;
-uint16_t current_estimate_ = 0, power_estimate_ = 0, used_capactiy_ = 0;
-uint16_t update_timer_ = 0;
+static uint8_t voltage_low_limit_ = 231;
+// static uint16_t current_estimate_ = 0, power_estimate_ = 0, used_capactiy_ = 0;
+// static uint16_t update_timer_ = 0;
 
 
 // =============================================================================
