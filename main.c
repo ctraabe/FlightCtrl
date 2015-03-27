@@ -9,7 +9,6 @@
 #include "led.h"
 #include "motors.h"
 #include "pressure_altitude.h"
-#include "print.h"
 #include "sbus.h"
 #include "timing.h"
 #include "uart.h"
@@ -25,29 +24,6 @@ static volatile uint16_t main_overrun_count = 0;
 // =============================================================================
 // Private functions:
 
-static void Init(void)
-{
-  TimingInit();
-  LEDInit();
-  BuzzerInit();
-  I2CInit();
-  UARTInit();
-  SBusInit();
-  PressureSensorInit();
-
-  LoadAccelerometerOffsets();
-
-  sei();  // Enable interrupts
-
-  ADCOn();  // Start reading the sensors
-
-  ResetPressureSensorRange();
-
-  DetectBattery();
-  DetectMotors();
-}
-
-// -----------------------------------------------------------------------------
 // This function is called upon the interrupt that occurs when TIMER3 reaches
 // the value in ICR3. This should occur at a rate of 128 Hz.
 ISR(TIMER3_CAPT_vect)
@@ -86,6 +62,29 @@ ISR(TIMER3_CAPT_vect)
 }
 
 // -----------------------------------------------------------------------------
+static void Init(void)
+{
+  TimingInit();
+  LEDInit();
+  BuzzerInit();
+  I2CInit();
+  UARTInit();
+  SBusInit();
+  PressureSensorInit();
+
+  sei();  // Enable interrupts
+
+  LoadAccelerometerOffsets();
+  ADCOn();  // Start reading the sensors
+
+  ResetPressureSensorRange();
+
+  DetectBattery();
+  DetectMotors();
+  UARTPrintf("University of Tokyo Mikrokopter firmware V2\n\r");
+}
+
+// -----------------------------------------------------------------------------
 int16_t main(void)
 {
   Init();
@@ -105,10 +104,7 @@ int16_t main(void)
 
     if (flag_2Hz)
     {
-      uint8_t message[10];
-      uint8_t i = PrintU16(BatteryVoltage(), &message[0]);
-      i += PrintEOL(&message[i]);
-      for (uint8_t j = 0; j < i; j++) UARTTxByte(message[j]);
+      UARTPrintf("Battery: %u\n\r", BatteryVoltage());
 
       GreenLEDToggle();
       flag_2Hz = 0;

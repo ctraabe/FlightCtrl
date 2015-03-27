@@ -3,6 +3,10 @@
 
 
 #include <inttypes.h>
+#include <avr/pgmspace.h>
+
+
+#define UARTPrintf(format, ...) UARTPrintf_P(PSTR(format), ##__VA_ARGS__)
 
 
 // =============================================================================
@@ -12,6 +16,9 @@ void UARTInit(void);
 
 // -----------------------------------------------------------------------------
 void UARTTxByte(uint8_t byte);
+
+// -----------------------------------------------------------------------------
+void UARTPrintf_P(const char *format, ...);
 
 
 #endif  // UART_H_

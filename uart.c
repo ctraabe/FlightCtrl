@@ -1,5 +1,6 @@
 #include "uart.h"
 
+#include <stdio.h>
 #include <avr/io.h>
 
 
@@ -37,6 +38,21 @@ void UARTTxByte(uint8_t byte)
   // TODO: should USART Data Register Empty Interrupt be used instead?
   loop_until_bit_is_set(UCSR0A, UDRE0);
   UDR0 = byte;
+}
+
+// -----------------------------------------------------------------------------
+void UARTPrintf_P(const char *format, ...)
+{
+  // TODO: never when motors are running...
+  static char ascii[100];
+
+  va_list arglist;
+  va_start(arglist, format);
+  vsprintf_P(ascii, format, arglist);
+  va_end(arglist);
+
+  char *pointer = &ascii[0];
+  while (*pointer) UARTTxByte(*pointer++);
 }
 
 
