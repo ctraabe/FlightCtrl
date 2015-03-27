@@ -74,6 +74,8 @@ static void Init(void)
 
   sei();  // Enable interrupts
 
+  UARTPrintf("University of Tokyo Mikrokopter firmware V2");
+
   LoadAccelerometerOffsets();
   ADCOn();  // Start reading the sensors
 
@@ -81,7 +83,6 @@ static void Init(void)
 
   DetectBattery();
   DetectMotors();
-  UARTPrintf("University of Tokyo Mikrokopter firmware V2\n\r");
 }
 
 // -----------------------------------------------------------------------------
@@ -104,7 +105,7 @@ int16_t main(void)
 
     if (flag_2Hz)
     {
-      UARTPrintf("Battery: %u\n\r", BatteryVoltage());
+      UARTPrintf("Battery: %u", BatteryVoltage());
 
       GreenLEDToggle();
       flag_2Hz = 0;

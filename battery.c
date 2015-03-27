@@ -21,6 +21,8 @@ void DetectBattery(void)
 {
   if (ADCState() == ADC_INACTIVE) return;
 
+  // TODO: if (motors_on) return
+
   WaitOneADCCycle();
   ProcessSensorReadings();
 

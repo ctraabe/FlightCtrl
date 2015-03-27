@@ -41,15 +41,23 @@ void UARTTxByte(uint8_t byte)
 }
 
 // -----------------------------------------------------------------------------
+// This function acts like printf, but puts the result on the UART stream. It
+// also adds the end-of-line characters and checks that the character buffer is
+// not exceeded.
 void UARTPrintf_P(const char *format, ...)
 {
   // TODO: never when motors are running...
-  static char ascii[100];
+  static char ascii[103];  // 100 chars + 2 newline chars + null terminator
 
   va_list arglist;
   va_start(arglist, format);
-  vsprintf_P(ascii, format, arglist);
+  int length = vsnprintf_P(ascii, 101, format, arglist);
   va_end(arglist);
+
+  if (length < 101)
+    sprintf_P(&ascii[length], PSTR("\n\r"));
+  else
+    sprintf_P(&ascii[80], PSTR("... MESSAGE TOO LONG\n\r"));
 
   char *pointer = &ascii[0];
   while (*pointer) UARTTxByte(*pointer++);

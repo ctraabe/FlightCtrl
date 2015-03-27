@@ -173,17 +173,17 @@ void ResetPressureSensorRange(void)
     Wait(250);
     ProcessSensorReadings();
   }
-  UARTPrintf("\n\r");
+  UARTPrintf("");  // New line
 
   // TODO: Perhaps make this more restrictive
   if ((bias_fine > 10) || (bias_fine < 245))
   {
-    UARTPrintf("pressure_altitude: coarse bias set to %u\n\r", bias_coarse);
+    UARTPrintf("pressure_altitude: coarse bias set to %u", bias_coarse);
     pressure_altitude_error_bitfield_ &= ~PRESSURE_ERROR_BIAS_RANGE;
   }
   else
   {
-    UARTPrintf("pressure_altitude: ERROR: out of measurable range\n\r");
+    UARTPrintf("pressure_altitude: ERROR: out of measurable range");
     pressure_altitude_error_bitfield_ |= PRESSURE_ERROR_BIAS_RANGE;
   }
 }
@@ -268,7 +268,7 @@ static void CheckPressureSensorBiasCalibration(void)
   {
     pressure_altitude_error_bitfield_ |= PRESSURE_ERROR_COARSE_CALIBRATION;
     coarse_bias_steps_to_pressure_steps_ = kExpectedCoarseStepsToPressureSteps;
-    UARTPrintf("pressure_altitude: ERROR: course bias calibration\n\r");
+    UARTPrintf("pressure_altitude: ERROR: course bias calibration");
   }
 
   int16_t fine_bias_deviation = abs(fine_bias_steps_to_pressure_steps_
@@ -283,7 +283,7 @@ static void CheckPressureSensorBiasCalibration(void)
   {
     pressure_altitude_error_bitfield_ |= PRESSURE_ERROR_FINE_CALIBRATION;
     fine_bias_steps_to_pressure_steps_ = kExpectedFineStepsToPressureSteps;
-    UARTPrintf("pressure_altitude: ERROR: fine bias calibration\n\r");
+    UARTPrintf("pressure_altitude: ERROR: fine bias calibration");
   }
 }
 
