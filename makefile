@@ -79,7 +79,7 @@ assembly: clean_assembly $(BUILD_PATH) $(ASSEMBLY)
 
 # Target to clean up the directory (leaving only source)
 clean: $(BUILD_PATH)
-	rm -f $(HEX) $(ELF) $(LST) $(ASSEMBLY)
+	rm -f $(HEX) $(ELF) $(EEP) $(LST) $(ASSEMBLY)
 	rmdir $(BUILD_PATH)
 
 clean_assembly:
