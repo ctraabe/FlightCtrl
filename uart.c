@@ -43,7 +43,7 @@ void UARTTxByte(uint8_t byte)
 // -----------------------------------------------------------------------------
 // This function acts like printf, but puts the result on the UART stream. It
 // also adds the end-of-line characters and checks that the character buffer is
-// not exceeded.
+// not exceeded. Note that this function is blocking.
 void UARTPrintf_P(const char *format, ...)
 {
   // TODO: never when motors are running...
