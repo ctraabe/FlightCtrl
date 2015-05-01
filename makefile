@@ -8,7 +8,7 @@ LSTFLAGS  = -Wa,-adhlns=$(LST)
 # Temporarily removed -Werror until gcc 4.8.3 comes to Ubuntu
 LDFLAGS   = -flto -Ofast -fwhole-program -Wall -Wextra -Wundef \
              -fshort-enums -ffreestanding -ffunction-sections -fdata-sections \
-             -Wl,--relax,--gc-sections
+             -Wl,--relax,--gc-sections,-u,vfprintf -lprintf_flt
 ALLFLAGS  = -mmcu=$(MCU) -DF_CPU="$(F_CPU)UL"
 DUDEFLAGS = -c avrisp2 -p $(MCU)
 
