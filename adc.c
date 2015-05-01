@@ -1,17 +1,22 @@
 #include "adc.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <avr/io.h>
 #include <util/atomic.h>
 
 #include "eeprom.h"
 #include "mymath.h"
+// TODO: remove this:
+#include "uart.h"
 
 
 // =============================================================================
 // Private data:
 
 #define ADC_MIDDLE_VALUE (1023 / 2)
+#define ACCELEROMETER_SCALE (1024 / 5)  // LSB/g
+#define GYRO_SCALE (6.144 * 180 / M_PI / 5)  // LSB/(rad/s)
 
 // ADC sample indices
 enum ADCSensorIndex {
@@ -29,8 +34,9 @@ enum ADCSensorIndex {
 volatile uint16_t samples_[ADC_N_SAMPLES][ADC_N_CHANNELS];
 volatile uint8_t samples_index_;
 
+static float acceleration_[3], angular_rate_[3];
 static uint16_t biased_pressure_, battery_voltage_;
-static int16_t acceleration_[3], angular_rate_[3];
+static int16_t accelerometer_sum_[3], gyro_sum_[3];
 static int16_t acc_offset_[3];
 static int16_t gyro_offset_[3] = { ADC_MIDDLE_VALUE * ADC_N_SAMPLES,
   ADC_MIDDLE_VALUE * ADC_N_SAMPLES, ADC_MIDDLE_VALUE * ADC_N_SAMPLES };
@@ -47,15 +53,21 @@ static inline uint16_t SumRecords(enum ADCSensorIndex sensor);
 // =============================================================================
 // Accessors:
 
-int16_t Acceleration(enum SensorAxes axis)
+float Acceleration(enum SensorAxes axis)
 {
-  return acceleration_[axis];  // x 5/12288 g
+  return acceleration_[axis];
 }
 
 // -----------------------------------------------------------------------------
+float * AccelerationVector(void)
+{
+  return acceleration_;
+}
+
+// -----------------------------------------------------------------------------
+// Returns the most recent accelerometer reading. Scale is 5/1024 g/LSB.
 uint16_t Accelerometer(enum SensorAxes axis)
 {
-  // 5/1024 g/step
   switch (axis)
   {
     case X_AXIS:
@@ -78,9 +90,9 @@ enum ADCState ADCState(void)
 }
 
 // -----------------------------------------------------------------------------
-int16_t AngularRate(enum SensorAxes axis)
+float AngularRate(enum SensorAxes axis)
 {
-  return angular_rate_[axis];  // x 625/9216 deg/sec
+  return angular_rate_[axis];
 }
 
 // -----------------------------------------------------------------------------
@@ -102,9 +114,9 @@ uint16_t BiasedPressureSensor(void)
 }
 
 // -----------------------------------------------------------------------------
+// Returns the most recent gyro reading. Scale is 5/6.144 deg/s/LSB.
 uint16_t Gyro(enum SensorAxes axis)
 {
-  // 5/6.144 deg/s/step
   switch (axis)
   {
     case X_AXIS:
@@ -148,13 +160,24 @@ void ADCOff(void)
 // order to increase fidelity.
 void ProcessSensorReadings(void)
 {
-  acceleration_[X_AXIS] = -SumRecords(ADC_ACCEL_X) - acc_offset_[X_AXIS];
-  acceleration_[Y_AXIS] = -SumRecords(ADC_ACCEL_Y) - acc_offset_[Y_AXIS];
-  acceleration_[Z_AXIS] = -SumRecords(ADC_ACCEL_Z) - acc_offset_[Z_AXIS];
+  accelerometer_sum_[X_AXIS] = -SumRecords(ADC_ACCEL_X) - acc_offset_[X_AXIS];
+  accelerometer_sum_[Y_AXIS] = -SumRecords(ADC_ACCEL_Y) - acc_offset_[Y_AXIS];
+  accelerometer_sum_[Z_AXIS] = -SumRecords(ADC_ACCEL_Z) - acc_offset_[Z_AXIS];
 
-  angular_rate_[X_AXIS] = -SumRecords(ADC_GYRO_X) - gyro_offset_[X_AXIS];
-  angular_rate_[Y_AXIS] = -SumRecords(ADC_GYRO_Y) - gyro_offset_[Y_AXIS];
-  angular_rate_[Z_AXIS] = SumRecords(ADC_GYRO_Z) - gyro_offset_[Z_AXIS];
+  gyro_sum_[X_AXIS] = -SumRecords(ADC_GYRO_X) - gyro_offset_[X_AXIS];
+  gyro_sum_[Y_AXIS] = -SumRecords(ADC_GYRO_Y) - gyro_offset_[Y_AXIS];
+  gyro_sum_[Z_AXIS] = SumRecords(ADC_GYRO_Z) - gyro_offset_[Z_AXIS];
+
+  acceleration_[X_AXIS] = (float)accelerometer_sum_[X_AXIS]
+    / ACCELEROMETER_SCALE / ADC_N_SAMPLES;
+  acceleration_[Y_AXIS] = (float)accelerometer_sum_[Y_AXIS]
+    / ACCELEROMETER_SCALE / ADC_N_SAMPLES;
+  acceleration_[Z_AXIS] = (float)accelerometer_sum_[Z_AXIS]
+    / ACCELEROMETER_SCALE / ADC_N_SAMPLES;
+
+  angular_rate_[X_AXIS] = (float)gyro_sum_[X_AXIS] / GYRO_SCALE / ADC_N_SAMPLES;
+  angular_rate_[Y_AXIS] = (float)gyro_sum_[Y_AXIS] / GYRO_SCALE / ADC_N_SAMPLES;
+  angular_rate_[Z_AXIS] = (float)gyro_sum_[Z_AXIS] / GYRO_SCALE / ADC_N_SAMPLES;
 
   biased_pressure_ = SumRecords(ADC_PRESSURE);
 
@@ -181,7 +204,7 @@ void WaitOneADCCycle(void)
 // and considers the results to be the zero values of the gyros.
 void ZeroGyros(void)
 {
-  uint32_t gyro_sum[3] = { 0 };
+  int32_t sample_sum[3] = { 0 };
 
   // TODO: Never block motor communication when running.
   // if (MotorsOn()) return 1;
@@ -193,20 +216,20 @@ void ZeroGyros(void)
 
   // Sum samples over about 1 second (2000 samples).
   // Note: the number of samples must be evenly divisible by ADC_N_SAMPLES.
-  const uint16_t kNSamples = 2000 / ADC_N_SAMPLES;
-  for (uint8_t i = 0; i < kNSamples; i++)
+  const uint16_t kNSamples = 2048 / ADC_N_SAMPLES;
+  for (uint16_t i = 0; i < kNSamples; i++)
   {
     WaitOneADCCycle();
     ProcessSensorReadings();
-    gyro_sum[X_AXIS] += (uint16_t)-angular_rate_[X_AXIS];
-    gyro_sum[Y_AXIS] += (uint16_t)-angular_rate_[Y_AXIS];
-    gyro_sum[Z_AXIS] += (uint16_t)angular_rate_[Z_AXIS];
+    sample_sum[X_AXIS] += gyro_sum_[X_AXIS];
+    sample_sum[Y_AXIS] += gyro_sum_[Y_AXIS];
+    sample_sum[Z_AXIS] += gyro_sum_[Z_AXIS];
   }
 
   // Average the results and set as the offset.
-  gyro_offset_[X_AXIS] = (int16_t)(gyro_sum[X_AXIS] / kNSamples);
-  gyro_offset_[Y_AXIS] = (int16_t)(gyro_sum[Y_AXIS] / kNSamples);
-  gyro_offset_[Z_AXIS] = (int16_t)(gyro_sum[Z_AXIS] / kNSamples);
+  gyro_offset_[X_AXIS] = (int16_t)(sample_sum[X_AXIS] / kNSamples);
+  gyro_offset_[Y_AXIS] = (int16_t)(sample_sum[Y_AXIS] / kNSamples);
+  gyro_offset_[Z_AXIS] = (int16_t)(sample_sum[Z_AXIS] / kNSamples);
 
   // TODO: Change these limits to something more reasonable.
   // Check that the zero values are within an acceptable range. The acceptable
@@ -222,7 +245,7 @@ void ZeroGyros(void)
 // accelerometers.
 void ZeroAccelerometers(void)
 {
-  uint32_t acc_sum[3] = {0};
+  int32_t sample_sum[3] = { 0 };
 
   // TODO: Never block motor communication when running.
   // if (MotorsOn()) return 1;
@@ -232,22 +255,25 @@ void ZeroAccelerometers(void)
   acc_offset_[Y_AXIS] = 0;
   acc_offset_[Z_AXIS] = 0;
 
-  // Sum samples over about 1 second (2000 samples).
-  // Note: the number of samples must be evenly divisible by ADC_N_SAMPLES.
-  const uint16_t kNSamples = 2000 / ADC_N_SAMPLES;
-  for (uint8_t i = 0; i < kNSamples; i++)
+  // Sum samples over about 1 second (2048 samples).
+  const uint8_t kNSamplesPowOf2 = 11 - ADC_N_SAMPLES_POW_OF_2;
+  const int32_t kNSamples = 1 << kNSamplesPowOf2;
+  for (uint16_t i = 0; i < kNSamples; i++)
   {
     WaitOneADCCycle();
     ProcessSensorReadings();
-    acc_sum[X_AXIS] += (uint16_t)-acceleration_[X_AXIS];
-    acc_sum[Y_AXIS] += (uint16_t)-acceleration_[Y_AXIS];
-    acc_sum[Z_AXIS] += (uint16_t)-acceleration_[Z_AXIS];
+    sample_sum[X_AXIS] += accelerometer_sum_[X_AXIS];
+    sample_sum[Y_AXIS] += accelerometer_sum_[Y_AXIS];
+    sample_sum[Z_AXIS] += accelerometer_sum_[Z_AXIS];
   }
 
   // Average the results and set as the offset.
-  acc_offset_[X_AXIS] = (int16_t)(acc_sum[X_AXIS] / kNSamples);
-  acc_offset_[Y_AXIS] = (int16_t)(acc_sum[Y_AXIS] / kNSamples);
-  acc_offset_[Z_AXIS] = (int16_t)(acc_sum[Z_AXIS] / kNSamples);
+  acc_offset_[X_AXIS] = S16RoundRShiftS32(sample_sum[X_AXIS], kNSamplesPowOf2);
+  acc_offset_[Y_AXIS] = S16RoundRShiftS32(sample_sum[Y_AXIS], kNSamplesPowOf2);
+  acc_offset_[Z_AXIS] = S16RoundRShiftS32(sample_sum[Z_AXIS], kNSamplesPowOf2) + ADC_N_SAMPLES * ACCELEROMETER_SCALE;
+  // acc_offset_[X_AXIS] = (int16_t)(sample_sum[X_AXIS] / kNSamples);
+  // acc_offset_[Y_AXIS] = (int16_t)(sample_sum[Y_AXIS] / kNSamples);
+  // acc_offset_[Z_AXIS] = (int16_t)(sample_sum[Z_AXIS] / kNSamples);
 
   // TODO: Change these limits to something more reasonable
   // Check that the zero values are within an acceptable range. The acceptable

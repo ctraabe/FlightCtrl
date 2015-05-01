@@ -17,7 +17,7 @@
 // ============================================================================+
 // Private data:
 
-static volatile uint8_t flag_128hz = 0, flag_2Hz = 0;
+static volatile uint8_t flag_128hz = 0, flag_2hz = 0;
 static volatile uint16_t main_overrun_count = 0;
 
 
@@ -45,7 +45,7 @@ ISR(TIMER3_CAPT_vect)
   switch ((uint8_t)(counter ^ (counter + 1))) {
     case COUNTER_1HZ:
     case COUNTER_2HZ:
-      flag_2Hz = 1;
+      flag_2hz = 1;
     case COUNTER_4HZ:
     case COUNTER_8HZ:
     case COUNTER_16HZ:
@@ -103,12 +103,12 @@ int16_t main(void)
       flag_128hz = 0;
     }
 
-    if (flag_2Hz)
+    if (flag_2hz)
     {
-      UARTPrintf("Battery: %u", BatteryVoltage());
+      UARTPrintf("Acceleration along Y: %g", Acceleration(Y_AXIS));
 
       GreenLEDToggle();
-      flag_2Hz = 0;
+      flag_2hz = 0;
     }
   }
 

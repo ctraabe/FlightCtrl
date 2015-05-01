@@ -12,7 +12,6 @@
 #define ADC_N_SAMPLES (1 << ADC_N_SAMPLES_POW_OF_2)  // 8
 #define ADC_N_CHANNELS (8)  // Do not modify!!!
 
-
 #ifndef __ASSEMBLER__
 
 
@@ -34,16 +33,20 @@ enum ADCState {
 // =============================================================================
 // Accessors:
 
-int16_t Acceleration(enum SensorAxes axis);
+float Acceleration(enum SensorAxes axis);
 
 // -----------------------------------------------------------------------------
+float * AccelerationVector(void);
+
+// -----------------------------------------------------------------------------
+// Returns the most recent accelerometer reading. Scale is 5/1024 g/LSB.
 uint16_t Accelerometer(enum SensorAxes axis);
 
 // -----------------------------------------------------------------------------
 enum ADCState ADCState(void);
 
 // -----------------------------------------------------------------------------
-int16_t AngularRate(enum SensorAxes axis);
+float AngularRate(enum SensorAxes axis);
 
 // -----------------------------------------------------------------------------
 uint16_t BatteryVoltage(void);
@@ -55,6 +58,7 @@ uint16_t BiasedPressure(void);
 uint16_t BiasedPressureSensor(void);
 
 // -----------------------------------------------------------------------------
+// Returns the most recent gyro reading. Scale is 5/6.144 deg/s/LSB.
 uint16_t Gyro(enum SensorAxes axis);
 
 // -----------------------------------------------------------------------------
