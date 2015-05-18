@@ -48,7 +48,7 @@
 
 #define TIMER0_DIVIDER (1)
 
-static uint8_t pressure_altitude_error_bitfield_ = 0x00;
+static uint8_t pressure_altitude_error_bits_ = 0x00;
 static int16_t coarse_bias_steps_to_pressure_steps_ = 0;
 static int16_t fine_bias_steps_to_pressure_steps_ = 0;
 
@@ -65,7 +65,7 @@ static void CheckPressureSensorBiasCalibration(void);
 
 uint8_t PressureAltitudeError(void)
 {
-  return pressure_altitude_error_bitfield_;
+  return pressure_altitude_error_bits_;
 }
 
 
@@ -179,12 +179,12 @@ void ResetPressureSensorRange(void)
   if ((bias_fine > 10) || (bias_fine < 245))
   {
     UARTPrintf("pressure_altitude: coarse bias set to %u", bias_coarse);
-    pressure_altitude_error_bitfield_ &= ~PRESSURE_ERROR_BIAS_RANGE;
+    pressure_altitude_error_bits_ &= ~PRESSURE_ERROR_BITS_BIAS_RANGE;
   }
   else
   {
     UARTPrintf("pressure_altitude: ERROR: out of measurable range");
-    pressure_altitude_error_bitfield_ |= PRESSURE_ERROR_BIAS_RANGE;
+    pressure_altitude_error_bits_ |= PRESSURE_ERROR_BITS_BIAS_RANGE;
   }
 }
 
@@ -192,7 +192,7 @@ void ResetPressureSensorRange(void)
 // This function attempts to calibrate the bias for more accurate shifts in
 // the pressure altitude measurement range. Deviation from the theoretical
 // relationship is possible due to imprecise resistor values.
-void PressureSensorBiasCalibration (void)
+void PressureSensorBiasCalibration(void)
 {
   // TODO: Never block communication to motors when running.
   // if (MotorsOn()) return;
@@ -224,11 +224,11 @@ void PressureSensorBiasCalibration (void)
 
   CheckPressureSensorBiasCalibration();
 
-  if (~pressure_altitude_error_bitfield_ & PRESSURE_ERROR_COARSE_CALIBRATION)
+  if (~pressure_altitude_error_bits_ & PRESSURE_ERROR_BITS_COARSE_CALIBRATION)
     eeprom_update_word(&eeprom.coarse_bias_steps_to_pressure_steps,
       (uint16_t)coarse_bias_steps_to_pressure_steps_);
 
-  if (~pressure_altitude_error_bitfield_ & PRESSURE_ERROR_FINE_CALIBRATION)
+  if (~pressure_altitude_error_bits_ & PRESSURE_ERROR_BITS_FINE_CALIBRATION)
     eeprom_update_word(&eeprom.fine_bias_steps_to_pressure_steps,
       (uint16_t)fine_bias_steps_to_pressure_steps_);
 }
@@ -262,11 +262,11 @@ static void CheckPressureSensorBiasCalibration(void)
   if (coarse_bias_deviation < (abs(kExpectedCoarseStepsToPressureSteps)
     * kAcceptableDeviationPercent / 100))
   {
-    pressure_altitude_error_bitfield_ &= ~PRESSURE_ERROR_COARSE_CALIBRATION;
+    pressure_altitude_error_bits_ &= ~PRESSURE_ERROR_BITS_COARSE_CALIBRATION;
   }
   else
   {
-    pressure_altitude_error_bitfield_ |= PRESSURE_ERROR_COARSE_CALIBRATION;
+    pressure_altitude_error_bits_ |= PRESSURE_ERROR_BITS_COARSE_CALIBRATION;
     coarse_bias_steps_to_pressure_steps_ = kExpectedCoarseStepsToPressureSteps;
     UARTPrintf("pressure_altitude: ERROR: course bias calibration");
   }
@@ -277,11 +277,11 @@ static void CheckPressureSensorBiasCalibration(void)
   if (fine_bias_deviation < (abs(kExpectedFineStepsToPressureSteps)
     * kAcceptableDeviationPercent / 100))
   {
-    pressure_altitude_error_bitfield_ &= ~PRESSURE_ERROR_FINE_CALIBRATION;
+    pressure_altitude_error_bits_ &= ~PRESSURE_ERROR_BITS_FINE_CALIBRATION;
   }
   else
   {
-    pressure_altitude_error_bitfield_ |= PRESSURE_ERROR_FINE_CALIBRATION;
+    pressure_altitude_error_bits_ |= PRESSURE_ERROR_BITS_FINE_CALIBRATION;
     fine_bias_steps_to_pressure_steps_ = kExpectedFineStepsToPressureSteps;
     UARTPrintf("pressure_altitude: ERROR: fine bias calibration");
   }

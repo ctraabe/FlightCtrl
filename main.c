@@ -13,6 +13,9 @@
 #include "timing.h"
 #include "uart.h"
 
+// TODO: Delete following:
+#include "mymath.h"
+
 
 // ============================================================================+
 // Private data:
@@ -98,6 +101,12 @@ int16_t main(void)
       ProcessSensorReadings();
 
       ProcessSBus();
+
+      SetMotorSetpoint(0, (uint16_t)S16Limit(SBusChannel(0), 0, 800));
+      SetMotorSetpoint(1, (uint16_t)S16Limit(SBusChannel(1), 0, 800));
+      SetMotorSetpoint(2, (uint16_t)S16Limit(SBusChannel(2), 0, 800));
+      SetMotorSetpoint(3, (uint16_t)S16Limit(SBusChannel(3), 0, 800));
+
       TxMotorSetpoints();
 
       flag_128hz = 0;
@@ -105,7 +114,8 @@ int16_t main(void)
 
     if (flag_2hz)
     {
-      UARTPrintf("Acceleration along Y: %g", Acceleration(Y_AXIS));
+      // UARTPrintf("Acceleration along Y: %g", Acceleration(Y_AXIS));
+      UARTPrintf("SBus: %i, %i, %i, %i", SBusChannel(0), SBusChannel(1), SBusChannel(2), SBusChannel(3));
 
       GreenLEDToggle();
       flag_2hz = 0;

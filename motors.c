@@ -25,26 +25,26 @@ enum BLCStatusCode
   BLC_STATUS_RUNNING = 255,  // V1 always gives this before motors are started
 };
 
-enum BLCFeatureBitfield
+enum BLCFeatureBits
 {
-  BLC_FEATURE_EXTENDED_STATUS = 1<<0,
+  BLC_FEATURE_EXTENDED_COMMS = 1<<0,
   BLC_FEATURE_V3 = 1<<1,
   BLC_FEATURE_20KHz = 1<<2,
 };
 
-enum BLCConfigBitfield
+enum BLCConfigBits
 {
-  BLC_BITFIELD_REVERSE_ROTATION = 1<<0,
-  BLC_BITFIELD_START_PWM_1 = 1<<1,
-  BLC_BITFIELD_START_PWM_2 = 1<<2,
-  BLC_BITFIELD_START_PWM_3 = 1<<3,
+  BLC_CONFIG_BITS_REVERSE_ROTATION = 1<<0,
+  BLC_CONFIG_BITS_START_PWM_1 = 1<<1,
+  BLC_CONFIG_BITS_START_PWM_2 = 1<<2,
+  BLC_CONFIG_BITS_START_PWM_3 = 1<<3,
 };
 
 struct MotorSetpoint
 {
   uint8_t bits_11_to_3;
   uint8_t bits_2_to_0;
-} __attribute__((packed)) setpoints_[MOTORS_MAX];
+} __attribute__((packed));
 
 struct BLCConfig
 {
@@ -54,7 +54,7 @@ struct BLCConfig
   uint8_t current_limit;  // Current limit in A
   uint8_t temperature_limit;  // °C
   uint8_t current_scaling;  // Scale factor for current measurement
-  uint8_t bitfield;
+  uint8_t bit_field;
   uint8_t checksum;
 } __attribute__((packed));
 
@@ -71,13 +71,14 @@ struct BLCStatus
   uint8_t version_minor;  // V2 or greater
 } __attribute__((packed));
 
-static volatile struct BLCStatus blc_status_[MOTORS_MAX] = { { 0 } };
-
-static uint8_t blc_error_bitfield_ = 0x00;
-static uint8_t blc_feature_bitfield_ = 0x00;
+static uint8_t blc_error_bits_ = 0x00;
+static uint8_t blc_feature_bits_ = 0x00;
 static uint8_t n_motors_ = 0;
 static uint8_t setpoint_length_ = sizeof(uint8_t);
 static uint8_t comms_in_progress_;  // Address to which communication is ongoing
+
+static struct MotorSetpoint setpoints_[MOTORS_MAX] = { { 0 } };
+static volatile struct BLCStatus blc_status_[MOTORS_MAX] = { { 0 } };
 
 
 // =============================================================================
@@ -89,9 +90,9 @@ static void TxMotorSetpoint(uint8_t address);
 // =============================================================================
 // Accessors
 
-uint8_t BLCErrorBitfield(void)
+uint8_t BLCErrorBits(void)
 {
-  return blc_error_bitfield_;
+  return blc_error_bits_;
 }
 
 
@@ -108,7 +109,7 @@ void DetectMotors(void)
 
   // Send a 0 command to each brushless controller address and record any
   // responses.
-  uint8_t motors = 0;  // Bitfield representing motors present.
+  uint8_t motors = 0;  // Bit field representing motors present.
   uint8_t setpoint = 0;  // Do not command the motors to move
   enum BLCStatusCode blc_status_code = BLC_STATUS_UNKNOWN;
   for (uint8_t i = 0; i < MOTORS_MAX; i++)
@@ -125,22 +126,27 @@ void DetectMotors(void)
       if (blc_status_code == BLC_STATUS_UNKNOWN)
         blc_status_code = blc_status_[i].status_code;
       else if (blc_status_[i].status_code != blc_status_code)
-        blc_error_bitfield_ |= BLC_ERROR_INCONSISTENT_SETTINGS;
+        blc_error_bits_ |= BLC_ERROR_BITS_INCONSISTENT_SETTINGS;
     }
   }
 
   // Identify additional features of the brushless controllers.
+  UARTPrintf("Detected motor controllers with the following compatibility:");
   switch (blc_status_code)
   {
     case BLC_STATUS_V3_FAST_READY:
-      blc_feature_bitfield_ |= BLC_FEATURE_20KHz;
+      UARTPrintf("  fast mode (20 kHz PWM)");
+      blc_feature_bits_ |= BLC_FEATURE_20KHz;
     case BLC_STATUS_V3_READY:
-      blc_feature_bitfield_ |= BLC_FEATURE_V3;
+      UARTPrintf("  version 3");
+      blc_feature_bits_ |= BLC_FEATURE_V3;
     case BLC_STATUS_V2_READY:
-      blc_feature_bitfield_ |= BLC_FEATURE_EXTENDED_STATUS;
+      UARTPrintf("  version 2");
+      blc_feature_bits_ |= BLC_FEATURE_EXTENDED_COMMS;
       setpoint_length_ = sizeof(uint16_t);
       break;
     default:
+      UARTPrintf("  version 1");
       break;
   }
 
@@ -148,9 +154,15 @@ void DetectMotors(void)
   // contiguous addresses beginning with 0.
   n_motors_ = eeprom_read_byte(&eeprom.n_motors);
   if (((1 << n_motors_) - 1) & !motors)
-    blc_error_bitfield_ |= BLC_ERROR_MISSING_MOTOR;
+    blc_error_bits_ |= BLC_ERROR_BITS_MISSING_MOTOR;
   if (motors & !((1 << n_motors_) - 1))
-    blc_error_bitfield_ |= BLC_ERROR_EXTRA_MOTOR;
+    blc_error_bits_ |= BLC_ERROR_BITS_EXTRA_MOTOR;
+  if (blc_error_bits_ & ~_BV(BLC_ERROR_BITS_INCONSISTENT_SETTINGS))
+  {
+    UARTPrintf("ERROR: expected motor controllers with addresses: 0 - %i",
+      n_motors_ - 1);
+    UARTPrintf("       Bit field of responding addresses is: %X", motors);
+  }
 }
 
 // -----------------------------------------------------------------------------
