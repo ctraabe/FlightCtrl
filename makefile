@@ -5,12 +5,17 @@ F_CPU := 20000000
 
 CCFLAGS   = -std=gnu99 -Wstrict-prototypes
 LSTFLAGS  = -Wa,-adhlns=$(LST)
-# Temporarily removed -Werror until gcc 4.8.3 comes to Ubuntu
-LDFLAGS   = -flto -Ofast -fwhole-program -Wall -Wextra -Wundef \
+LDFLAGS   = -flto -Ofast -fwhole-program -Wall -Wextra -Wundef -Werror \
              -fshort-enums -ffreestanding -ffunction-sections -fdata-sections \
              -Wl,--relax,--gc-sections,-u,vfprintf -lprintf_flt
 ALLFLAGS  = -mmcu=$(MCU) -DF_CPU="$(F_CPU)UL"
 DUDEFLAGS = -c avrisp2 -p $(MCU)
+
+# See stdio.h for explanation of various printf implementations. The default
+# implemetation used at link time does not include support for floats. Other
+# options include:
+#   -Wl,-u,vfprintf -lprintf_min
+#   -Wl,-u,vfprintf -lprintf_flt -lm
 
 CC   := avr-gcc
 CP   := avr-objcopy
