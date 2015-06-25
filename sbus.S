@@ -12,8 +12,8 @@
 ; data resides in. The code that parses the buffer should check for validity of
 ; the end byte, as well as the signal-lost and fail-safe flags.
 
-; Stack usage: 4 bytes
-; Worst case runtime: 66 cycles
+; Stack usage: 5 bytes
+; Worst case runtime: 68 cycles
 
 ; The following references were very helpful in making this file:
 ; 8-bit AVR Instruction Set
@@ -53,7 +53,8 @@ __SREG__ = _SFR_IO_ADDR(SREG)
 .global USART1_RX_vect
 USART1_RX_vect:
   ; Save the state of SREG to be restored before returning.
-  in r1, __SREG__  ; Save SREG in R1 (normally reserved for 0)
+  push r0
+  in r0, __SREG__  ; Save SREG in R0
 
   ; Free up some registers by pushing their contents to the stack.
   push r24  ; Save r24 to the stack
@@ -114,15 +115,14 @@ USART1_RX_vect:
   sts rx_buffer_n, r25  ; Save r25 to rx_buffer_n
 
 SBUS_RX_RETURN:
-  mov r24, r1  ; (because clr will set the Z flag)
-  clr r1  ; Restore R1 to 0
-  out __SREG__, r24  ; Restore the state of SREG
+  out __SREG__, r0  ; Restore the state of SREG
 
   ; Restore the state of the freed registers (in order).
   pop XH  ; Restore XH (r27) from the stack
   pop XL  ; Restore XL (r26) from the stack
   pop r25  ; Restore r25 from the stack
   pop r24  ; Restore r24 from the stack
+  pop r0
   reti
 
 SBUS_RX_FIRST_BYTE:
