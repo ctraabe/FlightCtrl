@@ -4,7 +4,6 @@ MCU   := atmega1284p
 F_CPU := 20000000
 
 CCFLAGS   = -std=gnu99 -Wstrict-prototypes
-LSTFLAGS  = -Wa,-adhlns=$(LST)
 LDFLAGS   = -flto -Ofast -fwhole-program -Wall -Wextra -Wundef -Werror \
              -fshort-enums -ffreestanding -ffunction-sections -fdata-sections \
              -Wl,--relax,--gc-sections,-u,vfprintf -lprintf_flt
@@ -67,7 +66,7 @@ $(LST): $(ELF)
 # Target to build the .elf file
 # NOTE: -lm includes the math library (libm.a)
 $(ELF): $(SOURCES) $(HEADERS) $(BUILD_PATH)
-	$(CC) $(LDFLAGS) $(CCFLAGS) $(ALLFLAGS) $(LSTFLAGS) -o $@ $(SOURCES) -lm
+	$(CC) $(LDFLAGS) $(CCFLAGS) $(ALLFLAGS) -o $@ $(SOURCES) -lm
 
 # Target to program the microprocessor flash only
 program: $(HEX)
