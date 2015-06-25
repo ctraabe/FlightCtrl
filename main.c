@@ -58,8 +58,15 @@ ISR(TIMER3_CAPT_vect)
     case COUNTER_32HZ:
     case COUNTER_64HZ:
     case COUNTER_128HZ:
-      if (flag_128hz) main_overrun_count++;
-      else flag_128hz = 1;
+      if (flag_128hz)
+      {
+        main_overrun_count++;
+        RedLEDOn();
+      }
+      else
+      {
+        flag_128hz = 1;
+      }
     default:
       counter++;
       break;
@@ -95,8 +102,10 @@ int16_t main(void)
 {
   Init();
 
-  ZeroGyros();
+  // ZeroGyros();
   // ZeroAccelerometers();
+
+  RedLEDOff();
 
   // Main loop
   for (;;)  // Preferred over while(1)
@@ -121,10 +130,10 @@ int16_t main(void)
     if (flag_2hz)
     {
       // UARTPrintf("SBus: %i, %i, %i, %i", SBusChannel(0), SBusChannel(1), SBusChannel(2), SBusChannel(3));
-      // UARTPrintf("%f %f %f %f", Quat(0), Quat(1), Quat(2), Quat(3));
+      UARTPrintf("%f %f %f %f", Quat(0), Quat(1), Quat(2), Quat(3));
       // UARTPrintf("%f %f %f", Gravity(0), Gravity(1), Gravity(2));
       // UARTPrintf("%f %f %f", AngularRate(0), AngularRate(1), AngularRate(2));
-      UARTPrintf("%f %f %f", Acceleration(0), Acceleration(1), Acceleration(2));
+      // UARTPrintf("%f %f %f", Acceleration(0), Acceleration(1), Acceleration(2));
       // UARTPrintf("%f", QuatCorrection());
       // UARTPrintf("%f", HeadingAngle());
 
@@ -133,5 +142,5 @@ int16_t main(void)
     }
   }
 
-  // for (;;) continue;
+  for (;;) continue;
 }

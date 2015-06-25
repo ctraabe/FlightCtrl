@@ -2,8 +2,6 @@
 
 #include <math.h>
 
-#include "vector.h"
-
 
 // =============================================================================
 // Private data:
@@ -14,6 +12,19 @@
 // =============================================================================
 // Public functions:
 
+void QuaternionMultiply(float quat1[4], float quat2[4], float result[4])
+{
+  result[0] = quat1[0] * quat2[0] - quat1[1] * quat2[1] - quat1[2] * quat2[2]
+    - quat1[3] * quat2[3];
+  result[1] = quat1[0] * quat2[1] + quat1[1] * quat2[0] + quat1[2] * quat2[3]
+    - quat1[3] * quat2[2];
+  result[2] = quat1[0] * quat2[2] - quat1[1] * quat2[3] + quat1[2] * quat2[0]
+    + quat1[3] * quat2[1];
+  result[3] = quat1[0] * quat2[3] + quat1[1] * quat2[2] - quat1[2] * quat2[1]
+    + quat1[3] * quat2[0];
+}
+
+// -----------------------------------------------------------------------------
 float QuaternionNorm(float quat[4])
 {
   return sqrt(square(quat[0]) + square(quat[1]) + square(quat[2])
@@ -35,15 +46,36 @@ void QuaternionNormalize(float quat[4])
 }
 
 // -----------------------------------------------------------------------------
-void QuaternionFromVectors(float v1[3], float v2[3], float quat[4])
+void QuaternionRotateVector(float quat[4], float v[3], float result[3])
 {
-  quat[0] = VectorDot(v1, v2);
-  VectorCross(v1, v2, &quat[1]);
-  float temp = square(quat[1]) + square(quat[2]) + square(quat[3]);
-  quat[0] += sqrt(square(quat[0]) + temp);
-  temp = 1.0 / sqrt(square(quat[0]) + temp);
-  quat[0] *= temp;
-  quat[1] *= temp;
-  quat[2] *= temp;
-  quat[3] *= temp;
+  float temp, r_2[3][3];
+
+  r_2[0][0] = square(quat[0]);
+  r_2[1][1] = r_2[0][0];
+  r_2[2][2] = r_2[0][0];
+  r_2[0][0] += square(quat[1]) - 0.5;
+  r_2[1][1] += square(quat[2]) - 0.5;
+  r_2[2][2] += square(quat[3]) - 0.5;
+
+  r_2[1][0] = quat[0] * quat[3];
+  r_2[0][1] = -r_2[1][0];
+  temp = quat[1] * quat[2];
+  r_2[1][0] += temp;
+  r_2[0][1] += temp;
+
+  r_2[0][2] = quat[0] * quat[2];
+  r_2[2][0] = -r_2[0][2];
+  temp = quat[1] * quat[3];
+  r_2[0][2] += temp;
+  r_2[2][0] += temp;
+
+  r_2[2][1] = quat[0] * quat[1];
+  r_2[1][2] = -r_2[2][1];
+  temp = quat[2] * quat[3];
+  r_2[2][1] += temp;
+  r_2[1][2] += temp;
+
+  result[0] = 2.0 * (r_2[0][0] * v[0] + r_2[0][1] * v[1] + r_2[0][2] * v[2]);
+  result[1] = 2.0 * (r_2[1][0] * v[0] + r_2[1][1] * v[1] + r_2[1][2] * v[2]);
+  result[2] = 2.0 * (r_2[2][0] * v[0] + r_2[2][1] * v[1] + r_2[2][2] * v[2]);
 }

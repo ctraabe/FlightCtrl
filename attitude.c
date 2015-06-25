@@ -4,10 +4,13 @@
 
 #include "adc.h"
 #include "quaternion.h"
+#include "vector.h"
 
 
 // =============================================================================
 // Private data:
+
+#define ACCELEROMETER_CORRECTION_GAIN (0.05)
 
 static float quat_[4] = { 1.0, 0.0, 0.0, 0.0 }, g_b_[3] = { 0.0, 0.0, 1.0 };
 
@@ -15,6 +18,7 @@ static float quat_[4] = { 1.0, 0.0, 0.0, 0.0 }, g_b_[3] = { 0.0, 0.0, 1.0 };
 // =============================================================================
 // Private function declarations:
 
+static void CorrectQuaternionWithAccelerometer(void);
 static void UpdateGravtiyInBody(void);
 static void UpdateQuaternion(void);
 
@@ -40,6 +44,7 @@ float Quat(uint8_t n)
 void UpdateAttitude(void)
 {
   UpdateQuaternion();
+  CorrectQuaternionWithAccelerometer();
   QuaternionNormalize(quat_);
   UpdateGravtiyInBody();
 }
@@ -55,8 +60,33 @@ float HeadingAngle(void)
 // =============================================================================
 // Private functions:
 
+static void CorrectQuaternionWithAccelerometer(void)
+{
+  // Rotate the accelerometer measurement back to NED and assume that it
+  // measures the opposition to gravity only.
+  float accelerometer[3] = { Acceleration(X_BODY_AXIS),
+    Acceleration(Y_BODY_AXIS), Acceleration(Z_BODY_AXIS) };
+  float vector_result[3];
+  QuaternionRotateVector(quat_, accelerometer, vector_result);
+  float g_e[3] = { -vector_result[0], -vector_result[1], -vector_result[2] };
+
+  // Form a corrective quaternion.
+  float temp = ACCELEROMETER_CORRECTION_GAIN * 0.5 / g_e[2];
+  float quat_c[4] = { 1.0, temp * g_e[1], temp * -g_e[0], 0.0 };
+
+  // Apply the correction to the attitude quaternion.
+  float result[4];
+  QuaternionMultiply(quat_, quat_c, result);
+  quat_[0] = result[0];
+  quat_[1] = result[1];
+  quat_[2] = result[2];
+  quat_[3] = result[3];
+}
+
+// -----------------------------------------------------------------------------
 static void UpdateGravtiyInBody(void)
 {
+  return;
   g_b_[0] = 2.0 * (quat_[1] * quat_[3] - quat_[0] * quat_[2]);
   g_b_[1] = 2.0 * (quat_[2] * quat_[3] + quat_[0] * quat_[1]);
   g_b_[2] = 2.0 * (quat_[0] * quat_[0] + quat_[3] * quat_[3]) - 1.0;
