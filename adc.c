@@ -38,8 +38,8 @@ static float acceleration_[3], angular_rate_[3];
 static uint16_t biased_pressure_, battery_voltage_;
 static int16_t accelerometer_sum_[3], gyro_sum_[3];
 static int16_t acc_offset_[3];
-static int16_t gyro_offset_[3] = { ADC_MIDDLE_VALUE * ADC_N_SAMPLES,
-  ADC_MIDDLE_VALUE * ADC_N_SAMPLES, ADC_MIDDLE_VALUE * ADC_N_SAMPLES };
+static int16_t gyro_offset_[3] = { -ADC_MIDDLE_VALUE * ADC_N_SAMPLES,
+  -ADC_MIDDLE_VALUE * ADC_N_SAMPLES, ADC_MIDDLE_VALUE * ADC_N_SAMPLES };
 
 
 // =============================================================================
@@ -164,8 +164,8 @@ void ProcessSensorReadings(void)
   accelerometer_sum_[Y_AXIS] = -SumRecords(ADC_ACCEL_Y) - acc_offset_[Y_AXIS];
   accelerometer_sum_[Z_AXIS] = -SumRecords(ADC_ACCEL_Z) - acc_offset_[Z_AXIS];
 
-  gyro_sum_[X_AXIS] = -(SumRecords(ADC_GYRO_X) - gyro_offset_[X_AXIS]);
-  gyro_sum_[Y_AXIS] = -(SumRecords(ADC_GYRO_Y) - gyro_offset_[Y_AXIS]);
+  gyro_sum_[X_AXIS] = -SumRecords(ADC_GYRO_X) - gyro_offset_[X_AXIS];
+  gyro_sum_[Y_AXIS] = -SumRecords(ADC_GYRO_Y) - gyro_offset_[Y_AXIS];
   gyro_sum_[Z_AXIS] = SumRecords(ADC_GYRO_Z) - gyro_offset_[Z_AXIS];
 
   acceleration_[X_AXIS] = (float)accelerometer_sum_[X_AXIS]
