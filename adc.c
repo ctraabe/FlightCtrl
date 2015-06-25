@@ -164,8 +164,8 @@ void ProcessSensorReadings(void)
   accelerometer_sum_[Y_AXIS] = -SumRecords(ADC_ACCEL_Y) - acc_offset_[Y_AXIS];
   accelerometer_sum_[Z_AXIS] = -SumRecords(ADC_ACCEL_Z) - acc_offset_[Z_AXIS];
 
-  gyro_sum_[X_AXIS] = -SumRecords(ADC_GYRO_X) - gyro_offset_[X_AXIS];
-  gyro_sum_[Y_AXIS] = -SumRecords(ADC_GYRO_Y) - gyro_offset_[Y_AXIS];
+  gyro_sum_[X_AXIS] = -(SumRecords(ADC_GYRO_X) - gyro_offset_[X_AXIS]);
+  gyro_sum_[Y_AXIS] = -(SumRecords(ADC_GYRO_Y) - gyro_offset_[Y_AXIS]);
   gyro_sum_[Z_AXIS] = SumRecords(ADC_GYRO_Z) - gyro_offset_[Z_AXIS];
 
   acceleration_[X_AXIS] = (float)accelerometer_sum_[X_AXIS]
