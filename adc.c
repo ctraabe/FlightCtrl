@@ -7,8 +7,6 @@
 
 #include "eeprom.h"
 #include "mymath.h"
-// TODO: remove this:
-#include "uart.h"
 
 
 // =============================================================================
@@ -53,7 +51,7 @@ static inline uint16_t SumRecords(enum ADCSensorIndex sensor);
 // =============================================================================
 // Accessors:
 
-float Acceleration(enum SensorAxes axis)
+float Acceleration(enum BodyAxes axis)
 {
   return acceleration_[axis];
 }
@@ -66,17 +64,17 @@ float * AccelerationVector(void)
 
 // -----------------------------------------------------------------------------
 // Returns the most recent accelerometer reading. Scale is 5/1024 g/LSB.
-uint16_t Accelerometer(enum SensorAxes axis)
+uint16_t Accelerometer(enum BodyAxes axis)
 {
   switch (axis)
   {
-    case X_AXIS:
+    case X_BODY_AXIS:
       return ADCSample(ADC_ACCEL_X);
       break;
-    case Y_AXIS:
+    case Y_BODY_AXIS:
       return ADCSample(ADC_ACCEL_Y);
       break;
-    case Z_AXIS:
+    case Z_BODY_AXIS:
     default:
       return ADCSample(ADC_ACCEL_Z);
   }
@@ -90,7 +88,7 @@ enum ADCState ADCState(void)
 }
 
 // -----------------------------------------------------------------------------
-float AngularRate(enum SensorAxes axis)
+float AngularRate(enum BodyAxes axis)
 {
   return angular_rate_[axis];
 }
@@ -115,17 +113,17 @@ uint16_t BiasedPressureSensor(void)
 
 // -----------------------------------------------------------------------------
 // Returns the most recent gyro reading. Scale is 5/6.144 deg/s/LSB.
-uint16_t Gyro(enum SensorAxes axis)
+uint16_t Gyro(enum BodyAxes axis)
 {
   switch (axis)
   {
-    case X_AXIS:
+    case X_BODY_AXIS:
       return ADCSample(ADC_GYRO_X);
       break;
-    case Y_AXIS:
+    case Y_BODY_AXIS:
       return ADCSample(ADC_GYRO_Y);
       break;
-    case Z_AXIS:
+    case Z_BODY_AXIS:
     default:
       return ADCSample(ADC_GYRO_Z);
   }
@@ -160,24 +158,30 @@ void ADCOff(void)
 // order to increase fidelity.
 void ProcessSensorReadings(void)
 {
-  accelerometer_sum_[X_AXIS] = -SumRecords(ADC_ACCEL_X) - acc_offset_[X_AXIS];
-  accelerometer_sum_[Y_AXIS] = -SumRecords(ADC_ACCEL_Y) - acc_offset_[Y_AXIS];
-  accelerometer_sum_[Z_AXIS] = -SumRecords(ADC_ACCEL_Z) - acc_offset_[Z_AXIS];
+  accelerometer_sum_[X_BODY_AXIS] = -SumRecords(ADC_ACCEL_X)
+    - acc_offset_[X_BODY_AXIS];
+  accelerometer_sum_[Y_BODY_AXIS] = -SumRecords(ADC_ACCEL_Y)
+    - acc_offset_[Y_BODY_AXIS];
+  accelerometer_sum_[Z_BODY_AXIS] = -SumRecords(ADC_ACCEL_Z)
+    - acc_offset_[Z_BODY_AXIS];
 
-  gyro_sum_[X_AXIS] = -SumRecords(ADC_GYRO_X) - gyro_offset_[X_AXIS];
-  gyro_sum_[Y_AXIS] = -SumRecords(ADC_GYRO_Y) - gyro_offset_[Y_AXIS];
-  gyro_sum_[Z_AXIS] = SumRecords(ADC_GYRO_Z) - gyro_offset_[Z_AXIS];
+  gyro_sum_[X_BODY_AXIS] = -SumRecords(ADC_GYRO_X) - gyro_offset_[X_BODY_AXIS];
+  gyro_sum_[Y_BODY_AXIS] = -SumRecords(ADC_GYRO_Y) - gyro_offset_[Y_BODY_AXIS];
+  gyro_sum_[Z_BODY_AXIS] = SumRecords(ADC_GYRO_Z) - gyro_offset_[Z_BODY_AXIS];
 
-  acceleration_[X_AXIS] = (float)accelerometer_sum_[X_AXIS]
+  acceleration_[X_BODY_AXIS] = (float)accelerometer_sum_[X_BODY_AXIS]
     / ACCELEROMETER_SCALE / ADC_N_SAMPLES;
-  acceleration_[Y_AXIS] = (float)accelerometer_sum_[Y_AXIS]
+  acceleration_[Y_BODY_AXIS] = (float)accelerometer_sum_[Y_BODY_AXIS]
     / ACCELEROMETER_SCALE / ADC_N_SAMPLES;
-  acceleration_[Z_AXIS] = (float)accelerometer_sum_[Z_AXIS]
+  acceleration_[Z_BODY_AXIS] = (float)accelerometer_sum_[Z_BODY_AXIS]
     / ACCELEROMETER_SCALE / ADC_N_SAMPLES;
 
-  angular_rate_[X_AXIS] = (float)gyro_sum_[X_AXIS] / GYRO_SCALE / ADC_N_SAMPLES;
-  angular_rate_[Y_AXIS] = (float)gyro_sum_[Y_AXIS] / GYRO_SCALE / ADC_N_SAMPLES;
-  angular_rate_[Z_AXIS] = (float)gyro_sum_[Z_AXIS] / GYRO_SCALE / ADC_N_SAMPLES;
+  angular_rate_[X_BODY_AXIS] = (float)gyro_sum_[X_BODY_AXIS] / GYRO_SCALE
+    / ADC_N_SAMPLES;
+  angular_rate_[Y_BODY_AXIS] = (float)gyro_sum_[Y_BODY_AXIS] / GYRO_SCALE
+    / ADC_N_SAMPLES;
+  angular_rate_[Z_BODY_AXIS] = (float)gyro_sum_[Z_BODY_AXIS] / GYRO_SCALE
+    / ADC_N_SAMPLES;
 
   biased_pressure_ = SumRecords(ADC_PRESSURE);
 
@@ -210,9 +214,9 @@ void ZeroGyros(void)
   // if (MotorsOn()) return 1;
 
   // Clear offsets.
-  gyro_offset_[X_AXIS] = 0;
-  gyro_offset_[Y_AXIS] = 0;
-  gyro_offset_[Z_AXIS] = 0;
+  gyro_offset_[X_BODY_AXIS] = 0;
+  gyro_offset_[Y_BODY_AXIS] = 0;
+  gyro_offset_[Z_BODY_AXIS] = 0;
 
   // Sum samples over about 1 second (2000 samples).
   // Note: the number of samples must be evenly divisible by ADC_N_SAMPLES.
@@ -221,15 +225,15 @@ void ZeroGyros(void)
   {
     WaitOneADCCycle();
     ProcessSensorReadings();
-    sample_sum[X_AXIS] += gyro_sum_[X_AXIS];
-    sample_sum[Y_AXIS] += gyro_sum_[Y_AXIS];
-    sample_sum[Z_AXIS] += gyro_sum_[Z_AXIS];
+    sample_sum[X_BODY_AXIS] += gyro_sum_[X_BODY_AXIS];
+    sample_sum[Y_BODY_AXIS] += gyro_sum_[Y_BODY_AXIS];
+    sample_sum[Z_BODY_AXIS] += gyro_sum_[Z_BODY_AXIS];
   }
 
   // Average the results and set as the offset.
-  gyro_offset_[X_AXIS] = (int16_t)(sample_sum[X_AXIS] / kNSamples);
-  gyro_offset_[Y_AXIS] = (int16_t)(sample_sum[Y_AXIS] / kNSamples);
-  gyro_offset_[Z_AXIS] = (int16_t)(sample_sum[Z_AXIS] / kNSamples);
+  gyro_offset_[X_BODY_AXIS] = (int16_t)(sample_sum[X_BODY_AXIS] / kNSamples);
+  gyro_offset_[Y_BODY_AXIS] = (int16_t)(sample_sum[Y_BODY_AXIS] / kNSamples);
+  gyro_offset_[Z_BODY_AXIS] = (int16_t)(sample_sum[Z_BODY_AXIS] / kNSamples);
 
   // TODO: Change these limits to something more reasonable.
   // Check that the zero values are within an acceptable range. The acceptable
@@ -251,9 +255,9 @@ void ZeroAccelerometers(void)
   // if (MotorsOn()) return 1;
 
   // Clear offsets.
-  acc_offset_[X_AXIS] = 0;
-  acc_offset_[Y_AXIS] = 0;
-  acc_offset_[Z_AXIS] = 0;
+  acc_offset_[X_BODY_AXIS] = 0;
+  acc_offset_[Y_BODY_AXIS] = 0;
+  acc_offset_[Z_BODY_AXIS] = 0;
 
   // Sum samples over about 1 second (2048 samples).
   const uint8_t kNSamplesPowOf2 = 11 - ADC_N_SAMPLES_POW_OF_2;
@@ -262,18 +266,21 @@ void ZeroAccelerometers(void)
   {
     WaitOneADCCycle();
     ProcessSensorReadings();
-    sample_sum[X_AXIS] += accelerometer_sum_[X_AXIS];
-    sample_sum[Y_AXIS] += accelerometer_sum_[Y_AXIS];
-    sample_sum[Z_AXIS] += accelerometer_sum_[Z_AXIS];
+    sample_sum[X_BODY_AXIS] += accelerometer_sum_[X_BODY_AXIS];
+    sample_sum[Y_BODY_AXIS] += accelerometer_sum_[Y_BODY_AXIS];
+    sample_sum[Z_BODY_AXIS] += accelerometer_sum_[Z_BODY_AXIS];
   }
 
   // Average the results and set as the offset.
-  acc_offset_[X_AXIS] = S16RoundRShiftS32(sample_sum[X_AXIS], kNSamplesPowOf2);
-  acc_offset_[Y_AXIS] = S16RoundRShiftS32(sample_sum[Y_AXIS], kNSamplesPowOf2);
-  acc_offset_[Z_AXIS] = S16RoundRShiftS32(sample_sum[Z_AXIS], kNSamplesPowOf2) + ADC_N_SAMPLES * ACCELEROMETER_SCALE;
-  // acc_offset_[X_AXIS] = (int16_t)(sample_sum[X_AXIS] / kNSamples);
-  // acc_offset_[Y_AXIS] = (int16_t)(sample_sum[Y_AXIS] / kNSamples);
-  // acc_offset_[Z_AXIS] = (int16_t)(sample_sum[Z_AXIS] / kNSamples);
+  acc_offset_[X_BODY_AXIS] = S16RoundRShiftS32(sample_sum[X_BODY_AXIS],
+    kNSamplesPowOf2);
+  acc_offset_[Y_BODY_AXIS] = S16RoundRShiftS32(sample_sum[Y_BODY_AXIS],
+    kNSamplesPowOf2);
+  acc_offset_[Z_BODY_AXIS] = S16RoundRShiftS32(sample_sum[Z_BODY_AXIS],
+    kNSamplesPowOf2) + ADC_N_SAMPLES * ACCELEROMETER_SCALE;
+  // acc_offset_[X_BODY_AXIS] = (int16_t)(sample_sum[X_BODY_AXIS] / kNSamples);
+  // acc_offset_[Y_BODY_AXIS] = (int16_t)(sample_sum[Y_BODY_AXIS] / kNSamples);
+  // acc_offset_[Z_BODY_AXIS] = (int16_t)(sample_sum[Z_BODY_AXIS] / kNSamples);
 
   // TODO: Change these limits to something more reasonable
   // Check that the zero values are within an acceptable range. The acceptable

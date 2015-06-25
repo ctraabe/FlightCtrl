@@ -17,12 +17,8 @@
 
 #include <inttypes.h>
 
+#include "global_definitions.h"
 
-enum SensorAxes {
-  X_AXIS = 0,
-  Y_AXIS = 1,
-  Z_AXIS = 2,
-};
 
 enum ADCState {
   ADC_INACTIVE = 0,
@@ -33,20 +29,20 @@ enum ADCState {
 // =============================================================================
 // Accessors:
 
-float Acceleration(enum SensorAxes axis);
+float Acceleration(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
 float * AccelerationVector(void);
 
 // -----------------------------------------------------------------------------
 // Returns the most recent accelerometer reading. Scale is 5/1024 g/LSB.
-uint16_t Accelerometer(enum SensorAxes axis);
+uint16_t Accelerometer(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
 enum ADCState ADCState(void);
 
 // -----------------------------------------------------------------------------
-float AngularRate(enum SensorAxes axis);
+float AngularRate(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
 uint16_t BatteryVoltage(void);
@@ -59,7 +55,7 @@ uint16_t BiasedPressureSensor(void);
 
 // -----------------------------------------------------------------------------
 // Returns the most recent gyro reading. Scale is 5/6.144 deg/s/LSB.
-uint16_t Gyro(enum SensorAxes axis);
+uint16_t Gyro(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
 // This function assumes that the Mikrokopter is motionless on the ground. It

@@ -1,8 +1,7 @@
-#include "main.h"
-
 #include <avr/interrupt.h>
 
 #include "adc.h"
+#include "attitude.h"
 #include "battery.h"
 #include "buzzer.h"
 #include "i2c.h"
@@ -13,15 +12,18 @@
 #include "timing.h"
 #include "uart.h"
 
-// TODO: Delete following:
-#include "mymath.h"
-
 
 // ============================================================================+
 // Private data:
 
 static volatile uint8_t flag_128hz = 0, flag_2hz = 0;
 static volatile uint16_t main_overrun_count = 0;
+
+
+// =============================================================================
+// Private function declarations:
+
+int16_t main(void) __attribute__ ((noreturn));
 
 
 // =============================================================================
@@ -93,6 +95,9 @@ int16_t main(void)
 {
   Init();
 
+  ZeroGyros();
+  // ZeroAccelerometers();
+
   // Main loop
   for (;;)  // Preferred over while(1)
   {
@@ -100,22 +105,28 @@ int16_t main(void)
     {
       ProcessSensorReadings();
 
-      ProcessSBus();
+      UpdateAttitude();
 
+      ProcessSBus();
+/*
       SetMotorSetpoint(0, (uint16_t)S16Limit(SBusChannel(0), 0, 800));
       SetMotorSetpoint(1, (uint16_t)S16Limit(SBusChannel(1), 0, 800));
       SetMotorSetpoint(2, (uint16_t)S16Limit(SBusChannel(2), 0, 800));
       SetMotorSetpoint(3, (uint16_t)S16Limit(SBusChannel(3), 0, 800));
-
       TxMotorSetpoints();
-
+*/
       flag_128hz = 0;
     }
 
     if (flag_2hz)
     {
-      // UARTPrintf("Acceleration along Y: %g", Acceleration(Y_AXIS));
-      UARTPrintf("SBus: %i, %i, %i, %i", SBusChannel(0), SBusChannel(1), SBusChannel(2), SBusChannel(3));
+      // UARTPrintf("SBus: %i, %i, %i, %i", SBusChannel(0), SBusChannel(1), SBusChannel(2), SBusChannel(3));
+      // UARTPrintf("%f %f %f %f", Quat(0), Quat(1), Quat(2), Quat(3));
+      // UARTPrintf("%f %f %f", Gravity(0), Gravity(1), Gravity(2));
+      // UARTPrintf("%f %f %f", AngularRate(0), AngularRate(1), AngularRate(2));
+      UARTPrintf("%f %f %f", Acceleration(0), Acceleration(1), Acceleration(2));
+      // UARTPrintf("%f", QuatCorrection());
+      // UARTPrintf("%f", HeadingAngle());
 
       GreenLEDToggle();
       flag_2hz = 0;

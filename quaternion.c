@@ -6,6 +6,12 @@
 
 
 // =============================================================================
+// Private data:
+
+#define QUAT_NORMALIZATION_GAIN (0.5)
+
+
+// =============================================================================
 // Public functions:
 
 float QuaternionNorm(float quat[4])
@@ -17,11 +23,15 @@ float QuaternionNorm(float quat[4])
 // -----------------------------------------------------------------------------
 void QuaternionNormalize(float quat[4])
 {
-  float temp = 1.0 / QuaternionNorm(quat);
-  quat[0] *= temp;
-  quat[1] *= temp;
-  quat[2] *= temp;
-  quat[3] *= temp;
+  // The following code pushes the quaternion toward unity and is much more
+  // efficient than normalization (no sqrt and no divide).
+  float norm_correction = QUAT_NORMALIZATION_GAIN * (1.0 - quat[0] * quat[0]
+    - quat[1] * quat[1] - quat[2] * quat[2] - quat[3] * quat[3]);
+
+  quat[0] += quat[0] * norm_correction;
+  quat[1] += quat[1] * norm_correction;
+  quat[2] += quat[2] * norm_correction;
+  quat[3] += quat[3] * norm_correction;
 }
 
 // -----------------------------------------------------------------------------
