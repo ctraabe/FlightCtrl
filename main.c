@@ -6,6 +6,7 @@
 #include "buzzer.h"
 #include "i2c.h"
 #include "led.h"
+#include "mcu_pins.h"
 #include "motors.h"
 #include "pressure_altitude.h"
 #include "sbus.h"
@@ -84,6 +85,9 @@ static void Init(void)
   SBusInit();
   PressureSensorInit();
 
+  // Pull up the version pin (FlightCtrl V2.2 will be grounded).
+  VERSION_2_2_PORT |= VERSION_2_2_PIN | VERSION_2_2_PIN;
+
   sei();  // Enable interrupts
 
   UARTPrintf("University of Tokyo Mikrokopter firmware V2");
@@ -130,10 +134,10 @@ int16_t main(void)
     if (flag_2hz)
     {
       // UARTPrintf("SBus: %i, %i, %i, %i", SBusChannel(0), SBusChannel(1), SBusChannel(2), SBusChannel(3));
-      UARTPrintf("%f %f %f %f", Quat(0), Quat(1), Quat(2), Quat(3));
+      // UARTPrintf("%f %f %f %f", Quat(0), Quat(1), Quat(2), Quat(3));
       // UARTPrintf("%f %f %f", Gravity(0), Gravity(1), Gravity(2));
       // UARTPrintf("%f %f %f", AngularRate(0), AngularRate(1), AngularRate(2));
-      // UARTPrintf("%f %f %f", Acceleration(0), Acceleration(1), Acceleration(2));
+      UARTPrintf("%f %f %f", Acceleration(0), Acceleration(1), Acceleration(2));
       // UARTPrintf("%f", QuatCorrection());
       // UARTPrintf("%f", HeadingAngle());
 

@@ -6,6 +6,7 @@
 #include <util/atomic.h>
 
 #include "eeprom.h"
+#include "mcu_pins.h"
 #include "mymath.h"
 
 
@@ -14,6 +15,7 @@
 
 #define ADC_MIDDLE_VALUE (1023 / 2)
 #define ACCELEROMETER_SCALE (1024 / 5)  // LSB/g
+#define ACCELEROMETER_2_2_SCALE (1024 / 6)  // LSB / g
 #define GYRO_SCALE (6.144 * 180 / M_PI / 5)  // LSB/(rad/s)
 
 // ADC sample indices
@@ -173,8 +175,12 @@ void ProcessSensorReadings(void)
     / ACCELEROMETER_SCALE / ADC_N_SAMPLES;
   acceleration_[Y_BODY_AXIS] = (float)accelerometer_sum_[Y_BODY_AXIS]
     / ACCELEROMETER_SCALE / ADC_N_SAMPLES;
-  acceleration_[Z_BODY_AXIS] = (float)accelerometer_sum_[Z_BODY_AXIS]
-    / ACCELEROMETER_SCALE / ADC_N_SAMPLES;
+  if (VERSION_2_2)
+    acceleration_[Z_BODY_AXIS] = (float)accelerometer_sum_[Z_BODY_AXIS]
+      / ACCELEROMETER_2_2_SCALE / ADC_N_SAMPLES;
+  else
+    acceleration_[Z_BODY_AXIS] = (float)accelerometer_sum_[Z_BODY_AXIS]
+      / ACCELEROMETER_SCALE / ADC_N_SAMPLES;
 
   angular_rate_[X_BODY_AXIS] = (float)gyro_sum_[X_BODY_AXIS] / GYRO_SCALE
     / ADC_N_SAMPLES;
@@ -276,8 +282,12 @@ void ZeroAccelerometers(void)
     kNSamplesPowOf2);
   acc_offset_[Y_BODY_AXIS] = S16RoundRShiftS32(sample_sum[Y_BODY_AXIS],
     kNSamplesPowOf2);
-  acc_offset_[Z_BODY_AXIS] = S16RoundRShiftS32(sample_sum[Z_BODY_AXIS],
-    kNSamplesPowOf2) + ADC_N_SAMPLES * ACCELEROMETER_SCALE;
+  if (VERSION_2_2)
+    acc_offset_[Z_BODY_AXIS] = S16RoundRShiftS32(sample_sum[Z_BODY_AXIS],
+      kNSamplesPowOf2) + ADC_N_SAMPLES * ACCELEROMETER_2_2_SCALE;
+  else
+    acc_offset_[Z_BODY_AXIS] = S16RoundRShiftS32(sample_sum[Z_BODY_AXIS],
+      kNSamplesPowOf2) + ADC_N_SAMPLES * ACCELEROMETER_SCALE;
   // acc_offset_[X_BODY_AXIS] = (int16_t)(sample_sum[X_BODY_AXIS] / kNSamples);
   // acc_offset_[Y_BODY_AXIS] = (int16_t)(sample_sum[Y_BODY_AXIS] / kNSamples);
   // acc_offset_[Z_BODY_AXIS] = (int16_t)(sample_sum[Z_BODY_AXIS] / kNSamples);
