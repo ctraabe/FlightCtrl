@@ -10,7 +10,7 @@
 // =============================================================================
 // Private data:
 
-#define ACCELEROMETER_CORRECTION_GAIN (0.05)
+#define ACCELEROMETER_CORRECTION_GAIN (0.001)
 
 static float quat_[4] = { 1.0, 0.0, 0.0, 0.0 }, g_b_[3] = { 0.0, 0.0, 1.0 };
 
