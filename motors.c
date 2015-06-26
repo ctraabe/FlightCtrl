@@ -34,10 +34,10 @@ enum BLCFeatureBits
 
 enum BLCConfigBits
 {
-  BLC_CONFIG_BITS_REVERSE_ROTATION = 1<<0,
-  BLC_CONFIG_BITS_START_PWM_1 = 1<<1,
-  BLC_CONFIG_BITS_START_PWM_2 = 1<<2,
-  BLC_CONFIG_BITS_START_PWM_3 = 1<<3,
+  BLC_CONFIG_BIT_REVERSE_ROTATION = 1<<0,
+  BLC_CONFIG_BIT_START_PWM_1 = 1<<1,
+  BLC_CONFIG_BIT_START_PWM_2 = 1<<2,
+  BLC_CONFIG_BIT_START_PWM_3 = 1<<3,
 };
 
 struct MotorSetpoint
@@ -126,7 +126,7 @@ void DetectMotors(void)
       if (blc_status_code == BLC_STATUS_UNKNOWN)
         blc_status_code = blc_status_[i].status_code;
       else if (blc_status_[i].status_code != blc_status_code)
-        blc_error_bits_ |= BLC_ERROR_BITS_INCONSISTENT_SETTINGS;
+        blc_error_bits_ |= BLC_ERROR_BIT_INCONSISTENT_SETTINGS;
     }
   }
 
@@ -154,10 +154,10 @@ void DetectMotors(void)
   // contiguous addresses beginning with 0.
   n_motors_ = eeprom_read_byte(&eeprom.n_motors);
   if (((1 << n_motors_) - 1) & !motors)
-    blc_error_bits_ |= BLC_ERROR_BITS_MISSING_MOTOR;
+    blc_error_bits_ |= BLC_ERROR_BIT_MISSING_MOTOR;
   if (motors & !((1 << n_motors_) - 1))
-    blc_error_bits_ |= BLC_ERROR_BITS_EXTRA_MOTOR;
-  if (blc_error_bits_ & ~_BV(BLC_ERROR_BITS_INCONSISTENT_SETTINGS))
+    blc_error_bits_ |= BLC_ERROR_BIT_EXTRA_MOTOR;
+  if (blc_error_bits_ & ~_BV(BLC_ERROR_BIT_INCONSISTENT_SETTINGS))
   {
     UARTPrintf("ERROR: expected motor controllers with addresses: 0 - %i",
       n_motors_ - 1);

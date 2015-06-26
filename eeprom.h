@@ -19,6 +19,11 @@ extern struct EEPROM {
   uint16_t coarse_bias_steps_to_pressure_steps;
   uint16_t fine_bias_steps_to_pressure_steps;
   uint8_t n_motors;
+  uint8_t sbus_channel_pitch;
+  uint8_t sbus_channel_roll;
+  uint8_t sbus_channel_yaw;
+  uint8_t sbus_channel_thrust;
+  uint8_t sbus_channel_on_off;
 } eeprom;
 
 

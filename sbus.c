@@ -2,7 +2,7 @@
 
 #include <avr/interrupt.h>
 
-#include "led.h"
+#include "eeprom.h"
 
 
 // =============================================================================
@@ -11,18 +11,22 @@
 #define USART1_BAUD (100000L)
 #define SBUS_NO_NEW_DATA (-1)
 #define SBUS_SIGNAL_LOST_BIT (2)
+#define SBUS_STICK_EDGE_THRESHOLD (10)
 
 // The following is not declared static so that it will be visible to sbus.S.
-volatile uint8_t sbus_rx_buffer_[2][SBUS_RX_BUFFER_LENGTH];  // double buffer
+volatile uint8_t sbus_rx_buffer_[2][SBUS_RX_BUFFER_LENGTH];
 volatile int8_t sbus_data_ready_ = SBUS_NO_NEW_DATA;
 
-struct SBusData
+static struct SBusData
 {
   int16_t channels[12];
   uint8_t binary;
   uint8_t valid;
   int16_t timestamp;
 } __attribute__((packed)) sbus_data_;
+
+static uint8_t channel_pitch_, channel_roll_, channel_yaw_, channel_thrust_,
+  channel_on_off_;
 
 
 // =============================================================================
@@ -34,15 +38,36 @@ inline uint8_t SBusByte(uint8_t);
 // =============================================================================
 // Accessors:
 
-uint8_t SBusBinary(uint8_t n)
+int16_t SBusPitch(void)
 {
-  return !(sbus_data_.binary & (1 << n));
+  return sbus_data_.channels[channel_pitch_];
 }
 
 // -----------------------------------------------------------------------------
-int16_t SBusChannel(uint8_t n)
+int16_t SBusRoll(void)
 {
-  return sbus_data_.channels[n];
+  return sbus_data_.channels[channel_roll_];
+}
+
+// -----------------------------------------------------------------------------
+int16_t SBusYaw(void)
+{
+  return sbus_data_.channels[channel_yaw_];
+}
+
+// -----------------------------------------------------------------------------
+int16_t SBusThrust(void)
+{
+  return sbus_data_.channels[channel_thrust_];
+}
+
+// -----------------------------------------------------------------------------
+uint8_t SBusOnOff(void)
+{
+  if (channel_on_off_ < 16)
+    return sbus_data_.channels[channel_on_off_] != 0;
+  else
+    return sbus_data_.binary & (channel_on_off_ - 15);
 }
 
 
@@ -66,6 +91,52 @@ void SBusInit(void)
          | (1 << UPM11) | (0 << UPM10)  // Parity Bit Mode (even)
          | (1 << USBS1)  // 2 Stop Bit Enable
          | (1 << UCSZ11) | (1 << UCSZ10);  // Character Size (8-bits)
+
+  channel_pitch_ = eeprom_read_byte(&eeprom.sbus_channel_pitch);
+  channel_roll_ = eeprom_read_byte(&eeprom.sbus_channel_roll);
+  channel_yaw_ = eeprom_read_byte(&eeprom.sbus_channel_yaw);
+  channel_thrust_ = eeprom_read_byte(&eeprom.sbus_channel_thrust);
+  channel_on_off_ = eeprom_read_byte(&eeprom.sbus_channel_on_off);
+}
+
+// -----------------------------------------------------------------------------
+void SBusSetChannels(uint8_t pitch, uint8_t roll, uint8_t yaw, uint8_t thrust,
+  uint8_t on_off)
+{
+  channel_pitch_ = pitch;
+  channel_roll_ = roll;
+  channel_yaw_ = yaw;
+  channel_thrust_ = thrust;
+  channel_on_off_ = on_off;
+  eeprom_update_byte(&eeprom.sbus_channel_pitch, pitch);
+  eeprom_update_byte(&eeprom.sbus_channel_roll, roll);
+  eeprom_update_byte(&eeprom.sbus_channel_yaw, yaw);
+  eeprom_update_byte(&eeprom.sbus_channel_thrust, thrust);
+  eeprom_update_byte(&eeprom.sbus_channel_on_off, on_off);
+}
+
+// -----------------------------------------------------------------------------
+uint8_t SBusThrustStickDown(void)
+{
+  return SBusThrust() < -(SBUS_MAX - SBUS_STICK_EDGE_THRESHOLD);
+}
+
+// -----------------------------------------------------------------------------
+uint8_t SBusThrustStickUp(void)
+{
+  return SBusThrust() > SBUS_MAX - SBUS_STICK_EDGE_THRESHOLD;
+}
+
+// -----------------------------------------------------------------------------
+uint8_t SBusYawStickLeft(void)
+{
+  return SBusYaw() > SBUS_MAX - SBUS_STICK_EDGE_THRESHOLD;
+}
+
+// -----------------------------------------------------------------------------
+uint8_t SBusYawStickRight(void)
+{
+  return SBusYaw() < -(SBUS_MAX - SBUS_STICK_EDGE_THRESHOLD);
 }
 
 // -----------------------------------------------------------------------------
@@ -93,7 +164,6 @@ void ProcessSBus(void)
   ((uint8_t*)&sbus_data_.timestamp)[1] = rx_buffer[SBUS_RX_BUFFER_LENGTH - 1];
 
   sbus_data_.binary = rx_buffer[SBusByte(23)];
-  // PORTB ^= _BV(PORTB0);
 
   // Channel 0 is [bytes(2)(2:0) bytes(1)(7:0)]
   ((uint8_t*)&sbus_data_.channels[0])[1] = rx_buffer[SBusByte(2)] & 0x07;

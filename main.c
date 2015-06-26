@@ -10,6 +10,7 @@
 #include "motors.h"
 #include "pressure_altitude.h"
 #include "sbus.h"
+#include "state.h"
 #include "timing.h"
 #include "uart.h"
 
@@ -108,6 +109,7 @@ int16_t main(void)
 
   // ZeroGyros();
   // ZeroAccelerometers();
+  // SBusSetChannels(2, 3, 0, 1, 17);
 
   RedLEDOff();
 
@@ -121,6 +123,8 @@ int16_t main(void)
       UpdateAttitude();
 
       ProcessSBus();
+
+      UpdateState();
 /*
       SetMotorSetpoint(0, (uint16_t)S16Limit(SBusChannel(0), 0, 800));
       SetMotorSetpoint(1, (uint16_t)S16Limit(SBusChannel(1), 0, 800));
@@ -133,11 +137,11 @@ int16_t main(void)
 
     if (flag_2hz)
     {
-      // UARTPrintf("SBus: %i, %i, %i, %i", SBusChannel(0), SBusChannel(1), SBusChannel(2), SBusChannel(3));
+      UARTPrintf("SBus: %i, %i, %i, %i, %i", SBusPitch(), SBusRoll(), SBusYaw(), SBusThrust(), SBusOnOff());
       // UARTPrintf("%f %f %f %f", Quat(0), Quat(1), Quat(2), Quat(3));
       // UARTPrintf("%f %f %f", Gravity(0), Gravity(1), Gravity(2));
       // UARTPrintf("%f %f %f", AngularRate(0), AngularRate(1), AngularRate(2));
-      UARTPrintf("%f %f %f", Acceleration(0), Acceleration(1), Acceleration(2));
+      // UARTPrintf("%f %f %f", Acceleration(0), Acceleration(1), Acceleration(2));
       // UARTPrintf("%f", QuatCorrection());
       // UARTPrintf("%f", HeadingAngle());
 
