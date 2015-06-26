@@ -24,7 +24,13 @@ uint8_t BLCErrorBits(void);
 void DetectMotors(void);
 
 // -----------------------------------------------------------------------------
+uint8_t MotorsStarting(void);
+
+// -----------------------------------------------------------------------------
 void SetMotorSetpoint(uint8_t address, uint16_t setpoint);
+
+// -----------------------------------------------------------------------------
+void SetNMotors(uint8_t n_motors);
 
 // -----------------------------------------------------------------------------
 void TxMotorSetpoints(void);

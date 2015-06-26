@@ -166,11 +166,28 @@ void DetectMotors(void)
 }
 
 // -----------------------------------------------------------------------------
+uint8_t MotorsStarting(void)
+{
+  uint8_t result = 0;
+  for (uint8_t i = n_motors_; i--; )
+    result |= blc_status_[i].status_code == BLC_STATUS_STARTING;
+  return result;
+}
+
+// -----------------------------------------------------------------------------
 void SetMotorSetpoint(uint8_t address, uint16_t setpoint)
 {
   if (address >= MOTORS_MAX) return;
   setpoints_[address].bits_2_to_0 = (uint8_t)setpoint & 0x7;
   setpoints_[address].bits_11_to_3 = (uint8_t)(setpoint >> 3);
+}
+
+// -----------------------------------------------------------------------------
+void SetNMotors(uint8_t n_motors)
+{
+  if (n_motors > MOTORS_MAX) n_motors = MOTORS_MAX;
+  n_motors_ = n_motors;
+  eeprom_update_byte(&eeprom.n_motors, n_motors);
 }
 
 // -----------------------------------------------------------------------------

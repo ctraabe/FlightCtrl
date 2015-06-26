@@ -14,8 +14,23 @@ static enum StateBits state_ = STATE_BIT_MOTORS_INHIBITED;
 
 
 // =============================================================================
+// Accessors
+
+enum StateBits State(void)
+{
+  return state_;
+}
+
+
+// =============================================================================
 // Public functions:
 
+uint8_t MotorsRunning(void)
+{
+  return state_ & STATE_BIT_MOTORS_RUNNING;
+}
+
+// -----------------------------------------------------------------------------
 void UpdateState(void)
 {
   static uint8_t sbus_on_off_latch = 0;

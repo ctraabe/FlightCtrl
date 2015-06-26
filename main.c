@@ -110,6 +110,7 @@ int16_t main(void)
   // ZeroGyros();
   // ZeroAccelerometers();
   // SBusSetChannels(2, 3, 0, 1, 17);
+  // SetNMotors(4);
 
   RedLEDOff();
 
