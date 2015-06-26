@@ -44,9 +44,9 @@ float Quat(uint8_t n)
 void UpdateAttitude(void)
 {
   UpdateQuaternion();
+  UpdateGravtiyInBody();
   CorrectQuaternionWithAccelerometer();
   QuaternionNormalize(quat_);
-  UpdateGravtiyInBody();
 }
 
 // -----------------------------------------------------------------------------
@@ -62,17 +62,15 @@ float HeadingAngle(void)
 
 static void CorrectQuaternionWithAccelerometer(void)
 {
-  // Rotate the accelerometer measurement back to NED and assume that it
-  // measures the opposition to gravity only.
-  float accelerometer[3] = { Acceleration(X_BODY_AXIS),
-    Acceleration(Y_BODY_AXIS), Acceleration(Z_BODY_AXIS) };
-  float vector_result[3];
-  QuaternionRotateVector(quat_, accelerometer, vector_result);
-  float g_e[3] = { -vector_result[0], -vector_result[1], -vector_result[2] };
-
-  // Form a corrective quaternion.
-  float temp = ACCELEROMETER_CORRECTION_GAIN * 0.5 / g_e[2];
-  float quat_c[4] = { 1.0, temp * g_e[1], temp * -g_e[0], 0.0 };
+  // Assume that the accelerometer measures ONLY the resistance to gravity (
+  // opposite the gravity vector). The direction of rotation that takes the body from predicted to
+  // estimated gravity is (-accelerometer x g_b_ x). This is equivalent to
+  // (g_b_ x accelerometer). Form a corrective quaternion from this rotation.
+  float quat_c[4] = { 1.0, 0.0, 0.0, 0.0 };
+  VectorCross(g_b_, AccelerationVector(), &quat_c[1]);
+  quat_c[1] *= 0.5 * ACCELEROMETER_CORRECTION_GAIN;
+  quat_c[2] *= 0.5 * ACCELEROMETER_CORRECTION_GAIN;
+  quat_c[3] *= 0.5 * ACCELEROMETER_CORRECTION_GAIN;
 
   // Apply the correction to the attitude quaternion.
   float result[4];
@@ -86,7 +84,6 @@ static void CorrectQuaternionWithAccelerometer(void)
 // -----------------------------------------------------------------------------
 static void UpdateGravtiyInBody(void)
 {
-  return;
   g_b_[0] = 2.0 * (quat_[1] * quat_[3] - quat_[0] * quat_[2]);
   g_b_[1] = 2.0 * (quat_[2] * quat_[3] + quat_[0] * quat_[1]);
   g_b_[2] = 2.0 * (quat_[0] * quat_[0] + quat_[3] * quat_[3]) - 1.0;
