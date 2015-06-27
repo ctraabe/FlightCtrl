@@ -133,6 +133,7 @@ void ResetPressureSensorRange(void)
   if (ADCState() != ADC_ACTIVE) return;
 
   UARTPrintf("pressure_altitude: setting measurement range");
+  UARTTxByte(':');
 
   // Initialize the fine adjustment to a middle value.
   int16_t bias_fine = 127;
@@ -143,7 +144,7 @@ void ResetPressureSensorRange(void)
 
   for (uint8_t i = 0; i < 30; i++)
   {
-    Wait(250);
+    Wait(300);
     ProcessSensorReadings();
 
     int16_t adjustment;
@@ -170,7 +171,7 @@ void ResetPressureSensorRange(void)
 
     UARTTxByte('.');
     OCR0A = (uint8_t)S16Limit(bias_fine, 0, 255);
-    Wait(250);
+    Wait(300);
     ProcessSensorReadings();
   }
   UARTPrintf("");  // New line
@@ -207,20 +208,24 @@ void PressureSensorBiasCalibration(void)
   int16_t initial_reading;
 
   initial_reading = BiasedPressure();
-  OCR0B += 1 << 3;  // 2^3 = 8. Adds approximately 1.6V to pressure sensor.
-  Wait(250);
-  coarse_bias_steps_to_pressure_steps_ = S16RoundRShiftS16(BiasedPressure()
+  OCR0B -= 1 << 3;  // 2^3 = 8. Adds approximately 1.6V to pressure sensor.
+  Wait(300);
+  ProcessSensorReadings();
+  coarse_bias_steps_to_pressure_steps_ = -S16RoundRShiftS16(BiasedPressure()
     - initial_reading, 3);
-  OCR0B -= 1 << 3;
-  Wait(250);
+
+  OCR0B += 1 << 3;
+  Wait(300);
+  ProcessSensorReadings();
 
   initial_reading = BiasedPressure();
-  OCR0A += 1 << 4;  // 2^4 = 16. Adds approximately 1.6V to pressure sensor.
-  Wait(250);
-  fine_bias_steps_to_pressure_steps_ = S16RoundRShiftS16(BiasedPressure()
+  OCR0A -= 1 << 4;  // 2^4 = 16. Adds approximately 1.6V to pressure sensor.
+  Wait(300);
+  ProcessSensorReadings();
+  fine_bias_steps_to_pressure_steps_ = -S16RoundRShiftS16(BiasedPressure()
     - initial_reading, 4);
-  OCR0A -= 1 << 4;
-  Wait(250);
+
+  OCR0A += 1 << 4;
 
   CheckPressureSensorBiasCalibration();
 
@@ -260,7 +265,7 @@ static void CheckPressureSensorBiasCalibration(void)
     - kExpectedCoarseStepsToPressureSteps);
 
   if (coarse_bias_deviation < (abs(kExpectedCoarseStepsToPressureSteps)
-    * kAcceptableDeviationPercent / 100))
+    * kAcceptableDeviationPercent) / 100)
   {
     pressure_altitude_error_bits_ &= ~PRESSURE_ERROR_BIT_COARSE_CALIBRATION;
   }
@@ -275,7 +280,7 @@ static void CheckPressureSensorBiasCalibration(void)
     - kExpectedFineStepsToPressureSteps);
 
   if (fine_bias_deviation < (abs(kExpectedFineStepsToPressureSteps)
-    * kAcceptableDeviationPercent / 100))
+    * kAcceptableDeviationPercent) / 100)
   {
     pressure_altitude_error_bits_ &= ~PRESSURE_ERROR_BIT_FINE_CALIBRATION;
   }
