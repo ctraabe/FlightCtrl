@@ -10,7 +10,6 @@
 // =============================================================================
 // Private data:
 
-#define MOTORS_MAX (8)
 #define MOTORS_BASE_ADDRESS (0x52)
 
 enum BLCStatusCode
@@ -95,6 +94,12 @@ uint8_t BLCErrorBits(void)
   return blc_error_bits_;
 }
 
+// -----------------------------------------------------------------------------
+uint8_t NMotors(void)
+{
+  return n_motors_;
+}
+
 
 // =============================================================================
 // Public functions:
@@ -131,7 +136,7 @@ void DetectMotors(void)
   }
 
   // Identify additional features of the brushless controllers.
-  UARTPrintf("Detected motor controllers with the following compatibility:");
+  UARTPrintf("motors: detected controllers with the following compatibility:");
   switch (blc_status_code)
   {
     case BLC_STATUS_V3_FAST_READY:
@@ -159,9 +164,9 @@ void DetectMotors(void)
     blc_error_bits_ |= BLC_ERROR_BIT_EXTRA_MOTOR;
   if (blc_error_bits_ & ~_BV(BLC_ERROR_BIT_INCONSISTENT_SETTINGS))
   {
-    UARTPrintf("ERROR: expected motor controllers with addresses: 0 - %i",
+    UARTPrintf("motors: ERROR: expected controllers with addresses: 0 - %i",
       n_motors_ - 1);
-    UARTPrintf("       Bit field of responding addresses is: %X", motors);
+    UARTPrintf("  Bit field of responding addresses is: %X", motors);
   }
 }
 
@@ -186,8 +191,8 @@ void SetMotorSetpoint(uint8_t address, uint16_t setpoint)
 void SetNMotors(uint8_t n_motors)
 {
   if (n_motors > MOTORS_MAX) n_motors = MOTORS_MAX;
-  n_motors_ = n_motors;
   eeprom_update_byte(&eeprom.n_motors, n_motors);
+  DetectMotors();
 }
 
 // -----------------------------------------------------------------------------

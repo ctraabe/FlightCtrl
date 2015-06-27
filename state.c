@@ -54,6 +54,7 @@ void UpdateState(void)
       if (TimestampInPast(stick_timer))
       {
         ZeroAccelerometers();
+        PressureSensorBiasCalibration();
         BeepDuration(500);
         stick_timer = GetTimestampMillisFromNow(2000);
       }
@@ -63,6 +64,7 @@ void UpdateState(void)
       if (TimestampInPast(stick_timer))
       {
         state_ &= ~STATE_BIT_MOTORS_INHIBITED;
+        state_ |= STATE_BIT_MOTORS_RUNNING;
         BeepPattern(0x0000AAAA);
         sbus_on_off_latch = 1;
       }
@@ -80,6 +82,7 @@ void UpdateState(void)
       {
         BeepPattern(0x0000AAAA);
         state_ |= STATE_BIT_MOTORS_INHIBITED;
+        state_ &= ~STATE_BIT_MOTORS_RUNNING;
         sbus_on_off_latch = 1;
       }
     }

@@ -4,6 +4,7 @@
 #include "attitude.h"
 #include "battery.h"
 #include "buzzer.h"
+#include "control.h"
 #include "i2c.h"
 #include "led.h"
 #include "mcu_pins.h"
@@ -107,8 +108,7 @@ int16_t main(void)
 {
   Init();
 
-  // ZeroGyros();
-  // ZeroAccelerometers();
+  // TODO: Delete these temporary EEPROM settings.
   // SBusSetChannels(2, 3, 0, 1, 17);
   // SetNMotors(4);
 
@@ -126,19 +126,15 @@ int16_t main(void)
       ProcessSBus();
 
       UpdateState();
-/*
-      SetMotorSetpoint(0, (uint16_t)S16Limit(SBusChannel(0), 0, 800));
-      SetMotorSetpoint(1, (uint16_t)S16Limit(SBusChannel(1), 0, 800));
-      SetMotorSetpoint(2, (uint16_t)S16Limit(SBusChannel(2), 0, 800));
-      SetMotorSetpoint(3, (uint16_t)S16Limit(SBusChannel(3), 0, 800));
-      TxMotorSetpoints();
-*/
+
+      Control();
+
       flag_128hz = 0;
     }
 
     if (flag_2hz)
     {
-      UARTPrintf("SBus: %i, %i, %i, %i, %i", SBusPitch(), SBusRoll(), SBusYaw(), SBusThrust(), SBusOnOff());
+      // UARTPrintf("SBus: %i, %i, %i, %i, %i", SBusPitch(), SBusRoll(), SBusYaw(), SBusThrust(), SBusOnOff());
       // UARTPrintf("%f %f %f %f", Quat(0), Quat(1), Quat(2), Quat(3));
       // UARTPrintf("%f %f %f", Gravity(0), Gravity(1), Gravity(2));
       // UARTPrintf("%f %f %f", AngularRate(0), AngularRate(1), AngularRate(2));

@@ -5,6 +5,8 @@
 #include <inttypes.h>
 
 
+#define MOTORS_MAX (8)
+
 enum BLCErrorBits {
   BLC_ERROR_BIT_MISSING_MOTOR = 1<<0,
   BLC_ERROR_BIT_EXTRA_MOTOR = 1<<1,
@@ -16,6 +18,9 @@ enum BLCErrorBits {
 // Accessors
 
 uint8_t BLCErrorBits(void);
+
+// -----------------------------------------------------------------------------
+uint8_t NMotors(void);
 
 
 // =============================================================================
