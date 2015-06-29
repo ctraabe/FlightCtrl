@@ -58,10 +58,14 @@ uint16_t BiasedPressureSensor(void);
 uint16_t Gyro(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
-// This function assumes that the Mikrokopter is motionless on the ground. It
-// finds the average gyro readings over the period of 1 second (approximately)
-// and considers the results to be the zero values of the gyros.
-void ZeroGyros(void);
+// This function loads the accelerometer offsets from EEPROM so that
+// accelerometers don't have to be re-calibrated every flight.
+void LoadAccelerometerOffsets(void);
+
+// -----------------------------------------------------------------------------
+// This function loads the gyro offsets from EEPROM. Not totally necessary, but
+//increases sanity of pre-initialized control computations.
+void LoadGyroOffsets(void);
 
 // -----------------------------------------------------------------------------
 // This function assumes that the Mikrokopter is motionless (on the ground). It
@@ -71,9 +75,10 @@ void ZeroGyros(void);
 void ZeroAccelerometers(void);
 
 // -----------------------------------------------------------------------------
-// This function loads the accelerometer offsets from EEPROM so that
-// accelerometers don't have to be re-calibrated every flight.
-void LoadAccelerometerOffsets(void);
+// This function assumes that the Mikrokopter is motionless on the ground. It
+// finds the average gyro readings over the period of 1 second (approximately)
+// and considers the results to be the zero values of the gyros.
+void ZeroGyros(void);
 
 
 // =============================================================================

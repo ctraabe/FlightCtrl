@@ -209,43 +209,27 @@ void WaitOneADCCycle(void)
 }
 
 // -----------------------------------------------------------------------------
-// This function assumes that the Mikrokopter is motionless on the ground. It
-// finds the average gyro readings over the period of 1 second (approximately)
-// and considers the results to be the zero values of the gyros.
-void ZeroGyros(void)
+// This function loads the accelerometer offsets from EEPROM so that
+// accelerometers don't have to be re-calibrated every flight.
+void LoadAccelerometerOffsets(void)
 {
-  int32_t sample_sum[3] = { 0 };
+  eeprom_read_block((void*)acc_offset_, (const void*)&eeprom.acc_offset[0],
+    sizeof(acc_offset_));
 
-  // TODO: Never block motor communication when running.
-  // if (MotorsOn()) return 1;
-
-  // Clear offsets.
-  gyro_offset_[X_BODY_AXIS] = 0;
-  gyro_offset_[Y_BODY_AXIS] = 0;
-  gyro_offset_[Z_BODY_AXIS] = 0;
-
-  // Sum samples over about 1 second (2000 samples).
-  // Note: the number of samples must be evenly divisible by ADC_N_SAMPLES.
-  const uint16_t kNSamples = 2048 / ADC_N_SAMPLES;
-  for (uint16_t i = 0; i < kNSamples; i++)
-  {
-    WaitOneADCCycle();
-    ProcessSensorReadings();
-    sample_sum[X_BODY_AXIS] += gyro_sum_[X_BODY_AXIS];
-    sample_sum[Y_BODY_AXIS] += gyro_sum_[Y_BODY_AXIS];
-    sample_sum[Z_BODY_AXIS] += gyro_sum_[Z_BODY_AXIS];
-  }
-
-  // Average the results and set as the offset.
-  gyro_offset_[X_BODY_AXIS] = (int16_t)(sample_sum[X_BODY_AXIS] / kNSamples);
-  gyro_offset_[Y_BODY_AXIS] = (int16_t)(sample_sum[Y_BODY_AXIS] / kNSamples);
-  gyro_offset_[Z_BODY_AXIS] = (int16_t)(sample_sum[Z_BODY_AXIS] / kNSamples);
-
-  // TODO: Change these limits to something more reasonable.
+  // TODO: Change these limits to something more reasonable
   // Check that the zero values are within an acceptable range. The acceptable
   // range is specified in ADC steps from the ADC middle value (511).
   const uint16_t kAcceptableDeviation = 20;
-  CheckOffset(gyro_offset_, kAcceptableDeviation);
+  CheckOffset(acc_offset_, kAcceptableDeviation);
+}
+
+// -----------------------------------------------------------------------------
+// This function loads the gyro offsets from EEPROM. Not totally necessary, but
+//increases sanity of pre-initialized control computations.
+void LoadGyroOffsets(void)
+{
+  eeprom_read_block((void*)gyro_offset_, (const void*)&eeprom.gyro_offset[0],
+    sizeof(gyro_offset_));
 }
 
 // -----------------------------------------------------------------------------
@@ -305,18 +289,48 @@ void ZeroAccelerometers(void)
 }
 
 // -----------------------------------------------------------------------------
-// This function loads the accelerometer offsets from EEPROM so that
-// accelerometers don't have to be re-calibrated every flight.
-void LoadAccelerometerOffsets(void)
+// This function assumes that the Mikrokopter is motionless on the ground. It
+// finds the average gyro readings over the period of 1 second (approximately)
+// and considers the results to be the zero values of the gyros.
+void ZeroGyros(void)
 {
-  eeprom_read_block((void*)acc_offset_, (const void*)&eeprom.acc_offset[0],
-    sizeof(acc_offset_));
+  int32_t sample_sum[3] = { 0 };
 
-  // TODO: Change these limits to something more reasonable
+  // TODO: Never block motor communication when running.
+  // if (MotorsOn()) return 1;
+
+  // Clear offsets.
+  gyro_offset_[X_BODY_AXIS] = 0;
+  gyro_offset_[Y_BODY_AXIS] = 0;
+  gyro_offset_[Z_BODY_AXIS] = 0;
+
+  // Sum samples over about 1 second (2000 samples).
+  // Note: the number of samples must be evenly divisible by ADC_N_SAMPLES.
+  const uint16_t kNSamples = 2048 / ADC_N_SAMPLES;
+  for (uint16_t i = 0; i < kNSamples; i++)
+  {
+    WaitOneADCCycle();
+    ProcessSensorReadings();
+    sample_sum[X_BODY_AXIS] += gyro_sum_[X_BODY_AXIS];
+    sample_sum[Y_BODY_AXIS] += gyro_sum_[Y_BODY_AXIS];
+    sample_sum[Z_BODY_AXIS] += gyro_sum_[Z_BODY_AXIS];
+  }
+
+  // Average the results and set as the offset.
+  gyro_offset_[X_BODY_AXIS] = (int16_t)(sample_sum[X_BODY_AXIS] / kNSamples);
+  gyro_offset_[Y_BODY_AXIS] = (int16_t)(sample_sum[Y_BODY_AXIS] / kNSamples);
+  gyro_offset_[Z_BODY_AXIS] = (int16_t)(sample_sum[Z_BODY_AXIS] / kNSamples);
+
+  // TODO: Change these limits to something more reasonable.
   // Check that the zero values are within an acceptable range. The acceptable
   // range is specified in ADC steps from the ADC middle value (511).
   const uint16_t kAcceptableDeviation = 20;
-  CheckOffset(acc_offset_, kAcceptableDeviation);
+  CheckOffset(gyro_offset_, kAcceptableDeviation);
+
+  // Save the values in the EEPROM.
+  // TODO: Make this contingent on success of CheckOffset
+  eeprom_update_block((const void*)gyro_offset_, (void*)&eeprom.gyro_offset[0],
+    sizeof(gyro_offset_));
 }
 
 
