@@ -8,7 +8,7 @@
 // =============================================================================
 // Public functions:
 
-void VectorCross(float v1[3], float v2[3], float result[3]);
+float * VectorCross(float v1[3], float v2[3], float result[3]);
 
 // -----------------------------------------------------------------------------
 float VectorDot(float v1[3], float v2[3]);

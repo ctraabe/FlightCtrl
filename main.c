@@ -94,6 +94,7 @@ static void Init(void)
 
   UARTPrintf("University of Tokyo Mikrokopter firmware V2");
 
+  LoadGyroOffsets();
   LoadAccelerometerOffsets();
   ADCOn();  // Start reading the sensors
 
@@ -127,16 +128,18 @@ int16_t main(void)
 
       UpdateState();
 
-      Control();
+      // Control();
 
       flag_128hz = 0;
     }
 
     if (flag_2hz)
     {
+      Control();
+
       // UARTPrintf("SBus: %i, %i, %i, %i, %i", SBusPitch(), SBusRoll(), SBusYaw(), SBusThrust(), SBusOnOff());
       // UARTPrintf("%f %f %f %f", Quat(0), Quat(1), Quat(2), Quat(3));
-      // UARTPrintf("%f %f %f", Gravity(0), Gravity(1), Gravity(2));
+      // UARTPrintf("%f %f %f", GravityInBodyVector()[0], GravityInBodyVector()[1], GravityInBodyVector()[2]);
       // UARTPrintf("%f %f %f", AngularRate(0), AngularRate(1), AngularRate(2));
       // UARTPrintf("%f %f %f", Acceleration(0), Acceleration(1), Acceleration(2));
       // UARTPrintf("%f", QuatCorrection());

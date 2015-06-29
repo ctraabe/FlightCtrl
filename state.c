@@ -1,6 +1,7 @@
 #include "state.h"
 
 #include "adc.h"
+#include "attitude.h"
 #include "buzzer.h"
 #include "pressure_altitude.h"
 #include "sbus.h"
@@ -44,6 +45,7 @@ void UpdateState(void)
       {
         ZeroGyros();
         ResetPressureSensorRange();
+        ResetAttitude();
         state_ |= STATE_BIT_INITIALIZED;
         BeepDuration(500);
         stick_timer = GetTimestampMillisFromNow(2000);

@@ -26,21 +26,32 @@ static void UpdateQuaternion(void);
 // =============================================================================
 // Accessors:
 
-float Gravity(enum BodyAxes axis)
+float * GravityInBodyVector(void)
 {
-  return g_b_[axis];
+  return g_b_;
 }
 
 // -----------------------------------------------------------------------------
-float Quat(uint8_t n)
+float * Quat(void)
 {
-  return quat_[n];
+  return quat_;
 }
 
 
 // =============================================================================
 // Public functions:
 
+void ResetAttitude(void)
+{
+  quat_[0] = -AccelerationVector()[Z_BODY_AXIS];
+  quat_[1] = -AccelerationVector()[Y_BODY_AXIS];
+  quat_[2] = AccelerationVector()[X_BODY_AXIS];
+  quat_[3] = 0.0;
+  quat_[0] += QuaternionNorm(quat_);
+  QuaternionNormalize(quat_);
+}
+
+// -----------------------------------------------------------------------------
 void UpdateAttitude(void)
 {
   UpdateQuaternion();
@@ -63,9 +74,10 @@ float HeadingAngle(void)
 static void CorrectQuaternionWithAccelerometer(void)
 {
   // Assume that the accelerometer measures ONLY the resistance to gravity (
-  // opposite the gravity vector). The direction of rotation that takes the body from predicted to
-  // estimated gravity is (-accelerometer x g_b_ x). This is equivalent to
-  // (g_b_ x accelerometer). Form a corrective quaternion from this rotation.
+  // opposite the gravity vector). The direction of rotation that takes the body
+  // from predicted to estimated gravity is (-accelerometer x g_b_ x). This is
+  // equivalent to (g_b_ x accelerometer). Form a corrective quaternion from
+  // this rotation.
   float quat_c[4] = { 1.0, 0.0, 0.0, 0.0 };
   VectorCross(g_b_, AccelerationVector(), &quat_c[1]);
   quat_c[1] *= 0.5 * ACCELEROMETER_CORRECTION_GAIN;

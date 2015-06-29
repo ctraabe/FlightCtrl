@@ -18,6 +18,7 @@ extern struct EEPROM {
   uint8_t space[2048];  // 2kB space reserved for original Mikrokopter firmware.
   float b_inverse[MOTORS_MAX][4];
   int16_t acc_offset[3];
+  int16_t gyro_offset[3];
   uint8_t n_motors;
   uint8_t pressure_coarse_bias;
   uint16_t coarse_bias_steps_to_pressure_steps;

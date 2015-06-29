@@ -32,7 +32,7 @@ static uint8_t channel_pitch_, channel_roll_, channel_yaw_, channel_thrust_,
 // =============================================================================
 // Private function declarations:
 
-inline uint8_t SBusByte(uint8_t);
+static inline uint8_t SBusByte(uint8_t);
 
 
 // =============================================================================
@@ -255,7 +255,7 @@ void ProcessSBus(void)
 // This is a helper function that converts an byte index for the raw SBus
 // message to the place it occurs in the buffer. This is necessary because the
 // interrupt handler records the bytes in backwards order.
-inline uint8_t SBusByte(uint8_t n)
+static inline uint8_t SBusByte(uint8_t n)
 {
   return SBUS_MESSAGE_LENGTH - n;
 }
