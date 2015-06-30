@@ -4,7 +4,7 @@
 
 #include <inttypes.h>
 
-#include "global_definitions.h"
+#include "main.h"
 
 
 // =============================================================================

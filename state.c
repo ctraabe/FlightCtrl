@@ -1,9 +1,7 @@
 #include "state.h"
 
-#include "adc.h"
-#include "attitude.h"
 #include "buzzer.h"
-#include "pressure_altitude.h"
+#include "main.h"
 #include "sbus.h"
 #include "timing.h"
 
@@ -43,9 +41,7 @@ void UpdateState(void)
     {
       if (TimestampInPast(stick_timer))
       {
-        ZeroGyros();
-        ResetPressureSensorRange();
-        ResetAttitude();
+        PreflightInit();
         state_ |= STATE_BIT_INITIALIZED;
         BeepDuration(500);
         stick_timer = GetTimestampMillisFromNow(2000);
@@ -55,8 +51,7 @@ void UpdateState(void)
     {
       if (TimestampInPast(stick_timer))
       {
-        ZeroAccelerometers();
-        PressureSensorBiasCalibration();
+        SensorCalibration();
         BeepDuration(500);
         stick_timer = GetTimestampMillisFromNow(2000);
       }

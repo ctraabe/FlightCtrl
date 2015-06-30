@@ -19,14 +19,37 @@
 // ============================================================================+
 // Private data:
 
-static volatile uint8_t flag_128hz = 0, flag_2hz = 0;
-static volatile uint16_t main_overrun_count = 0;
+static volatile uint8_t flag_128hz_ = 0, flag_2hz_ = 0;
+static volatile uint16_t main_overrun_count_ = 0;
 
 
 // =============================================================================
 // Private function declarations:
 
 int16_t main(void) __attribute__ ((noreturn));
+
+
+// =============================================================================
+// Public functions:
+
+void PreflightInit(void)
+{
+  ZeroGyros();
+  ResetPressureSensorRange();
+  ResetAttitude();
+  main_overrun_count_ = 0;
+  RedLEDOff();
+}
+
+// -----------------------------------------------------------------------------
+void SensorCalibration(void)
+{
+  ZeroAccelerometers();
+  PressureSensorBiasCalibration();
+  ResetAttitude();
+  main_overrun_count_ = 0;
+  RedLEDOff();
+}
 
 
 // =============================================================================
@@ -53,7 +76,7 @@ ISR(TIMER3_CAPT_vect)
   switch ((uint8_t)(counter ^ (counter + 1))) {
     case COUNTER_1HZ:
     case COUNTER_2HZ:
-      flag_2hz = 1;
+      flag_2hz_ = 1;
     case COUNTER_4HZ:
     case COUNTER_8HZ:
     case COUNTER_16HZ:
@@ -61,15 +84,10 @@ ISR(TIMER3_CAPT_vect)
     case COUNTER_32HZ:
     case COUNTER_64HZ:
     case COUNTER_128HZ:
-      if (flag_128hz)
-      {
-        main_overrun_count++;
-        RedLEDOn();
-      }
+      if (flag_128hz_)
+        main_overrun_count_++;
       else
-      {
-        flag_128hz = 1;
-      }
+        flag_128hz_ = 1;
     default:
       counter++;
       break;
@@ -118,7 +136,7 @@ int16_t main(void)
   // Main loop
   for (;;)  // Preferred over while(1)
   {
-    if (flag_128hz)
+    if (flag_128hz_)
     {
       ProcessSensorReadings();
 
@@ -130,10 +148,11 @@ int16_t main(void)
 
       // Control();
 
-      flag_128hz = 0;
+      flag_128hz_ = 0;
+      if (main_overrun_count_) RedLEDOn();
     }
 
-    if (flag_2hz)
+    if (flag_2hz_)
     {
       Control();
 
@@ -146,7 +165,7 @@ int16_t main(void)
       // UARTPrintf("%f", HeadingAngle());
 
       GreenLEDToggle();
-      flag_2hz = 0;
+      flag_2hz_ = 0;
     }
   }
 
