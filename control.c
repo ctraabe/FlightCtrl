@@ -7,6 +7,7 @@
 #include "eeprom.h"
 #include "main.h"
 #include "motors.h"
+#include "mymath.h"
 #include "sbus.h"
 #include "state.h"
 #include "uart.h"
@@ -18,14 +19,23 @@
 
 #define CONTROL_MOTORS_IDLE (40)
 #define MAX_G_B_CMD (sin(M_PI / 3.0))
+#define CMD_MARGIN (20)
+#define MIN_CMD (64)
+#define MAX_CMD (1840)
+#define MAX_ATTITUDE_RATE (1.0)
 
 static float b_inverse_[MOTORS_MAX][4];
+static float omega_2_to_cmd_, p_dot_to_omega_2_;
+static float k_phi_, k_p_;
+static float attitude_error_limit_;
+static int16_t  max_cmd_from_attitude_error_;
+static uint16_t k_sbus_to_thrust_, min_cmd_from_thrust_, max_cmd_from_thrust_;
 
 
 // =============================================================================
 // Private function declarations:
 
-static float * AttitudeFromSticks(float g_b_command[3]);
+// static float * AttitudeFromSticks(float g_b_cmd[3]);
 
 
 // =============================================================================
@@ -35,6 +45,22 @@ void ControlInit(void)
 {
   eeprom_read_block((void*)b_inverse_, (const void*)&eeprom.b_inverse[0][0],
     sizeof(b_inverse_));
+
+  // TODO: remove these temporary initializations and replace with EEPROM.
+  omega_2_to_cmd_ = 0.003236649;
+  p_dot_to_omega_2_ = 1538.461538462;
+  k_phi_ = 100.0;
+  k_p_ = 30.0;
+  // k_p_dot_ = 2.15;
+
+  attitude_error_limit_ = MAX_ATTITUDE_RATE * k_p_ / k_phi_;
+  max_cmd_from_attitude_error_ = (int16_t)(k_phi_ * attitude_error_limit_
+    * p_dot_to_omega_2_ * omega_2_to_cmd_ + 0.5);
+
+  min_cmd_from_thrust_ = MIN_CMD + max_cmd_from_attitude_error_;
+  max_cmd_from_thrust_ = MAX_CMD - max_cmd_from_attitude_error_;
+  k_sbus_to_thrust_ = (uint16_t)(((float)max_cmd_from_thrust_
+    - (float)min_cmd_from_thrust_) / (2.0 * (float)SBUS_MAX) * (float)(1 << 9));
 }
 
 // -----------------------------------------------------------------------------
@@ -57,7 +83,7 @@ void Control(void)
   // u[3] = (float)thrust_cmd / 512.;
 
   // int16_t omega_cmd[MOTORS_MAX];
-  uint16_t setpoint[MOTORS_MAX];
+  uint16_t setpoint[MOTORS_MAX] = { 0 };
   // for (uint8_t i = NMotors(); i--; )
   // {
   //   float omega2_cmd = 0.;
@@ -73,17 +99,31 @@ void Control(void)
   //     setpoint[i] = 64;
   // }
 
-  float attitude_command[3];
-  AttitudeFromSticks(attitude_command);
+  union {
+    uint32_t uint32;
+    struct
+    {
+      uint8_t low8;
+      uint16_t uint16;
+      uint8_t space;
+    } result;
+  } temp;
+  temp.uint32 = (uint32_t)(SBusThrust() + SBUS_MAX) * k_sbus_to_thrust_;
+  uint16_t thrust_cmd = U16RoundRShiftU16(temp.result.uint16, 1)
+    + min_cmd_from_thrust_;
+  UARTPrintf("%lu %u %u %i", temp.uint32, temp.result.uint16, thrust_cmd, SBusThrust());
+/*
+  float attitude_cmd[3];
+  AttitudeFromSticks(attitude_cmd);
 
   float attitude_error[3];
-  VectorCross(attitude_command, GravityInBodyVector(), attitude_error);
+  VectorCross(attitude_cmd, GravityInBodyVector(), attitude_error);
 
-  float x_b_command = 100.0 * attitude_error[X_BODY_AXIS];
-  float y_b_command = 100.0 * attitude_error[Y_BODY_AXIS];
+  float x_b_cmd = 100.0 * attitude_error[X_BODY_AXIS];
+  float y_b_cmd = 100.0 * attitude_error[Y_BODY_AXIS];
 
-  UARTPrintf("%f %f", x_b_command, y_b_command);
-
+  UARTPrintf("%f %f", x_b_cmd, y_b_cmd);
+*/
   if (MotorsRunning())
   {
     for (uint8_t i = 1; i--; )
@@ -118,18 +158,19 @@ void SetBInverse(float b_inverse[MOTORS_MAX][4])
 // This function computes an attitude command in the form of desired components
 // of the gravity vector along the x and y body axes. WARNING: THE NORM OF THESE
 // COMPONENTS SHOULD NEVER EXCEED ONE!!!
-static float * AttitudeFromSticks(float g_b_command[3])
+// static float * AttitudeFromSticks(float g_b_cmd[3])
+float * AttitudeFromSticks(float g_b_cmd[3])
 {
   float x = (float)SBusPitch() * MAX_G_B_CMD / (float)SBUS_MAX;
-  g_b_command[X_BODY_AXIS] = x - x * (float)abs(SBusRoll()) * MAX_G_B_CMD
+  g_b_cmd[X_BODY_AXIS] = x - x * (float)abs(SBusRoll()) * MAX_G_B_CMD
     / (4.0 * (float)SBUS_MAX);
 
   float y = (float)SBusRoll() * MAX_G_B_CMD / (float)SBUS_MAX;
-  g_b_command[Y_BODY_AXIS] = -y + y * (float)abs(SBusPitch()) * MAX_G_B_CMD
+  g_b_cmd[Y_BODY_AXIS] = -y + y * (float)abs(SBusPitch()) * MAX_G_B_CMD
     / (4.0 * (float)SBUS_MAX);
 
-  g_b_command[Z_BODY_AXIS] = sqrt(1.0 - square(g_b_command[X_BODY_AXIS])
-    - square(g_b_command[Y_BODY_AXIS]));
+  g_b_cmd[Z_BODY_AXIS] = sqrt(1.0 - square(g_b_cmd[X_BODY_AXIS])
+    - square(g_b_cmd[Y_BODY_AXIS]));
 
-  return g_b_command;
+  return g_b_cmd;
 }
