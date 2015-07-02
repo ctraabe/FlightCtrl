@@ -53,10 +53,15 @@ void ControlInit(void)
   k_p_ = 30.0;
   // k_p_dot_ = 2.15;
 
+  // Compute limits on the attitude that will give the specified approach speed
+  // when error is very large.
   attitude_error_limit_ = MAX_ATTITUDE_RATE * k_p_ / k_phi_;
   max_cmd_from_attitude_error_ = (int16_t)(k_phi_ * attitude_error_limit_
     * p_dot_to_omega_2_ * omega_2_to_cmd_ + 0.5);
 
+  // Compute the thrust command range based on the margin that is required for
+  // attitude control. Thrust is computed directly from the thrust stick using
+  // fixed-point math. The Q9 stick gain is precomputed below.
   min_cmd_from_thrust_ = MIN_CMD + max_cmd_from_attitude_error_;
   max_cmd_from_thrust_ = MAX_CMD - max_cmd_from_attitude_error_;
   k_sbus_to_thrust_ = (uint16_t)(((float)max_cmd_from_thrust_
@@ -99,19 +104,6 @@ void Control(void)
   //     setpoint[i] = 64;
   // }
 
-  union {
-    uint32_t uint32;
-    struct
-    {
-      uint8_t low8;
-      uint16_t uint16;
-      uint8_t space;
-    } result;
-  } temp;
-  temp.uint32 = (uint32_t)(SBusThrust() + SBUS_MAX) * k_sbus_to_thrust_;
-  uint16_t thrust_cmd = U16RoundRShiftU16(temp.result.uint16, 1)
-    + min_cmd_from_thrust_;
-  UARTPrintf("%lu %u %u %i", temp.uint32, temp.result.uint16, thrust_cmd, SBusThrust());
 /*
   float attitude_cmd[3];
   AttitudeFromSticks(attitude_cmd);
@@ -173,4 +165,25 @@ float * AttitudeFromSticks(float g_b_cmd[3])
     - square(g_b_cmd[Y_BODY_AXIS]));
 
   return g_b_cmd;
+}
+
+// -----------------------------------------------------------------------------
+// This function uses some fixed-point math tricks to efficiently compute the
+// thrust contribution from a pre-computed thrust multiplier (Q9).
+uint16_t ThrustFromStick(void)
+{
+  union {
+    uint32_t uint32;
+    struct
+    {
+      uint8_t low8;
+      uint16_t uint16;
+      uint8_t space;
+    } result;
+    uint8_t bytes[4];
+  } u;
+
+  u.uint32 = (uint32_t)(SBusThrust() + SBUS_MAX) * k_sbus_to_thrust_;
+
+  return U16RoundRShiftU16(u.result.uint16, 1) + min_cmd_from_thrust_;
 }
