@@ -96,6 +96,12 @@ float AngularRate(enum BodyAxes axis)
 }
 
 // -----------------------------------------------------------------------------
+float * AngularRateVector(void)
+{
+  return angular_rate_;
+}
+
+// -----------------------------------------------------------------------------
 uint16_t BatteryVoltage(void)
 {
   return battery_voltage_;

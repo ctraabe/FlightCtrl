@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdlib.h>
 
+#include "adc.h"
 #include "attitude.h"
 #include "eeprom.h"
 #include "main.h"
@@ -25,7 +26,7 @@
 #define MAX_ATTITUDE_RATE (1.0)
 
 static float b_inverse_[MOTORS_MAX][4];
-static float omega_2_to_cmd_, p_dot_to_omega_2_;
+static float p_dot_to_cmd_;
 static float k_phi_, k_p_;
 static float attitude_error_limit_;
 static int16_t  max_cmd_from_attitude_error_;
@@ -35,7 +36,9 @@ static uint16_t k_sbus_to_thrust_, min_cmd_from_thrust_, max_cmd_from_thrust_;
 // =============================================================================
 // Private function declarations:
 
-// static float * AttitudeFromSticks(float g_b_cmd[3]);
+static float * AttitudeFromSticks(float g_b_cmd[3]);
+static int16_t * AttitudeCommand(int16_t attitude_cmd[3]);
+static uint16_t ThrustCommand(void);
 
 
 // =============================================================================
@@ -47,8 +50,9 @@ void ControlInit(void)
     sizeof(b_inverse_));
 
   // TODO: remove these temporary initializations and replace with EEPROM.
-  omega_2_to_cmd_ = 0.003236649;
-  p_dot_to_omega_2_ = 1538.461538462;
+  float omega_2_to_cmd = 0.003236649;
+  float p_dot_to_omega_2 = 1538.461538462;
+  p_dot_to_cmd_ = omega_2_to_cmd * p_dot_to_omega_2;
   k_phi_ = 100.0;
   k_p_ = 30.0;
   // k_p_dot_ = 2.15;
@@ -57,7 +61,7 @@ void ControlInit(void)
   // when error is very large.
   attitude_error_limit_ = MAX_ATTITUDE_RATE * k_p_ / k_phi_;
   max_cmd_from_attitude_error_ = (int16_t)(k_phi_ * attitude_error_limit_
-    * p_dot_to_omega_2_ * omega_2_to_cmd_ + 0.5);
+    * p_dot_to_cmd_ + 0.5);
 
   // Compute the thrust command range based on the margin that is required for
   // attitude control. Thrust is computed directly from the thrust stick using
@@ -71,55 +75,25 @@ void ControlInit(void)
 // -----------------------------------------------------------------------------
 void Control(void)
 {
-  // enum { THRUST_STICK_GAIN = 100 };  // 0.1953125 Q9
-  // thrust_cmd = THRUST_STICK_GAIN * thrust_stick + 5 * (1<<9);  // Q9 N [5, 55]
+  uint16_t setpoint[MOTORS_MAX];
+  uint16_t cmd_from_thrust = ThrustCommand();
 
-  // phi_cmd = -(float)roll_stick / 128.;  // rad [-1, 1]
-  // phi_err = phi_cmd - phi;  // rad
-
-  // theta_cmd = -(float)pitch_stick / 128.;  // rad [-1, 1]
-  // theta_err = theta_cmd - theta;  // rad
-
-  // yaw_cmd = -(float)yaw_stick * 4. / 53. - 9.1320755 * r;
-
-  // u[0] = -2.15 * dp - 30. * p + 100. * phi_err;
-  // u[1] = -2.15 * dq - 30. * q + 100. * theta_err;
-  // u[2] = yaw_cmd;
-  // u[3] = (float)thrust_cmd / 512.;
-
-  // int16_t omega_cmd[MOTORS_MAX];
-  uint16_t setpoint[MOTORS_MAX] = { 0 };
-  // for (uint8_t i = NMotors(); i--; )
-  // {
-  //   float omega2_cmd = 0.;
-  //   for (uint8_t j = 0; j < 4; j++)
-  //     omega2_cmd += kBInverse[i][j] * u[j];
-  //   if (omega2_cmd > 0.)
-  //     omega_cmd[i] = (uint16_t)sqrt(omega2_cmd);
-  //   else
-  //     omega_cmd[i] = 0;
-  //   if (omega_cmd[i] > 140)
-  //     setpoint[i] = U16Limit(((omega_cmd[i] - 140) * 8) / 3, 64, 1840);
-  //   else
-  //     setpoint[i] = 64;
-  // }
-
+  int16_t cmd_from_attitude[3];
+  AttitudeCommand(cmd_from_attitude);
 /*
-  float attitude_cmd[3];
-  AttitudeFromSticks(attitude_cmd);
-
-  float attitude_error[3];
-  VectorCross(attitude_cmd, GravityInBodyVector(), attitude_error);
-
-  float x_b_cmd = 100.0 * attitude_error[X_BODY_AXIS];
-  float y_b_cmd = 100.0 * attitude_error[Y_BODY_AXIS];
-
-  UARTPrintf("%f %f", x_b_cmd, y_b_cmd);
+  for (uint8_t i = NMotors(); i--; )
+  {
+    setpoint[i] = U16Limit(cmd_from_thrust, MIN_CMD - CMD_MARGIN, MAX_CMD
+      + CMD_MARGIN);
+  }
 */
   if (MotorsRunning())
   {
     for (uint8_t i = 1; i--; )
+    {
+      setpoint[i] = cmd_from_thrust + 0 * cmd_from_attitude[0];
       SetMotorSetpoint(i, setpoint[i]);
+    }
   }
   else if (MotorsStarting())
   {
@@ -150,8 +124,7 @@ void SetBInverse(float b_inverse[MOTORS_MAX][4])
 // This function computes an attitude command in the form of desired components
 // of the gravity vector along the x and y body axes. WARNING: THE NORM OF THESE
 // COMPONENTS SHOULD NEVER EXCEED ONE!!!
-// static float * AttitudeFromSticks(float g_b_cmd[3])
-float * AttitudeFromSticks(float g_b_cmd[3])
+static float * AttitudeFromSticks(float g_b_cmd[3])
 {
   float x = (float)SBusPitch() * MAX_G_B_CMD / (float)SBUS_MAX;
   g_b_cmd[X_BODY_AXIS] = x - x * (float)abs(SBusRoll()) * MAX_G_B_CMD
@@ -168,9 +141,42 @@ float * AttitudeFromSticks(float g_b_cmd[3])
 }
 
 // -----------------------------------------------------------------------------
+static int16_t * AttitudeCommand(int16_t attitude_cmd[3])
+{
+  float attitude_cmd_f[3];
+  AttitudeFromSticks(attitude_cmd_f);
+
+  // The following computes a vector along the axis of rotation from the gravity
+  // vector in the body axis to the desired gravity vector. The magnitude of the
+  // vector is equal to 2 * sin(phi / 2), where phi is the angle between the
+  // current and desired gravity vectors.
+  float attitude_error[3];
+  VectorGain(VectorCross(attitude_cmd_f, GravityInBodyVector(), attitude_error),
+    1.0 / sqrt(0.5 + 0.5 * VectorDot(attitude_cmd_f, GravityInBodyVector())),
+    attitude_error);
+
+  // Saturate the error.
+  float attitude_error_norm = VectorNorm(attitude_error);
+  if (attitude_error_norm > attitude_error_limit_)
+    VectorGain(attitude_error, attitude_error_limit_
+      / attitude_error_norm, attitude_error);
+
+  VectorGain(attitude_error, k_phi_, attitude_cmd_f);
+  VectorGainAndAccumulate(AngularRateVector(), k_p_, attitude_cmd_f);
+  VectorGain(attitude_cmd_f, p_dot_to_cmd_, attitude_cmd_f);
+
+  // TODO: fix this so that negative numbers round correctly
+  attitude_cmd[0] = (int16_t)(attitude_cmd_f[0] + 0.5);
+  attitude_cmd[1] = (int16_t)(attitude_cmd_f[1] + 0.5);
+  attitude_cmd[2] = (int16_t)(attitude_cmd_f[2] + 0.5);
+
+  return attitude_cmd;
+}
+
+// -----------------------------------------------------------------------------
 // This function uses some fixed-point math tricks to efficiently compute the
 // thrust contribution from a pre-computed thrust multiplier (Q9).
-uint16_t ThrustFromStick(void)
+static uint16_t ThrustCommand(void)
 {
   union {
     uint32_t uint32;

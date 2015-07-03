@@ -104,15 +104,14 @@ static void UpdateGravtiyInBody(void)
 // -----------------------------------------------------------------------------
 static void UpdateQuaternion(void)
 {
-  float p_2_dt = AngularRate(X_BODY_AXIS) * 0.5 * DT;
-  float q_2_dt = AngularRate(Y_BODY_AXIS) * 0.5 * DT;
-  float r_2_dt = AngularRate(Z_BODY_AXIS) * 0.5 * DT;
+  float dpqr[3];
+  VectorGain(AngularRateVector(), 0.5 * DT, dpqr);
 
   float d_quat[4];
-  d_quat[0] = -p_2_dt * quat_[1] - q_2_dt * quat_[2] - r_2_dt * quat_[3];
-  d_quat[1] =  p_2_dt * quat_[0] - q_2_dt * quat_[3] + r_2_dt * quat_[2];
-  d_quat[2] =  p_2_dt * quat_[3] + q_2_dt * quat_[0] - r_2_dt * quat_[1];
-  d_quat[3] = -p_2_dt * quat_[2] + q_2_dt * quat_[1] + r_2_dt * quat_[0];
+  d_quat[0] = -dpqr[0] * quat_[1] - dpqr[1] * quat_[2] - dpqr[2] * quat_[3];
+  d_quat[1] =  dpqr[0] * quat_[0] - dpqr[1] * quat_[3] + dpqr[2] * quat_[2];
+  d_quat[2] =  dpqr[0] * quat_[3] + dpqr[1] * quat_[0] - dpqr[2] * quat_[1];
+  d_quat[3] = -dpqr[0] * quat_[2] + dpqr[1] * quat_[1] + dpqr[2] * quat_[0];
 
   quat_[0] += d_quat[0];
   quat_[1] += d_quat[1];

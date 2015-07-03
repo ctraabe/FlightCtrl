@@ -28,6 +28,8 @@ extern struct EEPROM {
   uint8_t sbus_channel_yaw;
   uint8_t sbus_channel_thrust;
   uint8_t sbus_channel_on_off;
+  int16_t motor_location[MOTORS_MAX][2];  // Location in body (x,y) in m Q9.
+  int8_t motor_direction[MOTORS_MAX];
 } eeprom;
 
 

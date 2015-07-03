@@ -157,14 +157,6 @@ int16_t main(void)
     {
       Control();
 
-      // UARTPrintf("SBus: %i, %i, %i, %i, %i", SBusPitch(), SBusRoll(), SBusYaw(), SBusThrust(), SBusOnOff());
-      // UARTPrintf("%f %f %f %f", Quat(0), Quat(1), Quat(2), Quat(3));
-      // UARTPrintf("%f %f %f", GravityInBodyVector()[0], GravityInBodyVector()[1], GravityInBodyVector()[2]);
-      // UARTPrintf("%f %f %f", AngularRate(0), AngularRate(1), AngularRate(2));
-      // UARTPrintf("%f %f %f", Acceleration(0), Acceleration(1), Acceleration(2));
-      // UARTPrintf("%f", QuatCorrection());
-      // UARTPrintf("%f", HeadingAngle());
-
       GreenLEDToggle();
       flag_2hz_ = 0;
     }
