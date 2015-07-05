@@ -12,6 +12,17 @@
 // =============================================================================
 // Public functions:
 
+float * QuaternionInverse(float quat[4], float result[4])
+{
+  result[0] = quat[0];
+  result[1] = -quat[1];
+  result[2] = -quat[2];
+  result[3] = -quat[3];
+
+  return result;
+}
+
+// -----------------------------------------------------------------------------
 float * QuaternionMultiply(float quat1[4], float quat2[4], float result[4])
 {
   result[0] = quat1[0] * quat2[0] - quat1[1] * quat2[1] - quat1[2] * quat2[2]

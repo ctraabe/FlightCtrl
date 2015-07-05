@@ -4,6 +4,15 @@
 // =============================================================================
 // Public functions:
 
+int16_t FloatToS16(float input)
+{
+  if (input < 0.0)
+    return (int16_t)(input - 0.5);
+  else
+    return (int16_t)(input + 0.5);
+}
+
+// -----------------------------------------------------------------------------
 int8_t S8Limit(int8_t input, int8_t lower_limit, int8_t upper_limit)
 {
   if (input < lower_limit) return lower_limit;
