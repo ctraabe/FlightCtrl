@@ -15,8 +15,8 @@
 
 
 extern struct EEPROM {
-  uint8_t space[2048];  // 2kB space reserved for original Mikrokopter firmware.
-  float b_inverse[MOTORS_MAX][4];
+  uint8_t space[2048];  // 2kB space reserved for original Mikrokopter firmware
+  float actuation_inverse[MOTORS_MAX][4];  // Inverse of the actuation matrix
   int16_t acc_offset[3];
   int16_t gyro_offset[3];
   uint8_t n_motors;
@@ -28,8 +28,6 @@ extern struct EEPROM {
   uint8_t sbus_channel_yaw;
   uint8_t sbus_channel_thrust;
   uint8_t sbus_channel_on_off;
-  int16_t motor_location[MOTORS_MAX][2];  // Location in body (x,y) in m Q9.
-  int8_t motor_direction[MOTORS_MAX];
 } eeprom;
 
 

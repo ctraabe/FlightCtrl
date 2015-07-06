@@ -104,7 +104,6 @@ static void Init(void)
   UARTInit();
   SBusInit();
   PressureSensorInit();
-  ControlInit();
 
   // Pull up the version pin (FlightCtrl V2.2 will be grounded).
   VERSION_2_2_PORT |= VERSION_2_2_PIN | VERSION_2_2_PIN;
@@ -121,6 +120,7 @@ static void Init(void)
 
   DetectBattery();
   DetectMotors();
+  ControlInit();  // Must be run after DetectMotors() to get NMotors()
 }
 
 // -----------------------------------------------------------------------------
@@ -131,6 +131,14 @@ int16_t main(void)
   // TODO: Delete these temporary EEPROM settings.
   // SBusSetChannels(2, 3, 0, 1, 17);
   // SetNMotors(4);
+
+  // float b_inv[8][4] = {
+  //   {  3.3856,  3.3856, 0.0, 62.2433 },
+  //   { -3.3856, -3.3856, 0.0, 62.2433 },
+  //   { -3.3856,  3.3856, 0.0, 62.2433 },
+  //   {  3.3856, -3.3856, 0.0, 62.2433 }
+  // };
+  // SetActuationInverse(b_inv);
 
   RedLEDOff();
 
@@ -147,7 +155,7 @@ int16_t main(void)
 
       UpdateState();
 
-      // Control();
+      Control();
 
       flag_128hz_ = 0;
       if (main_overrun_count_) RedLEDOn();
@@ -155,7 +163,7 @@ int16_t main(void)
 
     if (flag_2hz_)
     {
-      Control();
+      // Control();
 
       GreenLEDToggle();
       flag_2hz_ = 0;

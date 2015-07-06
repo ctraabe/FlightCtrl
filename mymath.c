@@ -13,6 +13,32 @@ int16_t FloatToS16(float input)
 }
 
 // -----------------------------------------------------------------------------
+uint16_t FloatToU16(float input)
+{
+  return (int16_t)(input + 0.5);
+}
+
+// -----------------------------------------------------------------------------
+float FloatLimit(float input, float lower_limit, float upper_limit)
+{
+  if (input < lower_limit) return lower_limit;
+  else if (input > upper_limit) return upper_limit;
+  else return input;
+}
+
+// -----------------------------------------------------------------------------
+float FloatMax(float input1, float input2)
+{
+  return input1 > input2 ? input1 : input2;
+}
+
+// -----------------------------------------------------------------------------
+float FloatMin(float input1, float input2)
+{
+  return input1 < input2 ? input1 : input2;
+}
+
+// -----------------------------------------------------------------------------
 int8_t S8Limit(int8_t input, int8_t lower_limit, int8_t upper_limit)
 {
   if (input < lower_limit) return lower_limit;
@@ -54,14 +80,6 @@ uint16_t U16Limit(uint16_t input, uint16_t lower_limit, uint16_t upper_limit)
 
 // -----------------------------------------------------------------------------
 uint32_t U32Limit(uint32_t input, uint32_t lower_limit, uint32_t upper_limit)
-{
-  if (input < lower_limit) return lower_limit;
-  else if (input > upper_limit) return upper_limit;
-  else return input;
-}
-
-// -----------------------------------------------------------------------------
-float FloatLimit(float input, float lower_limit, float upper_limit)
 {
   if (input < lower_limit) return lower_limit;
   else if (input > upper_limit) return upper_limit;

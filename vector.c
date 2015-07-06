@@ -54,9 +54,9 @@ float * VectorGain(float v[3], float gain, float result[3])
 // -----------------------------------------------------------------------------
 float * VectorGainAndAccumulate(float v[3], float gain, float result[3])
 {
-  result[0] =+ v[0] * gain;
-  result[1] =+ v[1] * gain;
-  result[2] =+ v[2] * gain;
+  result[0] += v[0] * gain;
+  result[1] += v[1] * gain;
+  result[2] += v[2] * gain;
 
   return result;
 }
