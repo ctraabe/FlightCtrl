@@ -52,11 +52,11 @@ void ControlInit(void)
 
   // TODO: remove these temporary initializations and replace with EEPROM.
   k_phi_ = 100.0;
-  k_p_ = 30.0;
+  k_p_ = -30.0;
   // k_p_dot_ = 2.15;
 
   // Compute the limit on the attitude error given the rate limit.
-  attitude_error_limit_ = MAX_ATTITUDE_RATE * k_p_ / k_phi_;
+  attitude_error_limit_ = -MAX_ATTITUDE_RATE * k_p_ / k_phi_;
 
   // Compute the thrust limits that give the margin necessary to guarantee
   // that the maximum attitude command is achievable.
@@ -100,8 +100,9 @@ void Control(void)
   {
     for (uint8_t i = NMotors(); i--; )
     {
-      SetMotorSetpoint(i, FloatToS16(thrust_cmd * actuation_inverse_[i][3]
-        + VectorDot(attitude_cmd, actuation_inverse_[i])));
+      SetMotorSetpoint(i, (uint16_t)S16Limit(FloatToS16(thrust_cmd
+        * actuation_inverse_[i][3] + VectorDot(attitude_cmd,
+        actuation_inverse_[i])), MIN_CMD, MAX_CMD));
     }
   }
   else if (MotorsStarting())
