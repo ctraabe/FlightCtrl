@@ -20,16 +20,22 @@ enum StateBits State(void)
   return state_;
 }
 
+// -----------------------------------------------------------------------------
+uint8_t MotorsInhibited(void)
+{
+  return state_ & STATE_BIT_MOTORS_INHIBITED;
+}
 
-// =============================================================================
-// Public functions:
-
+// -----------------------------------------------------------------------------
 uint8_t MotorsRunning(void)
 {
   return state_ & STATE_BIT_MOTORS_RUNNING;
 }
 
-// -----------------------------------------------------------------------------
+
+// =============================================================================
+// Public functions:
+
 void UpdateState(void)
 {
   static uint8_t sbus_on_off_latch = 0;
@@ -41,19 +47,19 @@ void UpdateState(void)
     {
       if (TimestampInPast(stick_timer))
       {
-        PreflightInit();
-        state_ |= STATE_BIT_INITIALIZED;
-        BeepDuration(500);
         stick_timer = GetTimestampMillisFromNow(2000);
+        PreflightInit();
+        BeepDuration(500);
+        state_ |= STATE_BIT_INITIALIZED;
       }
     }
     else if (SBusThrustStickUp() && SBusYawStickRight())
     {
       if (TimestampInPast(stick_timer))
       {
+        stick_timer = GetTimestampMillisFromNow(2000);
         SensorCalibration();
         BeepDuration(500);
-        stick_timer = GetTimestampMillisFromNow(2000);
       }
     }
     else if (SBusOnOff() && !sbus_on_off_latch && SBusThrustStickDown())

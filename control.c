@@ -195,8 +195,19 @@ static float * AttitudeCommand(float g_b_cmd[2], float * heading_cmd,
 void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
   float * thrust_cmd)
 {
-  g_b_cmd[X_BODY_AXIS] = (float)SBusPitch() * MAX_G_B_CMD / (float)SBUS_MAX;
-  g_b_cmd[Y_BODY_AXIS] = -(float)SBusRoll() * MAX_G_B_CMD / (float)SBUS_MAX;
+  float heading_rate_cmd;
+  if (SBusStale())
+  {
+    g_b_cmd[X_BODY_AXIS] = 0.0;
+    g_b_cmd[Y_BODY_AXIS] = 0.0;
+    heading_rate_cmd = 0.0;
+  }
+  else
+  {
+    g_b_cmd[X_BODY_AXIS] = (float)SBusPitch() * MAX_G_B_CMD / (float)SBUS_MAX;
+    g_b_cmd[Y_BODY_AXIS] = -(float)SBusRoll() * MAX_G_B_CMD / (float)SBUS_MAX;
+    heading_rate_cmd = -(float)SBusYaw() * MAX_HEADING_RATE / (float)SBUS_MAX;
+  }
 
   // Scale back the commanded components at the corners (optional).
   g_b_cmd[X_BODY_AXIS] -= g_b_cmd[X_BODY_AXIS] * (float)abs(SBusRoll())
@@ -205,8 +216,6 @@ void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
     * MAX_G_B_CMD / (4.0 * (float)SBUS_MAX);
 
   // Integrate the yaw stick to get a heading command.
-  float heading_rate_cmd = -(float)SBusYaw() * MAX_HEADING_RATE
-    / (float)SBUS_MAX;
   *heading_cmd += heading_rate_cmd * DT;
   while (*heading_cmd > M_PI) *heading_cmd -= 2.0 * M_PI;
   while (*heading_cmd < -M_PI) *heading_cmd += 2.0 * M_PI;

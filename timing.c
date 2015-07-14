@@ -122,14 +122,12 @@ uint8_t TimestampInPast(int16_t t)
 // -----------------------------------------------------------------------------
 // This function returns the amount of time that has elapsed since the timestamp
 // "last_time" has occurred. This function works for time periods up to 65535
-// ms. The function also automatically updates last_time so that it can be
-// easily be called periodically.
-uint16_t MillisSinceTimestamp(int16_t *last_time)
+// ms.
+uint16_t MillisSinceTimestamp(int16_t t)
 {
   int16_t ms_timestamp;
   ATOMIC_BLOCK(ATOMIC_FORCEON) { ms_timestamp = ms_timestamp_; }
-  uint16_t ret = (uint16_t)(ms_timestamp - *last_time);
-  *last_time = ms_timestamp;
+  uint16_t ret = (uint16_t)(ms_timestamp - t);
   return ret;
 }
 

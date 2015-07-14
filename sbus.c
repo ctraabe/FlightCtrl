@@ -3,6 +3,7 @@
 #include <avr/interrupt.h>
 
 #include "eeprom.h"
+#include "timing.h"
 
 
 // =============================================================================
@@ -12,6 +13,7 @@
 #define SBUS_NO_NEW_DATA (-1)
 #define SBUS_SIGNAL_LOST_BIT (2)
 #define SBUS_STICK_EDGE_THRESHOLD (10)
+#define SBUS_FRESHNESS_LIMIT (100)  // millisends
 
 // The following is not declared static so that it will be visible to sbus.S.
 volatile uint8_t sbus_rx_buffer_[2][SBUS_RX_BUFFER_LENGTH];
@@ -19,12 +21,12 @@ volatile int8_t sbus_data_ready_ = SBUS_NO_NEW_DATA;
 
 static struct SBusData
 {
+  int16_t timestamp;
   int16_t channels[12];
   uint8_t binary;
-  uint8_t valid;
-  int16_t timestamp;
 } __attribute__((packed)) sbus_data_;
 
+static uint8_t sbus_error_bits_ = 0x00;
 static uint8_t channel_pitch_, channel_roll_, channel_yaw_, channel_thrust_,
   channel_on_off_;
 
@@ -38,6 +40,12 @@ static inline uint8_t SBusByte(uint8_t);
 // =============================================================================
 // Accessors:
 
+uint8_t SBusErrorBits(void)
+{
+  return sbus_error_bits_;
+}
+
+// -----------------------------------------------------------------------------
 int16_t SBusPitch(void)
 {
   return sbus_data_.channels[channel_pitch_];
@@ -68,6 +76,12 @@ uint8_t SBusOnOff(void)
     return sbus_data_.channels[channel_on_off_] != 0;
   else
     return sbus_data_.binary & (channel_on_off_ - 15);
+}
+
+// -----------------------------------------------------------------------------
+uint8_t SBusStale(void)
+{
+  return sbus_error_bits_ & SBUS_ERROR_BIT_STALE;
 }
 
 
@@ -118,31 +132,38 @@ void SBusSetChannels(uint8_t pitch, uint8_t roll, uint8_t yaw, uint8_t thrust,
 // -----------------------------------------------------------------------------
 uint8_t SBusThrustStickDown(void)
 {
-  return SBusThrust() < -(SBUS_MAX - SBUS_STICK_EDGE_THRESHOLD);
+  return !SBusStale() && SBusThrust() < -(SBUS_MAX - SBUS_STICK_EDGE_THRESHOLD);
 }
 
 // -----------------------------------------------------------------------------
 uint8_t SBusThrustStickUp(void)
 {
-  return SBusThrust() > SBUS_MAX - SBUS_STICK_EDGE_THRESHOLD;
+  return !SBusStale() && SBusThrust() > SBUS_MAX - SBUS_STICK_EDGE_THRESHOLD;
 }
 
 // -----------------------------------------------------------------------------
 uint8_t SBusYawStickLeft(void)
 {
-  return SBusYaw() > SBUS_MAX - SBUS_STICK_EDGE_THRESHOLD;
+  return !SBusStale() && SBusYaw() > SBUS_MAX - SBUS_STICK_EDGE_THRESHOLD;
 }
 
 // -----------------------------------------------------------------------------
 uint8_t SBusYawStickRight(void)
 {
-  return SBusYaw() < -(SBUS_MAX - SBUS_STICK_EDGE_THRESHOLD);
+  return !SBusStale() && SBusYaw() < -(SBUS_MAX - SBUS_STICK_EDGE_THRESHOLD);
 }
 
 // -----------------------------------------------------------------------------
-void ProcessSBus(void)
+void UpdateSBus(void)
 {
-  // TODO: check for stale data
+  // Only check freshness if the data is not yet stale because the timestamp
+  // might rollover, giving a false freshness.
+  if ((~sbus_error_bits_ & SBUS_ERROR_BIT_STALE) &&
+    (MillisSinceTimestamp(sbus_data_.timestamp) > SBUS_FRESHNESS_LIMIT))
+  {
+    sbus_error_bits_ |= SBUS_ERROR_BIT_STALE;
+  }
+
   if (sbus_data_ready_ == SBUS_NO_NEW_DATA) return;
 
   // Make a local (non-volatile) pointer to the appropriate side of
@@ -154,10 +175,7 @@ void ProcessSBus(void)
 
   // Check that the received data is valid.
   if ((rx_buffer[SBusByte(24)] != SBUS_END_BYTE)
-    || (rx_buffer[SBusByte(23)] & (1 << SBUS_SIGNAL_LOST_BIT)))
-  {
-    return;
-  }
+    || (rx_buffer[SBusByte(23)] & (1 << SBUS_SIGNAL_LOST_BIT))) return;
 
   // Record the timestamp
   ((uint8_t*)&sbus_data_.timestamp)[0] = rx_buffer[SBUS_RX_BUFFER_LENGTH - 2];
@@ -246,6 +264,9 @@ void ProcessSBus(void)
   {
     sbus_data_.channels[i] = 1024 - sbus_data_.channels[i];
   }
+
+  // ake sure the stale bit is cleared.
+  sbus_error_bits_ &= ~SBUS_ERROR_BIT_STALE;
 }
 
 

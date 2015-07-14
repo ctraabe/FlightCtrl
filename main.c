@@ -34,6 +34,7 @@ int16_t main(void) __attribute__ ((noreturn));
 
 void PreflightInit(void)
 {
+  if (MotorsInhibited()) return;
   ZeroGyros();
   ResetPressureSensorRange();
   ResetAttitude();
@@ -44,6 +45,7 @@ void PreflightInit(void)
 // -----------------------------------------------------------------------------
 void SensorCalibration(void)
 {
+  if (!MotorsInhibited()) return;
   ZeroAccelerometers();
   PressureSensorBiasCalibration();
   ResetAttitude();
@@ -139,6 +141,7 @@ int16_t main(void)
   // };
   // SetActuationInverse(b_inv);
 
+  main_overrun_count_ = 0;
   RedLEDOff();
 
   // Main loop
@@ -150,7 +153,7 @@ int16_t main(void)
 
       UpdateAttitude();
 
-      ProcessSBus();
+      UpdateSBus();
 
       UpdateState();
 
