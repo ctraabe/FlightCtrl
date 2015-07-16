@@ -40,17 +40,5 @@ uint16_t MillisSinceTimestamp(int16_t t);
 // time periods up to 32767 ms.
 void Wait(uint16_t w);
 
-// -----------------------------------------------------------------------------
-// This function returns the value of TIMER1, which increments with every CPU
-// clock cycle, which can be used to measure execution time.
-int16_t GetCycleStamp(void);
-
-// -----------------------------------------------------------------------------
-// This function returns the amount of time that has elapsed since the timestamp
-// "last_time" has occurred. This function works for time periods up to 65535
-// ms. The function also automatically updates last_time so that it can be
-// easily be called periodically.
-uint16_t CyclesSince(int16_t cycle);
-
 
 #endif  // TIMING_H_

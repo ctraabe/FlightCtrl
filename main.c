@@ -149,13 +149,13 @@ int16_t main(void)
   {
     if (flag_128hz_)
     {
-      ProcessSensorReadings();
-
-      UpdateAttitude();
-
       UpdateSBus();
 
       UpdateState();
+
+      ProcessSensorReadings();
+
+      UpdateAttitude();
 
       Control();
 
