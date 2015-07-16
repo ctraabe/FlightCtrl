@@ -20,6 +20,9 @@ float QuaternionNorm(float quat[4]);
 float * QuaternionNormalize(float quat[4]);
 
 // -----------------------------------------------------------------------------
+float * QuaternionNormalizingFilter(float quat[4]);
+
+// -----------------------------------------------------------------------------
 float * QuaternionRotateVector(float quat[4], float v[3], float result[3]);
 
 

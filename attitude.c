@@ -13,6 +13,9 @@
 #define ACCELEROMETER_CORRECTION_GAIN (0.001)
 
 static float quat_[4] = { 1.0, 0.0, 0.0, 0.0 }, g_b_[3] = { 0.0, 0.0, 1.0 };
+static float heading_angle_ = 0.0;
+static float p_kalman_ = 0.0, p_dot_kalman_ = 0.0, p_dot_bias_ = 0.0;
+static float q_kalman_ = 0.0, q_dot_kalman_ = 0.0, q_dot_bias_ = 0.0;
 
 
 // =============================================================================
@@ -29,6 +32,12 @@ static void UpdateQuaternion(void);
 float * GravityInBodyVector(void)
 {
   return g_b_;
+}
+
+// -----------------------------------------------------------------------------
+float HeadingAngle(void)
+{
+  return heading_angle_;
 }
 
 // -----------------------------------------------------------------------------
@@ -57,14 +66,46 @@ void UpdateAttitude(void)
   UpdateQuaternion();
   UpdateGravtiyInBody();
   CorrectQuaternionWithAccelerometer();
-  QuaternionNormalize(quat_);
+  QuaternionNormalizingFilter(quat_);
+  heading_angle_ = atan2(2.0 * quat_[0] * quat_[3] + quat_[1] * quat_[2],
+    1.0 - 2.0 * (square(quat_[2]) + square(quat_[3])));
 }
 
 // -----------------------------------------------------------------------------
-float HeadingAngle(void)
+void UpdateKalmanFilter(float p_dot_cmd, float q_dot_cmd)
 {
-  return atan2(2.0 * quat_[0] * quat_[3] + quat_[1] * quat_[2], 1.0 - 2.0
-    * (quat_[2] * quat_[2] + quat_[3] * quat_[3]));
+  // Past values for derivatives.
+  static float p_pv = 0.0, q_pv = 0.0;
+
+  // Precomputed constants.
+  const float kA11 = 0.94925, kA13 = 0.0076125;
+  const float kA21 = 0.0076125, kA23 = 3.0e-5;
+  const float kB11 = 0.05075, kB21 = 0.0002;
+  const float kK[3][2] = { { 1.0, 1.0 }, { 1.0, 1.0 }, { 1.0, 1.0 } };
+
+  // Prediction.
+  p_kalman_ += kA21 * p_dot_kalman_ + kA23 * p_dot_bias_ + kB21 * p_dot_cmd;
+  p_dot_kalman_ = kA11 * p_dot_kalman_ + kA13 * p_dot_bias_ + kB11 * p_dot_cmd;
+
+  q_kalman_ += kA21 * q_dot_kalman_ + kA23 * q_dot_bias_ + kB21 * q_dot_cmd;
+  q_dot_kalman_ = kA11 * q_dot_kalman_ + kA13 * q_dot_bias_ + kB11 * q_dot_cmd;
+
+  // Correction.
+  float p_dot_err = (AngularRate(X_BODY_AXIS) - p_pv) / DT - p_dot_kalman_;
+  float p_err = AngularRate(X_BODY_AXIS) - p_kalman_;
+  p_dot_kalman_ += kK[0][0] * p_dot_err + kK[0][1] * p_err;
+  p_kalman_ += kK[1][0] * p_dot_err + kK[1][1] * p_err;
+  p_dot_bias_ += kK[2][0] * p_dot_err + kK[2][1] * p_err;
+
+  float q_dot_err = (AngularRate(Y_BODY_AXIS) - q_pv) / DT - q_dot_kalman_;
+  float q_err = AngularRate(Y_BODY_AXIS) - q_kalman_;
+  q_dot_kalman_ += kK[0][0] * q_dot_err + kK[0][1] * q_err;
+  q_kalman_ += kK[1][0] * q_dot_err + kK[1][1] * q_err;
+  q_dot_bias_ += kK[2][0] * q_dot_err + kK[2][1] * q_err;
+
+  // Save past values for derivatives.
+  p_pv = AngularRate(X_BODY_AXIS);
+  q_pv = AngularRate(Y_BODY_AXIS);
 }
 
 
