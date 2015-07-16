@@ -34,7 +34,7 @@ int16_t main(void) __attribute__ ((noreturn));
 
 void PreflightInit(void)
 {
-  if (MotorsInhibited()) return;
+  if (!MotorsInhibited()) return;
   ZeroGyros();
   ResetPressureSensorRange();
   ResetAttitude();
@@ -134,10 +134,10 @@ int16_t main(void)
   // SBusSetChannels(2, 3, 0, 1, 17);
   // SetNMotors(4);
   // float b_inv[8][4] = {
-  //   {  3.3856,  3.3856, -4.66148, 62.2433 },
-  //   { -3.3856, -3.3856, -4.66148, 62.2433 },
-  //   { -3.3856,  3.3856,  4.66148, 62.2433 },
-  //   {  3.3856, -3.3856,  4.66148, 62.2433 }
+  //   {  3.3856,  3.3856, -46.6148, 62.2433 },
+  //   { -3.3856, -3.3856, -46.6148, 62.2433 },
+  //   { -3.3856,  3.3856,  46.6148, 62.2433 },
+  //   {  3.3856, -3.3856,  46.6148, 62.2433 }
   // };
   // SetActuationInverse(b_inv);
 
@@ -158,9 +158,6 @@ int16_t main(void)
       UpdateState();
 
       Control();
-
-      static uint8_t counter;
-      UARTPrintf("%i,%f", ++counter, AngularRate(Z_BODY_AXIS));
 
       flag_128hz_ = 0;
       if (main_overrun_count_) RedLEDOn();

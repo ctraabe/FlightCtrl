@@ -62,13 +62,19 @@ void UpdateState(void)
         BeepDuration(500);
       }
     }
-    else if (SBusOnOff() && !sbus_on_off_latch && SBusThrustStickDown())
+    else if (SBusOnOff() && SBusThrustStickDown() && !sbus_on_off_latch)
     {
       if (TimestampInPast(stick_timer))
       {
-        state_ &= ~STATE_BIT_MOTORS_INHIBITED;
-        state_ |= STATE_BIT_MOTORS_RUNNING;
-        BeepPattern(0x0000AAAA);
+        if (state_ & STATE_BIT_INITIALIZED)
+        {
+          state_ &= ~STATE_BIT_MOTORS_INHIBITED;
+          state_ |= STATE_BIT_MOTORS_RUNNING;
+        }
+        else
+        {
+          BeepPattern(0x0000AAAA);
+        }
         sbus_on_off_latch = 1;
       }
     }
@@ -83,7 +89,6 @@ void UpdateState(void)
     {
       if (TimestampInPast(stick_timer))
       {
-        BeepPattern(0x0000AAAA);
         state_ |= STATE_BIT_MOTORS_INHIBITED;
         state_ &= ~STATE_BIT_MOTORS_RUNNING;
         sbus_on_off_latch = 1;

@@ -1,5 +1,7 @@
 #include "mymath.h"
 
+#include <math.h>
+
 
 // =============================================================================
 // Public functions:
@@ -157,4 +159,12 @@ uint16_t U16RoundRShiftU32(uint32_t input, uint8_t power)
 {
   uint32_t bias = 1L << (power - 1);
   return (uint16_t)((input + bias) >> power);
+}
+
+// -----------------------------------------------------------------------------
+float WrapToPlusMinusPi(float angle)
+{
+  while (angle > M_PI) angle -= 2.0 * M_PI;
+  while (angle < -M_PI) angle += 2.0 * M_PI;
+  return angle;
 }

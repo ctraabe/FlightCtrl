@@ -77,5 +77,8 @@ uint32_t U32RoundRShiftU32(uint32_t input, uint8_t power);
 // Same as above but outputting uint16_t
 uint16_t U16RoundRShiftU32(uint32_t input, uint8_t power);
 
+// -----------------------------------------------------------------------------
+float WrapToPlusMinusPi(float angle);
+
 
 #endif  // MYMATH_H_
