@@ -37,20 +37,24 @@ void ResetOverrun(void);
 void PreflightInit(void)
 {
   if (!MotorsInhibited()) return;
+  BeepDuration(100);
   ZeroGyros();
   ResetPressureSensorRange();
   ResetAttitude();
   ResetOverrun();
+  BeepDuration(500);
 }
 
 // -----------------------------------------------------------------------------
 void SensorCalibration(void)
 {
   if (!MotorsInhibited()) return;
+  BeepDuration(100);
   ZeroAccelerometers();
   PressureSensorBiasCalibration();
   ResetAttitude();
   ResetOverrun();
+  BeepDuration(500);
 }
 
 
@@ -97,6 +101,23 @@ ISR(TIMER3_CAPT_vect)
 }
 
 // -----------------------------------------------------------------------------
+void ErrorCheck(void)
+{
+  // Order from lowest to highest priority.
+  if (main_overrun_count_ > 10) BeepPattern(0x000000AA);
+
+  if (BatteryLow()) BeepPattern(0x000000CC);
+
+  static uint8_t sbus_stale_pv = 0;
+  if (SBusStale() && (!MotorsInhibited() || !sbus_stale_pv))
+    BeepPattern(0x0CFCFCFC);  // dit dah dah dah
+  if (sbus_stale_pv && !SBusStale())
+    BeepDuration(500);
+
+  sbus_stale_pv = SBusStale();
+}
+
+// -----------------------------------------------------------------------------
 static void Init(void)
 {
   TimingInit();
@@ -125,6 +146,7 @@ static void Init(void)
   ControlInit();  // Must be run after DetectMotors() to get NMotors()
 
   ResetOverrun();
+  GreenLEDOn();
 }
 
 // -----------------------------------------------------------------------------
@@ -166,15 +188,15 @@ int16_t main(void)
 
       Control();
 
+      ErrorCheck();
+
       flag_128hz_ = 0;
-      if (main_overrun_count_) RedLEDOn();
     }
 
     if (flag_2hz_)
     {
       // Control();
 
-      GreenLEDToggle();
       flag_2hz_ = 0;
     }
   }

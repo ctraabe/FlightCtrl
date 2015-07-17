@@ -6,8 +6,9 @@
 // =============================================================================
 // Private data:
 
-static volatile uint32_t pending_pattern_;
-static volatile uint8_t pending_times_;
+static volatile uint32_t pending_pattern_ = 0;
+static volatile uint8_t pending_repetions_ = 0;
+static volatile uint8_t repetitions_ = 0;
 
 
 // =============================================================================
@@ -34,7 +35,7 @@ void BeepDuration(uint16_t duration)
   // function will likely get inlined and pending_pattern_ will be evaluated at
   // compile-time!!!
   pending_pattern_ = (1L << ((duration * 16) / 1000)) - 1;
-  pending_times_ = 1;
+  pending_repetions_ = 1;
 }
 
 // -----------------------------------------------------------------------------
@@ -48,7 +49,7 @@ void BeepNTimes(uint8_t n, uint16_t duration)
   // compile-time!!!
   pending_pattern_ = ((1L << (2 * (duration * 16) / 1000)) - 1)
     ^ ((1L << ((duration * 16) / 1000)) - 1);
-  pending_times_ = n;
+  pending_repetions_ = n;
 }
 
 // -----------------------------------------------------------------------------
@@ -58,7 +59,7 @@ void BeepNTimes(uint8_t n, uint16_t duration)
 void BeepPattern(uint32_t beep_pattern)
 {
   pending_pattern_ = beep_pattern;
-  pending_times_ = 1;
+  pending_repetions_ = 1;
 }
 
 // -----------------------------------------------------------------------------
@@ -71,25 +72,24 @@ void UpdateBuzzer(void)
   } pattern = { 0 };
 
   static uint8_t mask = 0;  // A mask bit used to cycle through the pattern.
-  static uint8_t times = 0;  // The number of repetitions of the pattern.
   static uint8_t byte = 0;  // The active byte of the 32-bit pattern.
 
   // Load the pending pattern if the buzzer is not currently active.
-  if (pending_times_ && !times)
+  if (pending_repetions_ && !repetitions_)
   {
     pattern.u32 = pending_pattern_;
-    times = pending_times_;
-    pending_times_ = 0;
+    repetitions_ = pending_repetions_;
+    pending_repetions_ = 0;
 
     // Make sure that there is actually something present in the pattern.
     if (!pattern.u32)
     {
-      times = 0;
+      repetitions_ = 0;
       return;
     }
   }
 
-  if (times)
+  if (repetitions_)
   {
     // If the mask is not yet configured, set it to the location of the most
     // significant non-zero bit in the pattern. Otherwise, progress through the
@@ -117,12 +117,12 @@ void UpdateBuzzer(void)
     {
       if (byte)
       {
-        byte --;
+        byte--;
         mask = 0x80;
       }
       else
       {
-        times--;
+        repetitions_--;
       }
     }
   }
@@ -130,6 +130,12 @@ void UpdateBuzzer(void)
   {
     BuzzerOff();
   }
+}
+
+// -----------------------------------------------------------------------------
+void WaitForBuzzerToComplete(void)
+{
+  while (pending_repetions_ || repetitions_) continue;
 }
 
 

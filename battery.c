@@ -36,6 +36,13 @@ void DetectBattery(void)
 
   if (n_cells < 5) voltage_low_limit_ = n_cells * kMinVoltsPerCell;
   BeepNTimes(n_cells, 200);
+  WaitForBuzzerToComplete();
+}
+
+// -----------------------------------------------------------------------------
+uint8_t BatteryLow(void)
+{
+  return BatteryVoltage() < voltage_low_limit_;
 }
 
 // -----------------------------------------------------------------------------

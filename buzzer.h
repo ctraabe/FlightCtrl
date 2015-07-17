@@ -31,5 +31,8 @@ void BeepPattern(uint32_t beep_pattern);
 // This function updates the status of the buzzer. It should be called at 16Hz.
 void UpdateBuzzer(void);
 
+// -----------------------------------------------------------------------------
+void WaitForBuzzerToComplete(void);
+
 
 #endif  // BUZZER_H_

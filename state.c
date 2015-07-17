@@ -49,7 +49,6 @@ void UpdateState(void)
       {
         stick_timer = GetTimestampMillisFromNow(2000);
         PreflightInit();
-        BeepDuration(500);
         state_ |= STATE_BIT_INITIALIZED;
       }
     }
@@ -59,7 +58,6 @@ void UpdateState(void)
       {
         stick_timer = GetTimestampMillisFromNow(2000);
         SensorCalibration();
-        BeepDuration(500);
       }
     }
     else if (SBusOnOff() && SBusThrustStickDown() && !sbus_on_off_latch)
