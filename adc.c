@@ -79,9 +79,9 @@ uint16_t Accelerometer(enum BodyAxes axis)
 }
 
 // -----------------------------------------------------------------------------
-int16_t * AccelerometerSum(void)
+int16_t AccelerometerSum(enum BodyAxes axis)
 {
-  return accelerometer_sum_;
+  return accelerometer_sum_[axis];
 }
 
 // -----------------------------------------------------------------------------
@@ -140,9 +140,9 @@ uint16_t Gyro(enum BodyAxes axis)
 }
 
 // -----------------------------------------------------------------------------
-int16_t * GyroSum(void)
+int16_t GyroSum(enum BodyAxes axis)
 {
-  return gyro_sum_;
+  return gyro_sum_[axis];
 }
 
 

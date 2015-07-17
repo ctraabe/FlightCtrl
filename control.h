@@ -4,13 +4,13 @@
 
 #include <inttypes.h>
 
-#include "motors.h"
+#include "main.h"
 
 
 // =============================================================================
 // Accessors:
 
-float * AttitudeCmd(void);
+float AttitudeCmd(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
 float KalmanP(void);
@@ -24,6 +24,9 @@ float KalmanQ(void);
 // -----------------------------------------------------------------------------
 float KalmanQDot(void);
 
+// -----------------------------------------------------------------------------
+uint16_t MotorSetpoint(uint8_t n);
+
 
 // =============================================================================
 // Public functions:
@@ -34,7 +37,7 @@ void ControlInit(void);
 void Control(void);
 
 // -----------------------------------------------------------------------------
-void SetActuationInverse(float actuation_inverse[MOTORS_MAX][4]);
+void SetActuationInverse(float actuation_inverse[MAX_MOTORS][4]);
 
 
 #endif  // CONTROL_H_

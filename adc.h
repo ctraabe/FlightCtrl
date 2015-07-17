@@ -44,7 +44,7 @@ float * AccelerationVector(void);
 uint16_t Accelerometer(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
-int16_t * AccelerometerSum(void);
+int16_t AccelerometerSum(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
 enum ADCState ADCState(void);
@@ -69,7 +69,7 @@ uint16_t BiasedPressureSensor(void);
 uint16_t Gyro(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
-int16_t * GyroSum(void);
+int16_t GyroSum(enum BodyAxes axis);
 
 
 // =============================================================================

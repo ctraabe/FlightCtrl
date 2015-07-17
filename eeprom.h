@@ -11,12 +11,12 @@
 #include <inttypes.h>
 #include <avr/eeprom.h>
 
-#include "motors.h"
+#include "main.h"
 
 
 extern struct EEPROM {
   uint8_t space[2048];  // 2kB space reserved for original Mikrokopter firmware
-  float actuation_inverse[MOTORS_MAX][4];  // Inverse of the actuation matrix
+  float actuation_inverse[MAX_MOTORS][4];  // Inverse of the actuation matrix
   int16_t acc_offset[3];
   int16_t gyro_offset[3];
   uint8_t n_motors;

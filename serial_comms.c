@@ -88,12 +88,12 @@ void SendSensorData(void)
     uint16_t timestamp;
   } sensor_data;
 
-  sensor_data.accelerometer_sum[0] = AccelerometerSum()[0];
-  sensor_data.accelerometer_sum[1] = AccelerometerSum()[1];
-  sensor_data.accelerometer_sum[2] = AccelerometerSum()[2];
-  sensor_data.gyro_sum[0] = GyroSum()[0];
-  sensor_data.gyro_sum[1] = GyroSum()[1];
-  sensor_data.gyro_sum[2] = GyroSum()[2];
+  sensor_data.accelerometer_sum[0] = AccelerometerSum(X_BODY_AXIS);
+  sensor_data.accelerometer_sum[1] = AccelerometerSum(Y_BODY_AXIS);
+  sensor_data.accelerometer_sum[2] = AccelerometerSum(Z_BODY_AXIS);
+  sensor_data.gyro_sum[0] = GyroSum(X_BODY_AXIS);
+  sensor_data.gyro_sum[1] = GyroSum(Y_BODY_AXIS);
+  sensor_data.gyro_sum[2] = GyroSum(Z_BODY_AXIS);
   sensor_data.biased_pressure = BiasedPressure();
   sensor_data.battery_voltage = BatteryVoltage();
   sensor_data.timestamp = GetTimestamp();
@@ -109,13 +109,13 @@ void SendKalmanData(void)
     int16_t command[2];
     int16_t kalman_rate[2];
     int16_t kalman_acceleration[2];
-    int16_t timestamp;
+    uint16_t timestamp;
   } kalman_data;
 
-  kalman_data.gyro_sum[0] = GyroSum()[0];
-  kalman_data.gyro_sum[1] = GyroSum()[1];
-  kalman_data.command[0] = (int16_t)(AttitudeCmd()[0] * 100.0);
-  kalman_data.command[1] = (int16_t)(AttitudeCmd()[1] * 100.0);
+  kalman_data.gyro_sum[0] = GyroSum(X_BODY_AXIS);
+  kalman_data.gyro_sum[1] = GyroSum(Y_BODY_AXIS);
+  kalman_data.command[0] = (int16_t)(AttitudeCmd(X_BODY_AXIS) * 100.0);
+  kalman_data.command[1] = (int16_t)(AttitudeCmd(Y_BODY_AXIS) * 100.0);
   kalman_data.kalman_rate[0] = (int16_t)(KalmanP() * GYRO_SCALE
     * ADC_N_SAMPLES);
   kalman_data.kalman_rate[1] = (int16_t)(KalmanQ() * GYRO_SCALE
@@ -127,6 +127,21 @@ void SendKalmanData(void)
   kalman_data.timestamp = GetTimestamp();
 
   MKSend(1, 'I', (uint8_t *)&kalman_data, sizeof(kalman_data));
+}
+
+// -----------------------------------------------------------------------------
+void SendMotorSetpoints(void)
+{
+  struct MotorSetpoints {
+    int16_t motor_setpoints[MAX_MOTORS];
+    uint16_t timestamp;
+  } motor_setpoints;
+
+  for (uint16_t i = MAX_MOTORS; i--; )
+    motor_setpoints.motor_setpoints[i] = MotorSetpoint(i);
+  motor_setpoints.timestamp = GetTimestamp();
+
+  MKSend(1, 'I', (uint8_t *)&motor_setpoints, sizeof(motor_setpoints));
 }
 
 

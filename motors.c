@@ -76,8 +76,8 @@ static uint8_t n_motors_ = 0;
 static uint8_t setpoint_length_ = sizeof(uint8_t);
 static uint8_t comms_in_progress_;  // Address to which communication is ongoing
 
-static struct MotorSetpoint setpoints_[MOTORS_MAX] = { { 0 } };
-static volatile struct BLCStatus blc_status_[MOTORS_MAX] = { { 0 } };
+static struct MotorSetpoint setpoints_[MAX_MOTORS] = { { 0 } };
+static volatile struct BLCStatus blc_status_[MAX_MOTORS] = { { 0 } };
 
 
 // =============================================================================
@@ -117,7 +117,7 @@ void DetectMotors(void)
   uint8_t motors = 0;  // Bit field representing motors present.
   uint8_t setpoint = 0;  // Do not command the motors to move
   enum BLCStatusCode blc_status_code = BLC_STATUS_UNKNOWN;
-  for (uint8_t i = 0; i < MOTORS_MAX; i++)
+  for (uint8_t i = 0; i < MAX_MOTORS; i++)
   {
     I2CTxThenRx(MOTORS_BASE_ADDRESS + (i << 1), &setpoint, sizeof(setpoint),
       (volatile uint8_t *)&blc_status_[i], sizeof(struct BLCStatus));
@@ -182,7 +182,7 @@ uint8_t MotorsStarting(void)
 // -----------------------------------------------------------------------------
 void SetMotorSetpoint(uint8_t address, uint16_t setpoint)
 {
-  if (address >= MOTORS_MAX) return;
+  if (address >= MAX_MOTORS) return;
   setpoints_[address].bits_2_to_0 = (uint8_t)setpoint & 0x7;
   setpoints_[address].bits_11_to_3 = (uint8_t)(setpoint >> 3);
 }
@@ -190,7 +190,7 @@ void SetMotorSetpoint(uint8_t address, uint16_t setpoint)
 // -----------------------------------------------------------------------------
 void SetNMotors(uint8_t n_motors)
 {
-  if (n_motors > MOTORS_MAX) n_motors = MOTORS_MAX;
+  if (n_motors > MAX_MOTORS) n_motors = MAX_MOTORS;
   eeprom_update_byte(&eeprom.n_motors, n_motors);
   DetectMotors();
 }

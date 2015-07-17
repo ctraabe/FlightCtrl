@@ -82,7 +82,6 @@ ISR(TIMER3_CAPT_vect)
   switch ((uint8_t)(counter ^ (counter + 1))) {
     case COUNTER_1HZ:
     case COUNTER_2HZ:
-      flag_2hz_ = 1;
     case COUNTER_4HZ:
     case COUNTER_8HZ:
     case COUNTER_16HZ:
@@ -191,13 +190,6 @@ int16_t main(void)
       ErrorCheck();
 
       flag_128hz_ = 0;
-    }
-
-    if (flag_2hz_)
-    {
-      // Control();
-
-      flag_2hz_ = 0;
     }
   }
 

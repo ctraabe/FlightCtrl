@@ -7,7 +7,6 @@
 #include "adc.h"
 #include "attitude.h"
 #include "eeprom.h"
-#include "main.h"
 #include "motors.h"
 #include "mymath.h"
 #include "quaternion.h"
@@ -28,13 +27,14 @@
 #define MAX_ATTITUDE_RATE (1.0)
 #define MAX_HEADING_RATE (1.0)
 
-static float actuation_inverse_[MOTORS_MAX][4];
+static float actuation_inverse_[MAX_MOTORS][4];
 static float attitude_cmd_[3] = { 0 };
 static float attitude_error_limit_, heading_error_limit_, attitude_cmd_[3];
 static float k_phi_, k_p_, k_p_dot_, k_psi_, k_r_;
 static float k_sbus_to_thrust_, min_thrust_cmd_, max_thrust_cmd_;
 static float p_kalman_ = 0.0, p_dot_kalman_ = 0.0, p_dot_bias_ = 0.0;
 static float q_kalman_ = 0.0, q_dot_kalman_ = 0.0, q_dot_bias_ = 0.0;
+static uint16_t setpoints_[MAX_MOTORS] = { 0 };
 
 
 // =============================================================================
@@ -50,9 +50,9 @@ static void UpdateKalmanFilter(void);
 // =============================================================================
 // Accessors:
 
-float * AttitudeCmd(void)
+float AttitudeCmd(enum BodyAxes axis)
 {
-  return attitude_cmd_;
+  return attitude_cmd_[axis];
 }
 
 // -----------------------------------------------------------------------------
@@ -77,6 +77,12 @@ float KalmanQ(void)
 float KalmanQDot(void)
 {
   return q_dot_kalman_;
+}
+
+// -----------------------------------------------------------------------------
+uint16_t MotorSetpoint(uint8_t n)
+{
+  return setpoints_[n];
 }
 
 
@@ -138,38 +144,24 @@ void Control(void)
 
   // Computer a new attitude acceleration command.
   AttitudeCommand(g_b_cmd, &heading_cmd, &heading_rate_cmd, attitude_cmd_);
-/*
+
   for (uint8_t i = NMotors(); i--; )
-  {
-    setpoint[i] = U16Limit(thrust_cmd, MIN_CMD - CMD_MARGIN, MAX_CMD
-      + CMD_MARGIN);
-  }
-*/
+    setpoints_[i] = (uint16_t)S16Limit(FloatToS16(thrust_cmd
+      * actuation_inverse_[i][3] + VectorDot(attitude_cmd_,
+      actuation_inverse_[i])), MIN_CMD, MAX_CMD);
+
   if (MotorsRunning())
-  {
-    for (uint8_t i = NMotors(); i--; )
-    {
-      SetMotorSetpoint(i, (uint16_t)S16Limit(FloatToS16(thrust_cmd
-        * actuation_inverse_[i][3] + VectorDot(attitude_cmd_,
-        actuation_inverse_[i])), MIN_CMD, MAX_CMD));
-    }
-  }
+    for (uint8_t i = NMotors(); i--; ) SetMotorSetpoint(i, setpoints_[i]);
   else if (MotorsStarting())
-  {
-    for (uint8_t i = NMotors(); i--; )
-      SetMotorSetpoint(i, CONTROL_MOTORS_IDLE);
-  }
+    for (uint8_t i = NMotors(); i--; ) SetMotorSetpoint(i, CONTROL_MOTORS_IDLE);
   else
-  {
-    for (uint8_t i = NMotors(); i--; )
-      SetMotorSetpoint(i, 0);
-  }
+    for (uint8_t i = NMotors(); i--; ) SetMotorSetpoint(i, 0);
 
   TxMotorSetpoints();
 }
 
 // -----------------------------------------------------------------------------
-void SetActuationInverse(float actuation_inverse[MOTORS_MAX][4])
+void SetActuationInverse(float actuation_inverse[MAX_MOTORS][4])
 {
   eeprom_update_block((const void*)actuation_inverse,
     (void*)&eeprom.actuation_inverse[0][0], sizeof(actuation_inverse_));
