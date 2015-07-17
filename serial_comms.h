@@ -13,5 +13,8 @@ void SendSensorData(void);
 // -----------------------------------------------------------------------------
 void SendKalmanData(void);
 
+// -----------------------------------------------------------------------------
+void SendMotorSetpoints(void);
+
 
 #endif  // SERIAL_COMMS_H_
