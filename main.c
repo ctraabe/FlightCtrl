@@ -28,6 +28,7 @@ static volatile uint16_t main_overrun_count_ = 0;
 // Private function declarations:
 
 int16_t main(void) __attribute__ ((noreturn));
+void ResetOverrun(void);
 
 
 // =============================================================================
@@ -39,8 +40,7 @@ void PreflightInit(void)
   ZeroGyros();
   ResetPressureSensorRange();
   ResetAttitude();
-  main_overrun_count_ = 0;
-  RedLEDOff();
+  ResetOverrun();
 }
 
 // -----------------------------------------------------------------------------
@@ -50,8 +50,7 @@ void SensorCalibration(void)
   ZeroAccelerometers();
   PressureSensorBiasCalibration();
   ResetAttitude();
-  main_overrun_count_ = 0;
-  RedLEDOff();
+  ResetOverrun();
 }
 
 
@@ -124,6 +123,16 @@ static void Init(void)
   DetectBattery();
   DetectMotors();
   ControlInit();  // Must be run after DetectMotors() to get NMotors()
+
+  ResetOverrun();
+}
+
+// -----------------------------------------------------------------------------
+void ResetOverrun(void)
+{
+  flag_128hz_ = 0;
+  main_overrun_count_ = 0;
+  RedLEDOff();
 }
 
 // -----------------------------------------------------------------------------
@@ -141,9 +150,6 @@ int16_t main(void)
   //   {  3.3856, -3.3856,  46.6148, 62.2433 }
   // };
   // SetActuationInverse(b_inv);
-
-  main_overrun_count_ = 0;
-  RedLEDOff();
 
   // Main loop
   for (;;)  // Preferred over while(1)
