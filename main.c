@@ -11,6 +11,7 @@
 #include "motors.h"
 #include "pressure_altitude.h"
 #include "sbus.h"
+#include "serial_comms.h"
 #include "state.h"
 #include "timing.h"
 #include "uart.h"
@@ -158,6 +159,8 @@ int16_t main(void)
       UpdateAttitude();
 
       Control();
+
+      SendSensorData();
 
       flag_128hz_ = 0;
       if (main_overrun_count_) RedLEDOn();

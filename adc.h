@@ -39,6 +39,9 @@ float * AccelerationVector(void);
 uint16_t Accelerometer(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
+int16_t * AccelerometerSum(void);
+
+// -----------------------------------------------------------------------------
 enum ADCState ADCState(void);
 
 // -----------------------------------------------------------------------------
@@ -61,27 +64,7 @@ uint16_t BiasedPressureSensor(void);
 uint16_t Gyro(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
-// This function loads the accelerometer offsets from EEPROM so that
-// accelerometers don't have to be re-calibrated every flight.
-void LoadAccelerometerOffsets(void);
-
-// -----------------------------------------------------------------------------
-// This function loads the gyro offsets from EEPROM. Not totally necessary, but
-//increases sanity of pre-initialized control computations.
-void LoadGyroOffsets(void);
-
-// -----------------------------------------------------------------------------
-// This function assumes that the Mikrokopter is motionless (on the ground). It
-// finds the average accelerometer readings over the period of 1 second
-// (approximately) and considers the results to be the zero values of the
-// accelerometers.
-void ZeroAccelerometers(void);
-
-// -----------------------------------------------------------------------------
-// This function assumes that the Mikrokopter is motionless on the ground. It
-// finds the average gyro readings over the period of 1 second (approximately)
-// and considers the results to be the zero values of the gyros.
-void ZeroGyros(void);
+int16_t * GyroSum(void);
 
 
 // =============================================================================
@@ -95,6 +78,16 @@ void ADCOn(void);
 void ADCOff(void);
 
 // -----------------------------------------------------------------------------
+// This function loads the accelerometer offsets from EEPROM so that
+// accelerometers don't have to be re-calibrated every flight.
+void LoadAccelerometerOffsets(void);
+
+// -----------------------------------------------------------------------------
+// This function loads the gyro offsets from EEPROM. Not totally necessary, but
+//increases sanity of pre-initialized control computations.
+void LoadGyroOffsets(void);
+
+// -----------------------------------------------------------------------------
 // This function sums several sensor readings (each reading the sample array) in
 // order to increase fidelity.
 void ProcessSensorReadings(void);
@@ -103,6 +96,19 @@ void ProcessSensorReadings(void);
 // This function delays program execution until the ADC sample array has been
 // fully refreshed at least once.
 void WaitOneADCCycle(void);
+
+// -----------------------------------------------------------------------------
+// This function assumes that the Mikrokopter is motionless (on the ground). It
+// finds the average accelerometer readings over the period of 1 second
+// (approximately) and considers the results to be the zero values of the
+// accelerometers.
+void ZeroAccelerometers(void);
+
+// -----------------------------------------------------------------------------
+// This function assumes that the Mikrokopter is motionless on the ground. It
+// finds the average gyro readings over the period of 1 second (approximately)
+// and considers the results to be the zero values of the gyros.
+void ZeroGyros(void);
 
 
 #endif  // __ASSEMBLER__

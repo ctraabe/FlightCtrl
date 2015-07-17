@@ -18,6 +18,9 @@ void UARTInit(void);
 void UARTTxByte(uint8_t byte);
 
 // -----------------------------------------------------------------------------
+void UARTTxBytes(uint8_t *tx_source_ptr, uint8_t tx_source_len);
+
+// -----------------------------------------------------------------------------
 void UARTPrintf_P(const char *format, ...);
 
 

@@ -1,6 +1,7 @@
 #include "uart.h"
 
 #include <stdio.h>
+#include <avr/interrupt.h>
 #include <avr/io.h>
 
 
@@ -8,6 +9,10 @@
 // Private data:
 
 #define USART0_BAUD (57600)
+#define RX_BUFFER_LENGTH (32)
+
+// volatile uint8_t rx_byte_ = 0, rx_length_ = 0, rx_buffer_[RX_BUFFER_LENGTH];
+volatile uint8_t tx_source_len_ = 0, *tx_source_ptr_ = 0;
 
 
 // =============================================================================
@@ -41,6 +46,17 @@ void UARTTxByte(uint8_t byte)
 }
 
 // -----------------------------------------------------------------------------
+void UARTTxBytes(uint8_t *tx_source_ptr, uint8_t tx_source_len)
+{
+  if (!tx_source_len_ && (UCSR0A & _BV(UDRE0))) {
+    tx_source_ptr_ = tx_source_ptr;
+    tx_source_len_ = tx_source_len;
+    UDR0 = *tx_source_ptr;
+    UCSR0B |= _BV(UDRIE0);  // Enable the USART0 data register empty interrupt.
+  }
+}
+
+// -----------------------------------------------------------------------------
 // This function acts like printf, but puts the result on the UART stream. It
 // also adds the end-of-line characters and checks that the character buffer is
 // not exceeded. Note that this function is blocking.
@@ -66,3 +82,16 @@ void UARTPrintf_P(const char *format, ...)
 
 // =============================================================================
 // Private functions:
+
+// This function is called upon the "USART0 data register empty" interrupt,
+// indicating that the transmitter is ready to load another byte.
+ISR(USART0_UDRE_vect)
+{
+  if (--tx_source_len_) {
+    UDR0 = *(++tx_source_ptr_);
+  } else {
+    // This interrupt is triggered whenever the data register is empty, so must
+    // be disabled after the final transmission.
+    UCSR0B &= ~_BV(UDRIE0);
+  }
+}

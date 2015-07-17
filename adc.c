@@ -83,6 +83,12 @@ uint16_t Accelerometer(enum BodyAxes axis)
 }
 
 // -----------------------------------------------------------------------------
+int16_t * AccelerometerSum(void)
+{
+  return accelerometer_sum_;
+}
+
+// -----------------------------------------------------------------------------
 enum ADCState ADCState(void)
 {
   if (ADCSRA & _BV(ADSC)) return ADC_ACTIVE;
@@ -137,6 +143,12 @@ uint16_t Gyro(enum BodyAxes axis)
   }
 }
 
+// -----------------------------------------------------------------------------
+int16_t * GyroSum(void)
+{
+  return gyro_sum_;
+}
+
 
 // =============================================================================
 // Public functions:
@@ -159,6 +171,30 @@ void ADCOn(void)
 void ADCOff(void)
 {
   ADCSRA = 0;  // Clear the ADC control register.
+}
+
+// -----------------------------------------------------------------------------
+// This function loads the accelerometer offsets from EEPROM so that
+// accelerometers don't have to be re-calibrated every flight.
+void LoadAccelerometerOffsets(void)
+{
+  eeprom_read_block((void*)acc_offset_, (const void*)&eeprom.acc_offset[0],
+    sizeof(acc_offset_));
+
+  // TODO: Change these limits to something more reasonable
+  // Check that the zero values are within an acceptable range. The acceptable
+  // range is specified in ADC steps from the ADC middle value (511).
+  const uint16_t kAcceptableDeviation = 20;
+  CheckOffset(acc_offset_, kAcceptableDeviation);
+}
+
+// -----------------------------------------------------------------------------
+// This function loads the gyro offsets from EEPROM. Not totally necessary, but
+//increases sanity of pre-initialized control computations.
+void LoadGyroOffsets(void)
+{
+  eeprom_read_block((void*)gyro_offset_, (const void*)&eeprom.gyro_offset[0],
+    sizeof(gyro_offset_));
 }
 
 // -----------------------------------------------------------------------------
@@ -212,30 +248,6 @@ void WaitOneADCCycle(void)
   uint8_t samples_index_tmp = samples_index_;
   while (samples_index_tmp == samples_index_) continue;
   while (samples_index_tmp != samples_index_) continue;
-}
-
-// -----------------------------------------------------------------------------
-// This function loads the accelerometer offsets from EEPROM so that
-// accelerometers don't have to be re-calibrated every flight.
-void LoadAccelerometerOffsets(void)
-{
-  eeprom_read_block((void*)acc_offset_, (const void*)&eeprom.acc_offset[0],
-    sizeof(acc_offset_));
-
-  // TODO: Change these limits to something more reasonable
-  // Check that the zero values are within an acceptable range. The acceptable
-  // range is specified in ADC steps from the ADC middle value (511).
-  const uint16_t kAcceptableDeviation = 20;
-  CheckOffset(acc_offset_, kAcceptableDeviation);
-}
-
-// -----------------------------------------------------------------------------
-// This function loads the gyro offsets from EEPROM. Not totally necessary, but
-//increases sanity of pre-initialized control computations.
-void LoadGyroOffsets(void)
-{
-  eeprom_read_block((void*)gyro_offset_, (const void*)&eeprom.gyro_offset[0],
-    sizeof(gyro_offset_));
 }
 
 // -----------------------------------------------------------------------------
