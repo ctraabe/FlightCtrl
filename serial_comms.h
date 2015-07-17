@@ -10,5 +10,8 @@
 
 void SendSensorData(void);
 
+// -----------------------------------------------------------------------------
+void SendKalmanData(void);
+
 
 #endif  // SERIAL_COMMS_H_

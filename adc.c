@@ -1,6 +1,5 @@
 #include "adc.h"
 
-#include <math.h>
 #include <stdlib.h>
 #include <avr/io.h>
 #include <util/atomic.h>
@@ -14,9 +13,6 @@
 // Private data:
 
 #define ADC_MIDDLE_VALUE (1023 / 2)
-#define ACCELEROMETER_SCALE (1024 / 5)  // LSB/g
-#define ACCELEROMETER_2_2_SCALE (1024 / 6)  // LSB / g
-#define GYRO_SCALE (6.144 * 180 / M_PI / 5)  // LSB/(rad/s)
 
 // ADC sample indices
 enum ADCSensorIndex {

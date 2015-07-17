@@ -29,9 +29,12 @@
 #define MAX_HEADING_RATE (1.0)
 
 static float actuation_inverse_[MOTORS_MAX][4];
-static float attitude_error_limit_, heading_error_limit_;
-static float k_phi_, k_p_, k_psi_, k_r_;
+static float attitude_cmd_[3] = { 0 };
+static float attitude_error_limit_, heading_error_limit_, attitude_cmd_[3];
+static float k_phi_, k_p_, k_p_dot_, k_psi_, k_r_;
 static float k_sbus_to_thrust_, min_thrust_cmd_, max_thrust_cmd_;
+static float p_kalman_ = 0.0, p_dot_kalman_ = 0.0, p_dot_bias_ = 0.0;
+static float q_kalman_ = 0.0, q_dot_kalman_ = 0.0, q_dot_bias_ = 0.0;
 
 
 // =============================================================================
@@ -41,6 +44,40 @@ static float * AttitudeCommand(float g_b_cmd[2], float * heading_cmd,
   float * heading_rate_cmd, float attitude_cmd[3]);
 static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
   float * heading_rate_cmd, float * thrust_cmd);
+static void UpdateKalmanFilter(void);
+
+
+// =============================================================================
+// Accessors:
+
+float * AttitudeCmd(void)
+{
+  return attitude_cmd_;
+}
+
+// -----------------------------------------------------------------------------
+float KalmanP(void)
+{
+  return p_kalman_;
+}
+
+// -----------------------------------------------------------------------------
+float KalmanPDot(void)
+{
+  return p_dot_kalman_;
+}
+
+// -----------------------------------------------------------------------------
+float KalmanQ(void)
+{
+  return q_kalman_;
+}
+
+// -----------------------------------------------------------------------------
+float KalmanQDot(void)
+{
+  return q_dot_kalman_;
+}
 
 
 // =============================================================================
@@ -53,10 +90,11 @@ void ControlInit(void)
 
   // TODO: remove these temporary initializations and replace with EEPROM.
   k_phi_ = 100.0;
-  k_p_ = 28.0;
-  // k_p_dot_ = 2.15;
-  k_psi_ = 7.0711;
-  k_r_ = 4.3439;
+  k_p_ = 28.00407596;
+  k_p_dot_ = 2.066141351;
+  k_psi_ = 7.071067812;
+  k_r_ = 4.884168229;
+  // k_r_dot_ = -0.02029653396;
 
   // Compute the limit on the attitude error given the rate limit.
   attitude_error_limit_ = MAX_ATTITUDE_RATE * k_p_ / k_phi_;
@@ -92,10 +130,14 @@ void Control(void)
   float heading_rate_cmd, thrust_cmd;
 
   // TODO: add routines to form commands from an external source.
+  // Derive a target attitude from the position of the sticks.
   CommandsFromSticks(g_b_cmd, &heading_cmd, &heading_rate_cmd, &thrust_cmd);
 
-  float attitude_cmd[3];
-  AttitudeCommand(g_b_cmd, &heading_cmd, &heading_rate_cmd, attitude_cmd);
+  // Update the pitch and roll Kalman filters.
+  UpdateKalmanFilter();
+
+  // Computer a new attitude acceleration command.
+  AttitudeCommand(g_b_cmd, &heading_cmd, &heading_rate_cmd, attitude_cmd_);
 /*
   for (uint8_t i = NMotors(); i--; )
   {
@@ -108,7 +150,7 @@ void Control(void)
     for (uint8_t i = NMotors(); i--; )
     {
       SetMotorSetpoint(i, (uint16_t)S16Limit(FloatToS16(thrust_cmd
-        * actuation_inverse_[i][3] + VectorDot(attitude_cmd,
+        * actuation_inverse_[i][3] + VectorDot(attitude_cmd_,
         actuation_inverse_[i])), MIN_CMD, MAX_CMD));
     }
   }
@@ -203,9 +245,9 @@ static float * AttitudeCommand(float g_b_cmd[2], float * heading_cmd,
 
   // Apply the control gains.
   attitude_cmd[X_BODY_AXIS] = k_phi_ * attitude_error[X_BODY_AXIS]
-    + k_p_ * (rate_cmd[X_BODY_AXIS] - AngularRate(X_BODY_AXIS));
+    + k_p_ * (rate_cmd[X_BODY_AXIS] - p_kalman_) + k_p_dot_ * -p_dot_kalman_;
   attitude_cmd[Y_BODY_AXIS] = k_phi_ * attitude_error[Y_BODY_AXIS]
-    + k_p_ * (rate_cmd[Y_BODY_AXIS] - AngularRate(Y_BODY_AXIS));
+    + k_p_ * (rate_cmd[Y_BODY_AXIS] - q_kalman_) + k_p_dot_ * -q_dot_kalman_;
   attitude_cmd[Z_BODY_AXIS] = k_psi_ * attitude_error[Z_BODY_AXIS]
     + k_r_ * (rate_cmd[Z_BODY_AXIS] - AngularRate(Z_BODY_AXIS));
 
@@ -246,4 +288,48 @@ void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
   // Compute the thrust command.
   *thrust_cmd = (float)(SBusThrust() + SBUS_MAX) * k_sbus_to_thrust_
     + min_thrust_cmd_;
+}
+
+// -----------------------------------------------------------------------------
+static void UpdateKalmanFilter(void)
+{
+  // Past values for derivatives.
+  static float p_pv = 0.0, q_pv = 0.0;
+
+  // Precomputed constants.
+  const float kA11 = 0.949249759400175, kA13 = 0.00761253608997371;
+  const float kA21 = 0.00761253608997372, kA23 = 2.99945865039428e-05;
+  const float kB11 = 0.0507502405998248, kB21 = 0.000199963910026285;
+  const float kK[3][2] = {
+    { 0.0104471900215786, 8.00809367719265 },
+    { 0.000244387624426045, 0.319481296836928 },
+    { 0.247271564219495, 142.430886162968 } };
+
+  // Prediction.
+  p_kalman_ += kA21 * p_dot_kalman_ + kA23 * p_dot_bias_
+    + kB21 * attitude_cmd_[X_BODY_AXIS];
+  p_dot_kalman_ = kA11 * p_dot_kalman_ + kA13 * p_dot_bias_
+    + kB11 * attitude_cmd_[X_BODY_AXIS];
+
+  q_kalman_ += kA21 * q_dot_kalman_ + kA23 * q_dot_bias_
+    + kB21 * attitude_cmd_[Y_BODY_AXIS];
+  q_dot_kalman_ = kA11 * q_dot_kalman_ + kA13 * q_dot_bias_
+    + kB11 * attitude_cmd_[Y_BODY_AXIS];
+
+  // Correction.
+  float p_dot_err = (AngularRate(X_BODY_AXIS) - p_pv) / DT - p_dot_kalman_;
+  float p_err = AngularRate(X_BODY_AXIS) - p_kalman_;
+  p_dot_kalman_ += kK[0][0] * p_dot_err + kK[0][1] * p_err;
+  p_kalman_ += kK[1][0] * p_dot_err + kK[1][1] * p_err;
+  p_dot_bias_ += kK[2][0] * p_dot_err + kK[2][1] * p_err;
+
+  float q_dot_err = (AngularRate(Y_BODY_AXIS) - q_pv) / DT - q_dot_kalman_;
+  float q_err = AngularRate(Y_BODY_AXIS) - q_kalman_;
+  q_dot_kalman_ += kK[0][0] * q_dot_err + kK[0][1] * q_err;
+  q_kalman_ += kK[1][0] * q_dot_err + kK[1][1] * q_err;
+  q_dot_bias_ += kK[2][0] * q_dot_err + kK[2][1] * q_err;
+
+  // Save past values for derivatives.
+  p_pv = AngularRate(X_BODY_AXIS);
+  q_pv = AngularRate(Y_BODY_AXIS);
 }

@@ -160,8 +160,6 @@ int16_t main(void)
 
       Control();
 
-      SendSensorData();
-
       flag_128hz_ = 0;
       if (main_overrun_count_) RedLEDOn();
     }

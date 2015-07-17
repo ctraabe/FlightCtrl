@@ -36,7 +36,7 @@
 // Therefore, here is a summary of the total overhead:
 //
 //   - 1 extra byte per 3-bytes of data in a frame for encoding
-//   - 6 extra bytes per data frame for identification and error checking
+//   - 4 extra bytes per data frame for identification and error checking
 //   - 2 extra bits per byte to mark the start and end of a transmitted byte
 //
 // Here are some example maximum transfer rates for certain data sizes:
@@ -45,6 +45,8 @@
 //   4-6 bytes -> 411 Hz
 //   7-9 bytes -> 320 Hz
 //   22-24 bytes -> 151 Hz
+//   25-27 bytes -> 137 Hz
+//   28-30 bytes -> 125 Hz
 //   66 bytes -> 61.3 Hz (this is the size of Mikrokopter's DebugOut structure)
 
 #include "serial_comms.h"
@@ -52,6 +54,8 @@
 #include <util/crc16.h>
 
 #include "adc.h"
+#include "control.h"
+#include "main.h"
 #include "timing.h"
 #include "uart.h"
 
@@ -95,6 +99,34 @@ void SendSensorData(void)
   sensor_data.timestamp = GetTimestamp();
 
   MKSend(1, 'I', (uint8_t *)&sensor_data, sizeof(sensor_data));
+}
+
+// -----------------------------------------------------------------------------
+void SendKalmanData(void)
+{
+  struct KalmanData {
+    int16_t gyro_sum[2];
+    int16_t command[2];
+    int16_t kalman_rate[2];
+    int16_t kalman_acceleration[2];
+    int16_t timestamp;
+  } kalman_data;
+
+  kalman_data.gyro_sum[0] = GyroSum()[0];
+  kalman_data.gyro_sum[1] = GyroSum()[1];
+  kalman_data.command[0] = (int16_t)(AttitudeCmd()[0] * 100.0);
+  kalman_data.command[1] = (int16_t)(AttitudeCmd()[1] * 100.0);
+  kalman_data.kalman_rate[0] = (int16_t)(KalmanP() * GYRO_SCALE
+    * ADC_N_SAMPLES);
+  kalman_data.kalman_rate[1] = (int16_t)(KalmanQ() * GYRO_SCALE
+    * ADC_N_SAMPLES);
+  kalman_data.kalman_acceleration[0] = (int16_t)(KalmanPDot() * GYRO_SCALE
+    * ADC_N_SAMPLES * DT);
+  kalman_data.kalman_acceleration[1] = (int16_t)(KalmanQDot() * GYRO_SCALE
+    * ADC_N_SAMPLES * DT);
+  kalman_data.timestamp = GetTimestamp();
+
+  MKSend(1, 'I', (uint8_t *)&kalman_data, sizeof(kalman_data));
 }
 
 

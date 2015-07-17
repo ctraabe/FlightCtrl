@@ -16,9 +16,14 @@
 
 
 #include <inttypes.h>
+#include <math.h>
 
 #include "main.h"
 
+
+#define ACCELEROMETER_SCALE (1024 / 5)  // LSB/g
+#define ACCELEROMETER_2_2_SCALE (1024 / 6)  // LSB / g
+#define GYRO_SCALE (6.144 * 180 / M_PI / 5)  // LSB/(rad/s)
 
 enum ADCState {
   ADC_INACTIVE = 0,
