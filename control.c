@@ -96,10 +96,10 @@ void ControlInit(void)
 
   // TODO: remove these temporary initializations and replace with EEPROM.
   k_phi_ = 100.0;
-  k_p_ = 28.00407596;
-  k_p_dot_ = 2.066141351;
+  k_p_ = 25.1167298526154;
+  k_p_dot_ = 1.45425059244632;
   k_psi_ = 7.071067812;
-  k_r_ = 4.884168229;
+  k_r_ = 4.37792274833246;
   // k_r_dot_ = -0.02029653396;
 
   // Compute the limit on the attitude error given the rate limit.
@@ -289,13 +289,13 @@ static void UpdateKalmanFilter(void)
   static float p_pv = 0.0, q_pv = 0.0;
 
   // Precomputed constants.
-  const float kA11 = 0.949249759400175, kA13 = 0.00761253608997371;
-  const float kA21 = 0.00761253608997372, kA23 = 2.99945865039428e-05;
-  const float kB11 = 0.0507502405998248, kB21 = 0.000199963910026285;
+  const float kA11 = 0.924848813216205, kA13 = 0.00751511867837952;
+  const float kA21 = 0.00751511867837952, kA23 = 2.97381321620483e-05;
+  const float kB11 = 0.0751511867837952, kB21 = 0.000297381321620483;
   const float kK[3][2] = {
-    { 0.0104471900215786, 8.00809367719265 },
-    { 0.000244387624426045, 0.319481296836928 },
-    { 0.247271564219495, 142.430886162968 } };
+    { 0.00913677925111990, 7.27850351648910 },
+    { 0.000222122299697543, 0.306277877559922 },
+    { 0.235922172480771, 144.569834075959 } };
 
   // Prediction.
   p_kalman_ += kA21 * p_dot_kalman_ + kA23 * p_dot_bias_

@@ -189,7 +189,9 @@ int16_t main(void)
 
       ErrorCheck();
 
-      SendMotorSetpoints();
+      // SendMotorSetpoints();
+      // SendSensorData();
+      // SendKalmanData();
 
       flag_128hz_ = 0;
     }
