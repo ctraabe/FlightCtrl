@@ -28,6 +28,12 @@
 #define GREEN_LED_PIN (_BV(1))
 #define RED_LED_PIN (_BV(0))
 
+// EXTERNAL LEDS
+#define EXTERNAL_LED_DDR (DDRC)
+#define EXTERNAL_LED_PORT (PORTC)
+#define EXTERNAL_LED_1_PIN (_BV(2))
+#define EXTERNAL_LED_3_PIN (_BV(3))
+
 // I2C (MOTORS)
 #define I2C_DDR (DDRC)
 #define I2C_PORT (PORTC)
