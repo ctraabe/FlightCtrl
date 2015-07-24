@@ -24,12 +24,12 @@
 #define CMD_MARGIN (20)
 #define MIN_CMD (64)
 #define MAX_CMD (1840)
-#define MAX_ATTITUDE_RATE (1.0)
-#define MAX_HEADING_RATE (1.0)
+#define MAX_ATTITUDE_RATE (M_PI / 2.0)
+#define MAX_HEADING_RATE (M_PI / 2.0)
 
 static float actuation_inverse_[MAX_MOTORS][4];
-static float attitude_cmd_[3] = { 0 };
-static float attitude_error_limit_, heading_error_limit_, attitude_cmd_[3];
+static float angular_cmd_[3] = { 0 };
+static float attitude_error_limit_, heading_error_limit_;
 static float k_phi_, k_p_, k_p_dot_, k_psi_, k_r_;
 static float k_sbus_to_thrust_, min_thrust_cmd_, max_thrust_cmd_;
 static float p_kalman_ = 0.0, p_dot_kalman_ = 0.0, p_dot_bias_ = 0.0;
@@ -40,8 +40,8 @@ static uint16_t setpoints_[MAX_MOTORS] = { 0 };
 // =============================================================================
 // Private function declarations:
 
-static float * AttitudeCommand(float g_b_cmd[2], float * heading_cmd,
-  float * heading_rate_cmd, float attitude_cmd[3]);
+static void FormAngularCommand(float g_b_cmd[2], float * heading_cmd,
+  float * heading_rate_cmd);
 static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
   float * heading_rate_cmd, float * thrust_cmd);
 static void UpdateKalmanFilter(void);
@@ -50,9 +50,9 @@ static void UpdateKalmanFilter(void);
 // =============================================================================
 // Accessors:
 
-float AttitudeCmd(enum BodyAxes axis)
+float AngularCommand(enum BodyAxes axis)
 {
-  return attitude_cmd_[axis];
+  return angular_cmd_[axis];
 }
 
 // -----------------------------------------------------------------------------
@@ -142,12 +142,12 @@ void Control(void)
   // Update the pitch and roll Kalman filters.
   UpdateKalmanFilter();
 
-  // Computer a new attitude acceleration command.
-  AttitudeCommand(g_b_cmd, &heading_cmd, &heading_rate_cmd, attitude_cmd_);
+  // Compute a new attitude acceleration command.
+  FormAngularCommand(g_b_cmd, &heading_cmd, &heading_rate_cmd);
 
   for (uint8_t i = NMotors(); i--; )
     setpoints_[i] = (uint16_t)S16Limit(FloatToS16(thrust_cmd
-      * actuation_inverse_[i][3] + VectorDot(attitude_cmd_,
+      * actuation_inverse_[i][3] + VectorDot(angular_cmd_,
       actuation_inverse_[i])), MIN_CMD, MAX_CMD);
 
   if (MotorsRunning())
@@ -172,8 +172,8 @@ void SetActuationInverse(float actuation_inverse[MAX_MOTORS][4])
 // =============================================================================
 // Private functions:
 
-static float * AttitudeCommand(float g_b_cmd[2], float * heading_cmd,
-  float * heading_rate_cmd, float attitude_cmd[3])
+static void FormAngularCommand(float g_b_cmd[2], float * heading_cmd,
+  float * heading_rate_cmd)
 {
   // Compute the z component of the gravity vector command.
   float g_b_cmd_z = sqrt(1.0 - square(g_b_cmd[X_BODY_AXIS])
@@ -236,14 +236,12 @@ static float * AttitudeCommand(float g_b_cmd[2], float * heading_cmd,
   VectorGain(GravityInBodyVector(), *heading_rate_cmd, rate_cmd);
 
   // Apply the control gains.
-  attitude_cmd[X_BODY_AXIS] = k_phi_ * attitude_error[X_BODY_AXIS]
+  angular_cmd_[X_BODY_AXIS] = k_phi_ * attitude_error[X_BODY_AXIS]
     + k_p_ * (rate_cmd[X_BODY_AXIS] - p_kalman_) + k_p_dot_ * -p_dot_kalman_;
-  attitude_cmd[Y_BODY_AXIS] = k_phi_ * attitude_error[Y_BODY_AXIS]
+  angular_cmd_[Y_BODY_AXIS] = k_phi_ * attitude_error[Y_BODY_AXIS]
     + k_p_ * (rate_cmd[Y_BODY_AXIS] - q_kalman_) + k_p_dot_ * -q_dot_kalman_;
-  attitude_cmd[Z_BODY_AXIS] = k_psi_ * attitude_error[Z_BODY_AXIS]
+  angular_cmd_[Z_BODY_AXIS] = k_psi_ * attitude_error[Z_BODY_AXIS]
     + k_r_ * (rate_cmd[Z_BODY_AXIS] - AngularRate(Z_BODY_AXIS));
-
-  return attitude_cmd;
 }
 
 // -----------------------------------------------------------------------------
@@ -299,14 +297,14 @@ static void UpdateKalmanFilter(void)
 
   // Prediction.
   p_kalman_ += kA21 * p_dot_kalman_ + kA23 * p_dot_bias_
-    + kB21 * attitude_cmd_[X_BODY_AXIS];
+    + kB21 * angular_cmd_[X_BODY_AXIS];
   p_dot_kalman_ = kA11 * p_dot_kalman_ + kA13 * p_dot_bias_
-    + kB11 * attitude_cmd_[X_BODY_AXIS];
+    + kB11 * angular_cmd_[X_BODY_AXIS];
 
   q_kalman_ += kA21 * q_dot_kalman_ + kA23 * q_dot_bias_
-    + kB21 * attitude_cmd_[Y_BODY_AXIS];
+    + kB21 * angular_cmd_[Y_BODY_AXIS];
   q_dot_kalman_ = kA11 * q_dot_kalman_ + kA13 * q_dot_bias_
-    + kB11 * attitude_cmd_[Y_BODY_AXIS];
+    + kB11 * angular_cmd_[Y_BODY_AXIS];
 
   // Correction.
   float p_dot_err = (AngularRate(X_BODY_AXIS) - p_pv) / DT - p_dot_kalman_;

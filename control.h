@@ -10,7 +10,7 @@
 // =============================================================================
 // Accessors:
 
-float AttitudeCmd(enum BodyAxes axis);
+float AngularCommand(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
 float KalmanP(void);
