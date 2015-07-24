@@ -40,9 +40,12 @@ void PreflightInit(void)
   BeepDuration(100);
   ZeroGyros();
   ResetPressureSensorRange();
+  // TODO: REVERT
+  SetResetAttitude();
   ResetAttitude();
-  ResetOverrun();
   BeepDuration(500);
+  WaitForBuzzerToComplete();
+  ResetOverrun();
 }
 
 // -----------------------------------------------------------------------------
@@ -53,8 +56,9 @@ void SensorCalibration(void)
   ZeroAccelerometers();
   PressureSensorBiasCalibration();
   ResetAttitude();
-  ResetOverrun();
   BeepDuration(500);
+  WaitForBuzzerToComplete();
+  ResetOverrun();
 }
 
 
@@ -190,6 +194,7 @@ int16_t main(void)
 
       ErrorCheck();
 
+      SendDebugData();
       // SendMotorSetpoints();
       // SendSensorData();
       // SendKalmanData();

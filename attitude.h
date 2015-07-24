@@ -18,6 +18,11 @@ float HeadingAngle(void);
 // -----------------------------------------------------------------------------
 float * Quat(void);
 
+// TODO: REMOVE*****************************************************************
+void SetResetAttitude(void);
+uint8_t GetResetAttitude(void);
+uint8_t GetDebugResetAttitude(void);
+
 
 // =============================================================================
 // Public functions:

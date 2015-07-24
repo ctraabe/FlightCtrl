@@ -54,9 +54,12 @@
 #include <util/crc16.h>
 
 #include "adc.h"
+#include "attitude.h"
 #include "control.h"
 #include "main.h"
 #include "timing.h"
+#include "sbus.h"
+#include "state.h"
 #include "uart.h"
 
 
@@ -78,6 +81,37 @@ void MKSend(uint8_t address, uint8_t command, uint8_t * source,
 // =============================================================================
 // Public functions:
 
+void SendDebugData(void)
+{
+  struct DebugData {
+    int16_t accelerometer_sum[3];
+    int16_t gyro_sum[3];
+    int16_t stick_16[2];
+    uint8_t stick_8[2];
+  } __attribute__((packed)) debug_data;
+
+  union {
+    int16_t s16;
+    uint8_t u8[2];
+  } temp;
+
+  debug_data.accelerometer_sum[0] = AccelerometerSum(X_BODY_AXIS);
+  debug_data.accelerometer_sum[1] = AccelerometerSum(Y_BODY_AXIS);
+  debug_data.accelerometer_sum[2] = AccelerometerSum(Z_BODY_AXIS);
+  debug_data.gyro_sum[0] = GyroSum(X_BODY_AXIS);
+  debug_data.gyro_sum[1] = GyroSum(Y_BODY_AXIS);
+  debug_data.gyro_sum[2] = GyroSum(Z_BODY_AXIS);
+  temp.s16 = SBusYaw();
+  debug_data.stick_16[0] = (SBusPitch() << 4) | GetDebugResetAttitude() | (temp.u8[1] & 0x07);
+  debug_data.stick_8[0] = temp.u8[0];
+  temp.s16 = SBusThrust();
+  debug_data.stick_16[1] = (SBusRoll() << 4) | MotorsRunning() | (temp.u8[1] & 0x07);
+  debug_data.stick_8[1] = temp.u8[0];
+
+  MKSend(1, 'I', (uint8_t *)&debug_data, sizeof(debug_data));
+}
+
+// -----------------------------------------------------------------------------
 void SendSensorData(void)
 {
   struct SensorData {
@@ -86,7 +120,7 @@ void SendSensorData(void)
     uint16_t biased_pressure;
     uint16_t battery_voltage;
     uint16_t timestamp;
-  } sensor_data;
+  } __attribute__((packed)) sensor_data;
 
   sensor_data.accelerometer_sum[0] = AccelerometerSum(X_BODY_AXIS);
   sensor_data.accelerometer_sum[1] = AccelerometerSum(Y_BODY_AXIS);
@@ -110,12 +144,12 @@ void SendKalmanData(void)
     int16_t kalman_rate[2];
     int16_t kalman_acceleration[2];
     uint16_t timestamp;
-  } kalman_data;
+  } __attribute__((packed)) kalman_data;
 
   kalman_data.gyro_sum[0] = GyroSum(X_BODY_AXIS);
   kalman_data.gyro_sum[1] = GyroSum(Y_BODY_AXIS);
-  kalman_data.command[0] = (int16_t)(AttitudeCmd(X_BODY_AXIS) * 100.0);
-  kalman_data.command[1] = (int16_t)(AttitudeCmd(Y_BODY_AXIS) * 100.0);
+  kalman_data.command[0] = (int16_t)(AngularCommand(X_BODY_AXIS) * 100.0);
+  kalman_data.command[1] = (int16_t)(AngularCommand(Y_BODY_AXIS) * 100.0);
   kalman_data.kalman_rate[0] = (int16_t)(KalmanP() * GYRO_SCALE
     * ADC_N_SAMPLES);
   kalman_data.kalman_rate[1] = (int16_t)(KalmanQ() * GYRO_SCALE
@@ -135,7 +169,7 @@ void SendMotorSetpoints(void)
   struct MotorSetpoints {
     int16_t motor_setpoints[MAX_MOTORS];
     uint16_t timestamp;
-  } motor_setpoints;
+  } __attribute__((packed)) motor_setpoints;
 
   for (uint16_t i = MAX_MOTORS; i--; )
     motor_setpoints.motor_setpoints[i] = MotorSetpoint(i);
