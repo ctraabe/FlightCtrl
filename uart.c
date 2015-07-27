@@ -9,10 +9,9 @@
 // Private data:
 
 #define USART0_BAUD (57600)
-#define RX_BUFFER_LENGTH (32)
 
-// volatile uint8_t rx_byte_ = 0, rx_length_ = 0, rx_buffer_[RX_BUFFER_LENGTH];
-volatile uint8_t tx_source_len_ = 0, *tx_source_ptr_ = 0;
+volatile uint8_t rx_buffer_head_ = 0, rx_buffer_[RX_BUFFER_LENGTH];
+static volatile uint8_t tx_source_len_ = 0, *tx_source_ptr_ = 0;
 
 
 // =============================================================================
@@ -25,11 +24,11 @@ void UARTInit(void)
   // Set UART Double Speed (U2X).
   UCSR0A = (1 << U2X0);
   // Enable USART0 receiver and transmitter and interrupts.
-  UCSR0B = (0 << RXCIE0)  // RX Complete Interrupt Enable
+  UCSR0B = (1 << RXCIE0)  // RX Complete Interrupt Enable
          | (0 << TXCIE0)  // TX Complete Interrupt Enable
          | (0 << UDRIE0)  // Data Register Empty Interrupt Enable
          | (1 << TXEN0)  // Transmitter Enable
-         | (0 << RXEN0)  // Receiver Enable
+         | (1 << RXEN0)  // Receiver Enable
          | (0 << UCSZ02);  // 9-bit Character Size Enable
   UCSR0C = (0 << UMSEL01) | (0 << UMSEL00)  // USART Mode (asynchronous)
          | (0 << UPM01) | (0 << UPM00)  // Parity Bit Mode (none)

@@ -52,7 +52,7 @@ ADC_vect:
   lds YL, samples_index_  ; Load the value at SRAM &samples_index_ into YL
   inc YL  ; YL++
   andi YL, (ADC_N_SAMPLES * ADC_N_CHANNELS - 1)  ; YL % ...
-  sts samples_index_, YL  ; Save the value in YH to &samples_index_
+  sts samples_index_, YL  ; Save the value in YL to &samples_index_
 
   ; ADMUX = samples_index_ % ADC_N_CHANNELS
   mov YH, YL  ; Copy YL to YH
