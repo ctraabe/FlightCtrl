@@ -10,6 +10,9 @@ LDFLAGS   = -flto -Ofast -fwhole-program -Wall -Wextra -Wundef -Werror \
 ALLFLAGS  = -mmcu=$(MCU) -DF_CPU="$(F_CPU)UL"
 DUDEFLAGS = -c avrisp2 -p $(MCU)
 
+PROGRAM_START := 0x0000
+EEPROM_START := 0x0000
+
 # See stdio.h for explanation of various printf implementations. The default
 # implemetation used at link time does not include support for floats. Other
 # options include:
@@ -53,11 +56,11 @@ $(BUILD_PATH)/%.S.lst: %.S
 all: $(HEX) $(LST)
 
 $(HEX): $(ELF)
-	$(CP) -O ihex -R .eeprom $< $@
+	$(CP) -O ihex -R .eeprom --change-section-lma .text=$(PROGRAM_START) $< $@
 
 $(EEP): $(ELF)
 	$(CP) -O ihex -j .eeprom --set-section-flags=.eeprom="alloc,load" \
-	--change-section-lma .eeprom=0 $< $@
+	--change-section-lma .eeprom=$(EEPROM_START) $< $@
 
 # Target to make assembly listing of link-time full-program optimized output.
 $(LST): $(ELF)
