@@ -1,6 +1,7 @@
 #include "buzzer.h"
 
 #include "mcu_pins.h"
+#include "union_types.h"
 
 
 // =============================================================================
@@ -66,10 +67,7 @@ void BeepPattern(uint32_t beep_pattern)
 // This function updates the status of the buzzer. It should be called at 16Hz.
 void UpdateBuzzer(void)
 {
-  static union {
-    uint32_t u32;
-    uint8_t bytes[4];
-  } pattern = { 0 };
+  static union U32Bytes pattern = { 0 };
 
   static uint8_t mask = 0;  // A mask bit used to cycle through the pattern.
   static uint8_t byte = 0;  // The active byte of the 32-bit pattern.

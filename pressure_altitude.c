@@ -36,9 +36,9 @@
 #include <stdlib.h>
 
 #include "adc.h"
+#include "custom_math.h"
 #include "eeprom.h"
 #include "mcu_pins.h"
-#include "mymath.h"
 #include "timing.h"
 #include "uart.h"
 

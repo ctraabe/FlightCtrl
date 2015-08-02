@@ -4,9 +4,9 @@
 #include <avr/io.h>
 #include <util/atomic.h>
 
+#include "custom_math.h"
 #include "eeprom.h"
 #include "mcu_pins.h"
-#include "mymath.h"
 
 
 // =============================================================================

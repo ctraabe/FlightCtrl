@@ -1,5 +1,5 @@
-#ifndef MYMATH_H_
-#define MYMATH_H_
+#ifndef CUSTOM_MATH_H_
+#define CUSTOM_MATH_H_
 
 
 #include <inttypes.h>
@@ -81,4 +81,4 @@ uint16_t U16RoundRShiftU32(uint32_t input, uint8_t power);
 float WrapToPlusMinusPi(float angle);
 
 
-#endif  // MYMATH_H_
+#endif  // CUSTOM_MATH_H_

@@ -6,9 +6,9 @@
 
 #include "adc.h"
 #include "attitude.h"
+#include "custom_math.h"
 #include "eeprom.h"
 #include "motors.h"
-#include "mymath.h"
 #include "quaternion.h"
 #include "sbus.h"
 #include "state.h"
