@@ -8,10 +8,11 @@
 #include "i2c.h"
 #include "led.h"
 #include "mcu_pins.h"
+#include "mk_serial_protocol.h"
+#include "mk_serial_tx.h"
 #include "motors.h"
 #include "pressure_altitude.h"
 #include "sbus.h"
-#include "serial_comms.h"
 #include "state.h"
 #include "timing.h"
 #include "uart.h"
@@ -194,10 +195,8 @@ int16_t main(void)
 
       ErrorCheck();
 
-      SendDebugData();
-      // SendMotorSetpoints();
-      // SendSensorData();
-      // SendKalmanData();
+      ProcessIncomingUART();
+      SendUART();
 
       flag_128hz_ = 0;
     }

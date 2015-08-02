@@ -4,6 +4,9 @@
 #include <avr/interrupt.h>
 #include <avr/io.h>
 
+#include "mk_serial_protocol.h"
+#include "mk_serial_tx.h"
+
 
 // =============================================================================
 // Private data:
@@ -11,7 +14,9 @@
 #define USART0_BAUD (57600)
 
 volatile uint8_t rx_buffer_head_ = 0, rx_buffer_[RX_BUFFER_LENGTH];
-static volatile uint8_t tx_source_len_ = 0, *tx_source_ptr_ = 0;
+static volatile uint8_t tx_bytes_remaining_ = 0, *tx_ptr_ = 0;
+static uint8_t data_buffer_[DATA_BUFFER_LENGTH], tx_buffer_[TX_BUFFER_LENGTH];
+static uint8_t tx_overflow_counter_ = 0;
 
 
 // =============================================================================
@@ -37,6 +42,43 @@ void UARTInit(void)
 }
 
 // -----------------------------------------------------------------------------
+void ProcessIncomingUART(void)
+{
+  static uint8_t rx_buffer_tail = 0;
+  static enum UARTRxMode mode = UART_RX_MODE_IDLE;
+
+  while (rx_buffer_tail != rx_buffer_head_)
+  {
+    rx_buffer_tail = (rx_buffer_tail + 1) % RX_BUFFER_LENGTH;
+
+    // TODO: Support other protocols
+    if (mode != UART_RX_MODE_IDLE)
+      mode = MKSerialRx(rx_buffer_[rx_buffer_tail], data_buffer_);
+    else if (rx_buffer_[rx_buffer_tail] == '#')
+      mode = UART_RX_MODE_MK_ONGOING;
+  }
+}
+
+// -----------------------------------------------------------------------------
+void SendUART(void)
+{
+  // TODO: add other transmit protocols here.
+  SendMKSerial();
+}
+
+// -----------------------------------------------------------------------------
+// TODO: return 0 if the buffer is in use and increment an error counter.
+uint8_t * UARTTxBuffer(void)
+{
+  if (tx_bytes_remaining_)
+  {
+    tx_overflow_counter_++;
+    return 0;
+  }
+  return tx_buffer_;
+}
+
+// -----------------------------------------------------------------------------
 void UARTTxByte(uint8_t byte)
 {
   // TODO: should USART Data Register Empty Interrupt be used instead?
@@ -45,12 +87,12 @@ void UARTTxByte(uint8_t byte)
 }
 
 // -----------------------------------------------------------------------------
-void UARTTxBytes(uint8_t *tx_source_ptr, uint8_t tx_source_len)
+void UARTTx(uint8_t tx_length)
 {
-  if (!tx_source_len_ && (UCSR0A & _BV(UDRE0))) {
-    tx_source_ptr_ = tx_source_ptr;
-    tx_source_len_ = tx_source_len;
-    UDR0 = *tx_source_ptr;
+  if (!tx_length && (UCSR0A & _BV(UDRE0))) {
+    tx_ptr_ = &tx_buffer_[0];
+    tx_bytes_remaining_ = tx_length;
+    UDR0 = *tx_ptr_;
     UCSR0B |= _BV(UDRIE0);  // Enable the USART0 data register empty interrupt.
   }
 }
@@ -86,11 +128,10 @@ void UARTPrintf_P(const char *format, ...)
 // indicating that the transmitter is ready to load another byte.
 ISR(USART0_UDRE_vect)
 {
-  if (--tx_source_len_) {
-    UDR0 = *(++tx_source_ptr_);
-  } else {
-    // This interrupt is triggered whenever the data register is empty, so must
-    // be disabled after the final transmission.
+  // This interrupt is triggered whenever the data register is empty, so must be
+  // disabled after the final transmission.
+  if (--tx_bytes_remaining_)
+    UDR0 = *(++tx_ptr_);
+  else
     UCSR0B &= ~_BV(UDRIE0);
-  }
 }

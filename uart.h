@@ -12,7 +12,14 @@
 #include <avr/pgmspace.h>
 
 
+#define DATA_BUFFER_LENGTH (70)
+#define TX_BUFFER_LENGTH (70)
 #define UARTPrintf(format, ...) UARTPrintf_P(PSTR(format), ##__VA_ARGS__)
+
+enum UARTRxMode {
+  UART_RX_MODE_IDLE = 0,
+  UART_RX_MODE_MK_ONGOING,
+};
 
 
 // =============================================================================
@@ -21,10 +28,19 @@
 void UARTInit(void);
 
 // -----------------------------------------------------------------------------
+void ProcessIncomingUART(void);
+
+// -----------------------------------------------------------------------------
+void SendUART(void);
+
+// -----------------------------------------------------------------------------
+uint8_t * UARTTxBuffer(void);
+
+// -----------------------------------------------------------------------------
 void UARTTxByte(uint8_t byte);
 
 // -----------------------------------------------------------------------------
-void UARTTxBytes(uint8_t *tx_source_ptr, uint8_t tx_source_len);
+void UARTTx(uint8_t tx_length);
 
 // -----------------------------------------------------------------------------
 void UARTPrintf_P(const char *format, ...);
