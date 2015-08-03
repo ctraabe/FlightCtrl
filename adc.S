@@ -32,9 +32,6 @@
 __SREG__ = _SFR_IO_ADDR(SREG)
 
 
-; This interrupt handler increments a 16-bit word every time TIMER1 reaches the
-; value in ICR1 (which should occur at 1kHz).
-;;
 .section .text.ADC_vect,"ax",@progbits
 .global ADC_vect
 ADC_vect:
