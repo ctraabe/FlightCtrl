@@ -13,7 +13,7 @@
 #define F_ICR3 128
 
 // The following is not declared static so that it will be visible to timing.S.
-volatile int16_t ms_timestamp_ = 0;
+volatile uint16_t ms_timestamp_ = 0;
 
 
 // =============================================================================
@@ -90,9 +90,9 @@ void TimingInit(void)
 
 // -----------------------------------------------------------------------------
 // This function returns the current timestamp.
-int16_t GetTimestamp(void)
+uint16_t GetTimestamp(void)
 {
-  int16_t ms_timestamp;
+  uint16_t ms_timestamp;
   ATOMIC_BLOCK(ATOMIC_FORCEON) { ms_timestamp = ms_timestamp_; }
   return ms_timestamp;
 }
@@ -100,10 +100,10 @@ int16_t GetTimestamp(void)
 // -----------------------------------------------------------------------------
 // This function returns a timestamp corresponding to "t" ms in the future. This
 // timestamp can be checked against the current timestamp to see if a certain
-// amount of time has passed. This function works for durations up to 32767 ms.
-int16_t GetTimestampMillisFromNow(int16_t t)
+// amount of time has passed. This function works for durations up to 65535 ms.
+uint16_t GetTimestampMillisFromNow(uint16_t t)
 {
-  int16_t ms_timestamp;
+  uint16_t ms_timestamp;
   ATOMIC_BLOCK(ATOMIC_FORCEON) { ms_timestamp = ms_timestamp_; }
   return ms_timestamp + t + 1;
 }
@@ -112,23 +112,22 @@ int16_t GetTimestampMillisFromNow(int16_t t)
 // This function compares a timestamp to the current timestamp and returns TRUE
 // if the timestamp is in the past. This function works for durations up to
 // 32767 ms.
-uint8_t TimestampInPast(int16_t t)
+uint8_t TimestampInPast(uint16_t t)
 {
   int16_t ms_timestamp;
-  ATOMIC_BLOCK(ATOMIC_FORCEON) { ms_timestamp = ms_timestamp_; }
-  return (t - ms_timestamp) < 0;
+  ATOMIC_BLOCK(ATOMIC_FORCEON) { ms_timestamp = (int16_t)ms_timestamp_; }
+  return ((int16_t)t - ms_timestamp) < 0;
 }
 
 // -----------------------------------------------------------------------------
 // This function returns the amount of time that has elapsed since the timestamp
 // "last_time" has occurred. This function works for time periods up to 65535
 // ms.
-uint16_t MillisSinceTimestamp(int16_t t)
+uint16_t MillisSinceTimestamp(uint16_t t)
 {
-  int16_t ms_timestamp;
+  uint16_t ms_timestamp;
   ATOMIC_BLOCK(ATOMIC_FORCEON) { ms_timestamp = ms_timestamp_; }
-  uint16_t ret = (uint16_t)(ms_timestamp - t);
-  return ret;
+  return ms_timestamp - t;
 }
 
 // -----------------------------------------------------------------------------
@@ -137,6 +136,6 @@ uint16_t MillisSinceTimestamp(int16_t t)
 // time periods up to 32767 ms.
 void Wait(uint16_t w)
 {
-  int16_t timestamp = GetTimestampMillisFromNow(w);
+  uint16_t timestamp = GetTimestampMillisFromNow(w);
   while (!TimestampInPast(timestamp));
 }

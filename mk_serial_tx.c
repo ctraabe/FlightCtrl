@@ -18,8 +18,7 @@
 
 static uint16_t tx_request_ = 0x0000;
 static enum MKStream mk_stream_ = MK_STREAM_NONE;
-static uint16_t stream_period_ = 0;
-static int16_t stream_timer_ = 0, stream_timeout_ = 0;
+static uint16_t stream_period_ = 0, stream_timer_ = 0, stream_timeout_ = 0;
 
 
 // =============================================================================

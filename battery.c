@@ -3,7 +3,6 @@
 #include "adc.h"
 #include "buzzer.h"
 #include "motors.h"
-#include "timing.h"
 
 
 // =============================================================================

@@ -21,7 +21,7 @@ volatile int8_t sbus_data_ready_ = SBUS_NO_NEW_DATA;
 
 static struct SBusData
 {
-  int16_t timestamp;
+  uint16_t timestamp;
   int16_t channels[12];
   uint8_t binary;
 } __attribute__((packed)) sbus_data_;
