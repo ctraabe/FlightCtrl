@@ -121,8 +121,7 @@ static void SendControlData(void)
   debug_data.gyro_sum[1] = GyroSum(Y_BODY_AXIS);
   debug_data.gyro_sum[2] = GyroSum(Z_BODY_AXIS);
   temp.s16 = SBusYaw();
-  debug_data.stick_16[0] = (SBusPitch() << 4) | GetDebugResetAttitude()
-    | (temp.bytes[1] & 0x07);
+  debug_data.stick_16[0] = (SBusPitch() << 4) | (temp.bytes[1] & 0x07);
   debug_data.stick_8[0] = temp.bytes[0];
   temp.s16 = SBusThrust();
   debug_data.stick_16[1] = (SBusRoll() << 4) | MotorsRunning()

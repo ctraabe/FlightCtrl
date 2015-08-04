@@ -14,14 +14,14 @@
 
 static float quat_[4] = { 1.0, 0.0, 0.0, 0.0 }, g_b_[3] = { 0.0, 0.0, 1.0 };
 static float heading_angle_ = 0.0;
-// TODO: REMOVE*****************************************************************
-static uint8_t reset_attitude_ = 0, debug_reset_attitude_ = 0;
+static uint8_t reset_attitude_ = 0;
 
 
 // =============================================================================
 // Private function declarations:
 
 static void CorrectQuaternionWithAccelerometer(void);
+static void HandleAttitudeReset(void);
 static void UpdateGravtiyInBody(void);
 static void UpdateQuaternion(void);
 
@@ -46,52 +46,32 @@ float * Quat(void)
   return quat_;
 }
 
-// TODO: REMOVE*****************************************************************
-// -----------------------------------------------------------------------------
-void SetResetAttitude(void)
-{
-  reset_attitude_ = 1;
-  debug_reset_attitude_ = 1<<3;
-}
-uint8_t GetResetAttitude(void)
-{
-  return reset_attitude_;
-}
-uint8_t GetDebugResetAttitude(void)
-{
-  uint8_t result = debug_reset_attitude_;
-  debug_reset_attitude_ = 0;
-  return result;
-}
-
 
 // =============================================================================
 // Public functions:
 
-void ResetAttitude(void)
+void UpdateAttitude(void)
 {
-  quat_[0] = -AccelerationVector()[Z_BODY_AXIS];
-  quat_[1] = -AccelerationVector()[Y_BODY_AXIS];
-  quat_[2] = AccelerationVector()[X_BODY_AXIS];
-  quat_[3] = 0.0;
-  quat_[0] += QuaternionNorm(quat_);
-  QuaternionNormalize(quat_);
-  // TODO: REMOVE*****************************************************************
-  reset_attitude_ = 0;
+  if (!reset_attitude_)
+  {
+    UpdateQuaternion();
+    UpdateGravtiyInBody();
+    CorrectQuaternionWithAccelerometer();
+    QuaternionNormalizingFilter(quat_);
+  }
+  else
+  {
+    HandleAttitudeReset();
+  }
+  UpdateGravtiyInBody();
+  heading_angle_ = atan2(2.0 * quat_[0] * quat_[3] + quat_[1] * quat_[2],
+    1.0 - 2.0 * (square(quat_[2]) + square(quat_[3])));
 }
 
 // -----------------------------------------------------------------------------
-void UpdateAttitude(void)
+void ResetAttitude(void)
 {
-  // TODO: REMOVE*****************************************************************
-  if (reset_attitude_) ResetAttitude();
-
-  UpdateQuaternion();
-  UpdateGravtiyInBody();
-  CorrectQuaternionWithAccelerometer();
-  QuaternionNormalizingFilter(quat_);
-  heading_angle_ = atan2(2.0 * quat_[0] * quat_[3] + quat_[1] * quat_[2],
-    1.0 - 2.0 * (square(quat_[2]) + square(quat_[3])));
+  reset_attitude_ = 1;
 }
 
 
@@ -118,6 +98,19 @@ static void CorrectQuaternionWithAccelerometer(void)
   quat_[1] = result[1];
   quat_[2] = result[2];
   quat_[3] = result[3];
+}
+
+// -----------------------------------------------------------------------------
+static void HandleAttitudeReset(void)
+{
+  quat_[0] = -AccelerationVector()[Z_BODY_AXIS];
+  quat_[1] = -AccelerationVector()[Y_BODY_AXIS];
+  quat_[2] = AccelerationVector()[X_BODY_AXIS];
+  quat_[3] = 0.0;
+  quat_[0] += QuaternionNorm(quat_);
+  QuaternionNormalize(quat_);
+
+  reset_attitude_ = 0;
 }
 
 // -----------------------------------------------------------------------------
