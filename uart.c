@@ -4,6 +4,7 @@
 #include <avr/interrupt.h>
 #include <avr/io.h>
 
+#include "mcu_pins.h"
 #include "mk_serial_protocol.h"
 #include "mk_serial_tx.h"
 
@@ -24,6 +25,8 @@ static uint8_t tx_overflow_counter_ = 0;
 
 void UARTInit(void)
 {
+  // Pull up Rx pin.
+  UART_PORT |= UART_RX_PIN;
   // Set the baud rate.
   UBRR0 = F_CPU / 8 / USART0_BAUD - 1;
   // Set UART Double Speed (U2X).
@@ -67,7 +70,6 @@ void SendUART(void)
 }
 
 // -----------------------------------------------------------------------------
-// TODO: return 0 if the buffer is in use and increment an error counter.
 uint8_t * UARTTxBuffer(void)
 {
   if (tx_bytes_remaining_)
@@ -89,12 +91,18 @@ void UARTTxByte(uint8_t byte)
 // -----------------------------------------------------------------------------
 void UARTTx(uint8_t tx_length)
 {
-  if (!tx_length && (UCSR0A & _BV(UDRE0))) {
-    tx_ptr_ = &tx_buffer_[0];
-    tx_bytes_remaining_ = tx_length;
-    UDR0 = *tx_ptr_;
-    UCSR0B |= _BV(UDRIE0);  // Enable the USART0 data register empty interrupt.
+  if (tx_length == 0) return;
+  tx_ptr_ = &tx_buffer_[0];
+  tx_bytes_remaining_ = tx_length;
+
+  // Go ahead and send a byte if the transmitter is ready.
+  if (UCSR0A & _BV(UDRE0))
+  {
+    UDR0 = *(tx_ptr_++);
+    tx_bytes_remaining_--;
   }
+
+  UCSR0B |= _BV(UDRIE0);  // Enable the USART0 data register empty interrupt.
 }
 
 // -----------------------------------------------------------------------------
@@ -128,10 +136,20 @@ void UARTPrintf_P(const char *format, ...)
 // indicating that the transmitter is ready to load another byte.
 ISR(USART0_UDRE_vect)
 {
-  // This interrupt is triggered whenever the data register is empty, so must be
-  // disabled after the final transmission.
-  if (--tx_bytes_remaining_)
-    UDR0 = *(++tx_ptr_);
+  if (tx_bytes_remaining_)
+  {
+    UDR0 = *(tx_ptr_++);
+    tx_bytes_remaining_--;
+  }
   else
-    UCSR0B &= ~_BV(UDRIE0);
+  {
+    UCSR0B &= ~_BV(UDRIE0);  // Disable this interrupt
+  }
+}
+
+// -----------------------------------------------------------------------------
+ISR(USART0_RX_vect)
+{
+  rx_buffer_head_ = (rx_buffer_head_ + 1) % RX_BUFFER_LENGTH;
+  rx_buffer_[rx_buffer_head_] = UDR0;
 }

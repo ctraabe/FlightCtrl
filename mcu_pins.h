@@ -17,6 +17,12 @@
 #define GYRO_Y_PIN (_BV(2))
 #define GYRO_Z_PIN (_BV(0))
 
+// Board Version
+#define VERSION_2_2_DDR (DDRD)
+#define VERSION_2_2_PORT (PORTD)
+#define VERSION_2_2_PIN (_BV(4))
+#define VERSION_2_2 (~PIND & _BV(4))
+
 // Buzzer
 #define BUZZER_DDR (DDRC)
 #define BUZZER_PORT (PORTC)
@@ -46,11 +52,11 @@
 #define PRESSURE_BIAS_COARSE_PIN (_BV(4))
 #define PRESSURE_BIAS_FINE_PIN (_BV(3))
 
-// Board Version
-#define VERSION_2_2_DDR (DDRD)
-#define VERSION_2_2_PORT (PORTD)
-#define VERSION_2_2_PIN (_BV(4))
-#define VERSION_2_2 (~PIND & _BV(4))
+// UART
+#define UART_DDR (DDRD)
+#define UART_PORT (PORTD)
+#define UART_RX_PIN (_BV(0))
+#define UART_TX_PIN (_BV(1))
 
 
 #endif  // MCU_PINS_H_

@@ -151,7 +151,7 @@ static void DecodeMKSerialRx(uint8_t * data_buffer, uint8_t length)
 // -----------------------------------------------------------------------------
 static uint16_t MKChecksum(uint8_t * buffer, uint8_t length)
 {
-  union U16Bytes result = { 0 };
+  union U16Bytes result = { '#' };
   for (uint8_t i = length; i--; ) result.u16 += buffer[i];
 
   result.bytes[1] &= 0x0F;  // checksum % 4096
