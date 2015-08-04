@@ -34,15 +34,18 @@ static void SendVersion(void);
 // =============================================================================
 // Public functions:
 
-void SendMKSerial(void)
+// This function sends data that has been requested.
+void SendPendingMKSerial(void)
 {
-  // Handle only one request at a time
+  // Handle only one request at a time.
   if (tx_request_)
   {
+    // A one-time request has higher priority than a periodic "stream" of data.
     if (tx_request_ & MK_TX_VERSION) SendVersion();
   }
   else if (mk_stream_ && TimestampInPast(stream_timer_))
   {
+    // A data stream is active and it is time for another transmission.
     switch (mk_stream_)
     {
       case MK_STREAM_CONTROL:
@@ -61,12 +64,21 @@ void SendMKSerial(void)
         break;
     }
     stream_timer_ += stream_period_;
+
+    // Prevent timer rollover for small periods.
     if (TimestampInPast(stream_timer_)) stream_timer_ = GetTimestamp();
+
+    // Disable the stream if no request has been renewing received in a while.
     if (TimestampInPast(stream_timeout_)) mk_stream_ = MK_STREAM_NONE;
   }
 }
 
 // -----------------------------------------------------------------------------
+// This function starts the specified data stream at the specified period. Note
+// that this stream has to be renewed periodically by resending the request. If
+// no renewing request is received, then the stream will time out after a while.
+// Also note that the stream output period will be quantized to the main control
+// frequency.
 void SetMKDataStream(enum MKStream mk_stream, uint16_t period_10ms)
 {
   mk_stream_ = mk_stream;
@@ -81,6 +93,7 @@ void SetMKDataStream(enum MKStream mk_stream, uint16_t period_10ms)
 }
 
 // -----------------------------------------------------------------------------
+// This function sets a one-time request for data.
 void SetMKTxRequest(enum MKTxBits tx_request)
 {
   tx_request_ |= tx_request;

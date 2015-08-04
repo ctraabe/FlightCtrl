@@ -8,6 +8,8 @@
 // =============================================================================
 // Public functions:
 
+// This function handles the response to data that has been received in the
+// MikroKopter protocol.
 void HandleMKRx(uint8_t address, uint8_t label, uint8_t * data_buffer);
 
 

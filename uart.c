@@ -1,3 +1,42 @@
+// Information:
+//
+// UART stands for Universal Asynchronous Receiver/Transmitter. A UART uses 2
+// wires for data transmission: one for transmitting, and one for receiving.
+// Data transfers may be started at any time, but must occur at a pre-agreed
+// rate, called the BAUD rate. Transmit and receive can occur simultaneously
+// (i.e. one does not impact the other). When no data is being transferred, the
+// output is set to the high state (1). A single low bit (0) marks the start of
+// a new data packet. This UART is set to the following:
+//
+//   - 57600 BAUD (57.6 kbits / second)
+//   - 8 bits of data follow the single start bit
+//   - data packets are closed with a single high bit and without a parity bit
+//
+// Additionally, this file sets up a buffering scheme for minimal-impact,
+// interrupt-based serial transmission and reception.
+//
+// Incoming bytes are immediately placed into a small ring buffer (rx_buffer_)
+// by the Rx interrupt handler. The function ProcessIncomingUART() passes bytes
+// from the ring buffer to the appropriate Rx handler. A larger shared data
+// buffer (data_buffer_) is provided for temporary storage for the Rx handlers.
+// The data in the shared data buffer must be processed immediately after the
+// final byte in a message is read form the ring buffer so that the data buffer
+// may be used in handling the next message.
+//
+// The function SendPendingUART() invokes functions that handle data Tx
+// requests. A shared Tx buffer (tx_buffer_) is provided for interrupt-based
+// transmission. The Tx buffer must be requested via the function
+// RequestTxBuffer(), since the Tx buffer should not modified during an ongoing
+// transmission. If access to the buffer is granted, the outgoing message should
+// be written to the Tx buffer. The function UARTTxBuffer() initiates the
+// interrupt-driven transmission of the buffer.
+//
+// Two other BLOCKING functions are provided to immediately send a single byte
+// (UARTTxByte) and to mimic the standard printf function (UARTPrintf). These
+// functions are BLOCKING, meaning that non-interrupt computation is blocked
+// until transmission is complete. Therefore, these functions should not be
+// called when the motors are running.
+
 #include "uart.h"
 
 #include <stdio.h>
@@ -7,6 +46,7 @@
 #include "mcu_pins.h"
 #include "mk_serial_protocol.h"
 #include "mk_serial_tx.h"
+#include "state.h"
 
 
 // =============================================================================
@@ -14,7 +54,7 @@
 
 #define USART0_BAUD (57600)
 
-volatile uint8_t rx_buffer_head_ = 0, rx_buffer_[RX_BUFFER_LENGTH];
+static volatile uint8_t rx_buffer_head_ = 0, rx_buffer_[RX_BUFFER_LENGTH];
 static volatile uint8_t tx_bytes_remaining_ = 0, *tx_ptr_ = 0;
 static uint8_t data_buffer_[DATA_BUFFER_LENGTH], tx_buffer_[TX_BUFFER_LENGTH];
 static uint8_t tx_overflow_counter_ = 0;
@@ -45,6 +85,10 @@ void UARTInit(void)
 }
 
 // -----------------------------------------------------------------------------
+// This function processes bytes that have been read into the Rx ring buffer
+// (rx_buffer_) by the Rx interrupt handler. Each byte is passed to the
+// appropriate Rx handler, which may place it into the temporary data buffer
+// (data_buffer_).
 void ProcessIncomingUART(void)
 {
   static uint8_t rx_buffer_tail = 0;
@@ -52,25 +96,21 @@ void ProcessIncomingUART(void)
 
   while (rx_buffer_tail != rx_buffer_head_)
   {
+    // Move the ring buffer tail forward.
     rx_buffer_tail = (rx_buffer_tail + 1) % RX_BUFFER_LENGTH;
 
-    // TODO: Support other protocols
+    // Add other Rx protocols here.
     if (mode != UART_RX_MODE_IDLE)
       mode = MKSerialRx(rx_buffer_[rx_buffer_tail], data_buffer_);
-    else if (rx_buffer_[rx_buffer_tail] == '#')
+    else if (rx_buffer_[rx_buffer_tail] == '#')  // MK protocol start character
       mode = UART_RX_MODE_MK_ONGOING;
   }
 }
 
 // -----------------------------------------------------------------------------
-void SendUART(void)
-{
-  // TODO: add other transmit protocols here.
-  SendMKSerial();
-}
-
-// -----------------------------------------------------------------------------
-uint8_t * UARTTxBuffer(void)
+// This function returns the address of the shared Tx buffer (tx_buffer_) if it
+// is available of zero if not.
+uint8_t * RequestUARTTxBuffer(void)
 {
   if (tx_bytes_remaining_)
   {
@@ -81,37 +121,42 @@ uint8_t * UARTTxBuffer(void)
 }
 
 // -----------------------------------------------------------------------------
+// This function calls handlers for pending data transmission requests.
+void SendPendingUART(void)
+{
+  // Add other Tx protocols here.
+  SendPendingMKSerial();
+}
+
+// -----------------------------------------------------------------------------
+// This function initiates the transmission of the data in the Tx buffer.
+void UARTTxBuffer(uint8_t tx_length)
+{
+  if (tx_length == 0) return;
+  tx_ptr_ = &tx_buffer_[0];
+  tx_bytes_remaining_ = tx_length;
+  UCSR0B |= _BV(UDRIE0);  // Enable the USART0 data register empty interrupt.
+}
+
+// -----------------------------------------------------------------------------
+// This function immediately transmits a byte and blocks computation until
+// transmission is commenced.
 void UARTTxByte(uint8_t byte)
 {
-  // TODO: should USART Data Register Empty Interrupt be used instead?
+  if (!MotorsInhibited()) return;
   loop_until_bit_is_set(UCSR0A, UDRE0);
   UDR0 = byte;
 }
 
 // -----------------------------------------------------------------------------
-void UARTTx(uint8_t tx_length)
-{
-  if (tx_length == 0) return;
-  tx_ptr_ = &tx_buffer_[0];
-  tx_bytes_remaining_ = tx_length;
-
-  // Go ahead and send a byte if the transmitter is ready.
-  if (UCSR0A & _BV(UDRE0))
-  {
-    UDR0 = *(tx_ptr_++);
-    tx_bytes_remaining_--;
-  }
-
-  UCSR0B |= _BV(UDRIE0);  // Enable the USART0 data register empty interrupt.
-}
-
-// -----------------------------------------------------------------------------
-// This function acts like printf, but puts the result on the UART stream. It
-// also adds the end-of-line characters and checks that the character buffer is
-// not exceeded. Note that this function is blocking.
+// This function mimics printf, but puts the result on the UART stream. It also
+// adds the end-of-line characters and checks that the character buffer is not
+// exceeded. Note that this function is slow and blocking.
 void UARTPrintf_P(const char *format, ...)
 {
-  // TODO: never when motors are running...
+  // This function is slow and blocking, so NEVER use when motors are running.
+  if (!MotorsInhibited()) return;
+
   static char ascii[103];  // 100 chars + 2 newline chars + null terminator
 
   va_list arglist;

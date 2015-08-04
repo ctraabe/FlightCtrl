@@ -1,2 +1,2 @@
 # FlightCtrl
-Alternative firmware for Mikrokopter FlightCtrl board
+Alternative firmware for MikroKopter FlightCtrl board

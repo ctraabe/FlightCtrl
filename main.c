@@ -138,7 +138,7 @@ static void Init(void)
 
   sei();  // Enable interrupts
 
-  UARTPrintf("University of Tokyo Mikrokopter firmware V2");
+  UARTPrintf("University of Tokyo FlightCtrl firmware V2");
 
   LoadGyroOffsets();
   LoadAccelerometerOffsets();
@@ -196,7 +196,7 @@ int16_t main(void)
       ErrorCheck();
 
       ProcessIncomingUART();
-      SendUART();
+      SendPendingUART();
 
       flag_128hz_ = 0;
     }

@@ -15,7 +15,7 @@
 
 // By increasing the resolution, the measurable range becomes much smaller. At
 // 0.14 m resolution, the 10-bit A/D converter can only capture a range of 140
-// meters. In order to operate the Mikrokopter at locations of various
+// meters. In order to operate the MikroKopter at locations of various
 // elevations (e.g. 5 meters in Odaiba vs. 600 meters at Mt. Takao), and to
 // compensate for meteorological variations in barometric pressure, the
 // measurable pressure range must be shifted so that current pressure lies

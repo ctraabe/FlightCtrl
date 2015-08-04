@@ -103,16 +103,16 @@ void ProcessSensorReadings(void);
 void WaitOneADCCycle(void);
 
 // -----------------------------------------------------------------------------
-// This function assumes that the Mikrokopter is motionless (on the ground). It
+// This function assumes that the vehicle is motionless (on the ground). It
 // finds the average accelerometer readings over the period of 1 second
 // (approximately) and considers the results to be the zero values of the
 // accelerometers.
 void ZeroAccelerometers(void);
 
 // -----------------------------------------------------------------------------
-// This function assumes that the Mikrokopter is motionless on the ground. It
-// finds the average gyro readings over the period of 1 second (approximately)
-// and considers the results to be the zero values of the gyros.
+// This function assumes that the vehicle is motionless on the ground. It finds
+// the average gyro readings over the period of 1 second (approximately) and
+// considers the results to be the zero values of the gyros.
 void ZeroGyros(void);
 
 

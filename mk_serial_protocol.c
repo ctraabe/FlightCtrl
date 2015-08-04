@@ -1,27 +1,14 @@
 // Information:
 //
-// UART stands for Universal Asynchronous Receiver/Transmitter. A UART uses 2
-// wires for data transmission: one for transmitting, and one for receiving.
-// Data transfers may be started at any time, but must occur at a pre-agreed
-// rate, called the BAUD rate. Transmit and receive can occur simultaneously
-// (i.e. one does not impact the other). When no data is being transferred, the
-// output is set to the high state (1). A single low bit (0) marks the start of
-// a new data packet. This UART has been set to the following:
-//
-//   - 57600 BAUD (57.6 kbits / second)
-//   - 8 bits of data follow the single start bit
-//   - data packets are closed with a single high bit and without a parity bit
-//
-// With the above settings, each byte of data requires a 10-bit packet.  This
-// means a maximum data rate of 5.76 kBytes / second. However, MikroKopter uses
-// an additional protocol to manage the data transfer. In this protocol,
-// multiple bytes of data can be wrapped into a single frame with some
-// identifying information. The identifying information includes the following
-// at the start of the frame:
+// 57600 BAUD with one start and end bit gives a maximum data rate of 5.76
+// kBytes / second. However, MikroKopter uses an additional protocol to manage
+// the data transfer. In this protocol, multiple bytes of data can be wrapped
+// into a single frame with some identifying information. The identifying
+// information includes the following at the start of the frame:
 //
 //   - the start character "#"
 //   - an address
-//   - a command identifier
+//   - a label identifier
 //
 // and the following at the end of the frame:
 //
@@ -47,7 +34,7 @@
 //   22-24 bytes -> 151 Hz
 //   25-27 bytes -> 137 Hz
 //   28-30 bytes -> 125 Hz
-//   66 bytes -> 61.3 Hz (this is the size of Mikrokopter's DebugOut structure)
+//   66 bytes -> 61.3 Hz (this is the size of MikroKopter's DebugOut structure)
 
 #include "mk_serial_protocol.h"
 
@@ -66,11 +53,17 @@ static uint8_t VerifyMKChecksum(uint8_t * data_buffer, uint8_t length);
 // =============================================================================
 // Public functions:
 
+// This function collects an incoming byte that is assumed to be part of a
+// message encoded in the MikroKopter protocol. This function attempts to place
+// the incoming byte into the shared data buffer, but abandons the reception if
+// the data buffer is not large enough. The return value indicates whether or
+// not more bytes are expected. If so, subsequent bytes should also be passed to
+// this function.
 enum UARTRxMode MKSerialRx(uint8_t byte, uint8_t * data_buffer)
 {
   static uint8_t length = 0;
 
-  if (byte != '\r')
+  if (byte != '\r')  // The byte '/r' marks the end of an MK message
   {
     if (length < DATA_BUFFER_LENGTH)
     {
@@ -87,40 +80,46 @@ enum UARTRxMode MKSerialRx(uint8_t byte, uint8_t * data_buffer)
 }
 
 // -----------------------------------------------------------------------------
-void MKSerialTx(uint8_t address, uint8_t command, uint8_t * source,
+// This function encodes data into a message using the MikroKopter protocol.
+// The message must contain at least a destination address and a label. If no
+// additional data is necessary, then the source pointer and length can both be
+// set to zero.
+void MKSerialTx(uint8_t address, uint8_t label, uint8_t * source,
   uint8_t length)
 {
-  uint8_t * tx_buffer = UARTTxBuffer();
+  uint8_t * tx_buffer = RequestUARTTxBuffer();
   if (!tx_buffer) return;
 
-  tx_buffer[0] = '#';
-  tx_buffer[1] = 'a' + address;
-  tx_buffer[2] = command;
+  uint8_t i = 0;
+  tx_buffer[i++] = '#';
+  tx_buffer[i++] = 'a' + address;
+  tx_buffer[i++] = label;
 
-  uint8_t index = 3;
   while (length)
   {
-    uint8_t i = 3, y[3] = { 0 };
-    while (i-- && length--) y[i] = *(source++);
+    uint8_t y[3] = { 0 };
+    for (uint8_t j = 3; j-- && length--; ) y[j] = *(source++);
 
-    tx_buffer[index++] = '=' + (y[2] >> 2);
-    tx_buffer[index++] = '=' + (((y[2] & 0x03) << 4) | ((y[1] & 0xf0) >> 4));
-    tx_buffer[index++] = '=' + (((y[1] & 0x0f) << 2) | ((y[0] & 0xc0) >> 6));
-    tx_buffer[index++] = '=' + (y[0] & 0x3f);
+    tx_buffer[i++] = '=' + (y[2] >> 2);
+    tx_buffer[i++] = '=' + (((y[2] & 0x03) << 4) | ((y[1] & 0xf0) >> 4));
+    tx_buffer[i++] = '=' + (((y[1] & 0x0f) << 2) | ((y[0] & 0xc0) >> 6));
+    tx_buffer[i++] = '=' + (y[0] & 0x3f);
   }
 
-  AddMKChecksum(tx_buffer, index);
-  index += sizeof(uint16_t);
+  AddMKChecksum(tx_buffer, i);
+  i += sizeof(uint16_t);
 
-  tx_buffer[index++] = '\r';
+  tx_buffer[i++] = '\r';
 
-  UARTTx(index);
+  UARTTxBuffer(i);
 }
 
 
 // =============================================================================
 // Private functions:
 
+// This function extracts the data from a message encoded in the MikroKopter
+// protocol. Here, length excludes the start and end characters only.
 static void DecodeMKSerialRx(uint8_t * data_buffer, uint8_t length)
 {
   uint8_t address = data_buffer[0] - 'a';
@@ -149,6 +148,8 @@ static void DecodeMKSerialRx(uint8_t * data_buffer, uint8_t length)
 }
 
 // -----------------------------------------------------------------------------
+// This function computes the MikroKopter checksum for encoded data. Here,
+// length excludes the start and end characters and the checksum.
 static uint16_t MKChecksum(uint8_t * buffer, uint8_t length)
 {
   union U16Bytes result = { '#' };
@@ -164,6 +165,8 @@ static uint16_t MKChecksum(uint8_t * buffer, uint8_t length)
 }
 
 // -----------------------------------------------------------------------------
+// This function appends the MikroKopter checksum to the end of some encoded
+// data. Here, length excludes the start and end characters and the checksum.
 static void AddMKChecksum(uint8_t * buffer, uint8_t length)
 {
   uint16_t * checksum_ptr = (uint16_t *)&buffer[length];
@@ -171,6 +174,8 @@ static void AddMKChecksum(uint8_t * buffer, uint8_t length)
 }
 
 // -----------------------------------------------------------------------------
+// This function verifies the checksum of some received data. Here, length
+// excludes the start and end characters only.
 static uint8_t VerifyMKChecksum(uint8_t * data_buffer, uint8_t length)
 {
   uint16_t * checksum_ptr = (uint16_t *)&data_buffer[length-2];

@@ -33,13 +33,20 @@ enum MKStream {
 // =============================================================================
 // Public functions:
 
-void SendMKSerial(void);
+// This function sends data that has been requested.
+void SendPendingMKSerial(void);
 
 // -----------------------------------------------------------------------------
-void SetMKTxRequest(enum MKTxBits);
-
-// -----------------------------------------------------------------------------
+// This function starts the specified data stream at the specified period. Note
+// that this stream has to be renewed periodically by resending the request. If
+// no renewing request is received, then the stream will time out after a while.
+// Also note that the stream output period will be quantized to the main control
+// frequency.
 void SetMKDataStream(enum MKStream mk_stream, uint16_t period_10ms);
+
+// -----------------------------------------------------------------------------
+// This function sets a one-time request for data.
+void SetMKTxRequest(enum MKTxBits);
 
 
 #endif  // MK_SERIAL_TX_H_
