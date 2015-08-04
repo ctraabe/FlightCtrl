@@ -134,7 +134,7 @@ static void Init(void)
   PressureSensorInit();
 
   // Pull up the version pin (FlightCtrl V2.2 will be grounded).
-  VERSION_2_2_PORT |= VERSION_2_2_PIN | VERSION_2_2_PIN;
+  VERSION_2_2_PORT |= VERSION_2_2_PIN;
 
   sei();  // Enable interrupts
 
