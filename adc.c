@@ -286,9 +286,6 @@ void ZeroAccelerometers(void)
   else
     acc_offset_[Z_BODY_AXIS] = S16RoundRShiftS32(sample_sum[Z_BODY_AXIS],
       kNSamplesPowOf2) + ADC_N_SAMPLES * ACCELEROMETER_SCALE;
-  // acc_offset_[X_BODY_AXIS] = (int16_t)(sample_sum[X_BODY_AXIS] / kNSamples);
-  // acc_offset_[Y_BODY_AXIS] = (int16_t)(sample_sum[Y_BODY_AXIS] / kNSamples);
-  // acc_offset_[Z_BODY_AXIS] = (int16_t)(sample_sum[Z_BODY_AXIS] / kNSamples);
 
   // TODO: Change these limits to something more reasonable
   // Check that the zero values are within an acceptable range. The acceptable
@@ -319,8 +316,8 @@ void ZeroGyros(void)
   gyro_offset_[Z_BODY_AXIS] = 0;
 
   // Sum samples over about 1 second (2000 samples).
-  // Note: the number of samples must be evenly divisible by ADC_N_SAMPLES.
-  const uint16_t kNSamples = 2048 / ADC_N_SAMPLES;
+  const uint8_t kNSamplesPowOf2 = 11 - ADC_N_SAMPLES_POW_OF_2;
+  const int32_t kNSamples = 1 << kNSamplesPowOf2;
   for (uint16_t i = 0; i < kNSamples; i++)
   {
     WaitOneADCCycle();
@@ -331,9 +328,12 @@ void ZeroGyros(void)
   }
 
   // Average the results and set as the offset.
-  gyro_offset_[X_BODY_AXIS] = (int16_t)(sample_sum[X_BODY_AXIS] / kNSamples);
-  gyro_offset_[Y_BODY_AXIS] = (int16_t)(sample_sum[Y_BODY_AXIS] / kNSamples);
-  gyro_offset_[Z_BODY_AXIS] = (int16_t)(sample_sum[Z_BODY_AXIS] / kNSamples);
+  gyro_offset_[X_BODY_AXIS] = S16RoundRShiftS32(sample_sum[X_BODY_AXIS],
+    kNSamplesPowOf2);
+  gyro_offset_[Y_BODY_AXIS] = S16RoundRShiftS32(sample_sum[Y_BODY_AXIS],
+    kNSamplesPowOf2);
+  gyro_offset_[Z_BODY_AXIS] = S16RoundRShiftS32(sample_sum[Z_BODY_AXIS],
+    kNSamplesPowOf2);
 
   // TODO: Change these limits to something more reasonable.
   // Check that the zero values are within an acceptable range. The acceptable
