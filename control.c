@@ -31,7 +31,8 @@
 static float actuation_inverse_[MAX_MOTORS][4];
 static float angular_cmd_[3] = { 0 };
 static float attitude_error_limit_, heading_error_limit_;
-static float k_phi_, k_p_, k_p_dot_, k_psi_, k_r_;
+static float attitude_integral_limit_, heading_integral_limit_;
+static float k_p_dot_, k_p_, k_phi_, k_phi_int_, k_r_, k_psi_, k_psi_int_;
 static float k_sbus_to_thrust_, min_thrust_cmd_, max_thrust_cmd_;
 static float p_kalman_ = 0.0, p_dot_kalman_ = 0.0, p_dot_bias_ = 0.0;
 static float q_kalman_ = 0.0, q_dot_kalman_ = 0.0, q_dot_bias_ = 0.0;
@@ -43,11 +44,13 @@ static uint16_t setpoints_[MAX_MOTORS] = { 0 };
 
 static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
   float * heading_rate_cmd, float * thrust_cmd);
-static void FormAngularCommand(float quat_cmd[4], float * heading_rate_cmd);
+static void FormAngularCommand(float quat_cmd[4], float * heading_rate_cmd,
+  float attitude_integral[3]);
 static void QuaternionFromGravityAndHeading(float g_b_cmd[2],
   float * heading_cmd, float quat_cmd[4]);
 static void UpdateAttitudeModel(float quat_cmd[4], float * heading_rate_cmd,
   float quat_model[4]);
+static void UpdateIntegrals(float quat_model[4], float attitude_integral[3]);
 static void UpdateKalmanFilter(void);
 
 
@@ -99,18 +102,21 @@ void ControlInit(void)
     (const void*)&eeprom.actuation_inverse[0][0], sizeof(actuation_inverse_));
 
   // TODO: remove these temporary initializations and replace with EEPROM.
-  k_phi_ = 100.0;
-  k_p_ = 25.1167298526154;
   k_p_dot_ = 1.45425059244632;
-  k_psi_ = 7.071067812;
+  k_p_ = 25.1167298526154;
+  k_phi_ = 100.0;
+  k_phi_int_ = 1.33;
+
   k_r_ = 4.37792274833246;
+  k_psi_ = 7.071067812;
+  k_psi_int_ = 0.5;
 
   // Compute the limit on the attitude error given the rate limit.
   attitude_error_limit_ = MAX_ATTITUDE_RATE * k_p_ / k_phi_;
 
   // Set the heading error limit to half the attitude error so heading error
   // won't saturate the attitude error.
-  heading_error_limit_ = attitude_error_limit_ * 0.5;
+  heading_error_limit_ = 0.5 * attitude_error_limit_;
 
   // Compute the thrust limits that give the margin necessary to guarantee
   // that the maximum attitude command is achievable.
@@ -129,6 +135,9 @@ void ControlInit(void)
   }
 
   k_sbus_to_thrust_ = (max_thrust_cmd_ - min_thrust_cmd_) / (2.0 * SBUS_MAX);
+
+  attitude_integral_limit_ = 0.5 * MAX_G_B_CMD;
+  heading_integral_limit_ = 0.5 * MAX_HEADING_RATE;
 }
 
 // -----------------------------------------------------------------------------
@@ -139,17 +148,21 @@ void Control(void)
   float heading_rate_cmd, thrust_cmd;
   static float heading_cmd = 0.0;
   static float quat_model[4] = { 1.0, 0.0, 0.0, 0.0 };
+  static float attitude_integral[3] = { 0.0, 0.0, 0.0 };
 
   // TODO: add routines to form commands from an external source.
   // Derive a target attitude from the position of the sticks.
   CommandsFromSticks(g_b_cmd, &heading_cmd, &heading_rate_cmd, &thrust_cmd);
   QuaternionFromGravityAndHeading(g_b_cmd, &heading_cmd, quat_cmd);
 
+  // Update the integral paths.
+  UpdateIntegrals(quat_model, attitude_integral);
+
   // Update the pitch and roll Kalman filters.
   UpdateKalmanFilter();
 
   // Compute a new attitude acceleration command.
-  FormAngularCommand(quat_cmd, &heading_rate_cmd);
+  FormAngularCommand(quat_cmd, &heading_rate_cmd, attitude_integral);
 
   for (uint8_t i = NMotors(); i--; )
     setpoints_[i] = (uint16_t)S16Limit(FloatToS16(thrust_cmd
@@ -285,7 +298,8 @@ static float * AttitudeError(float quat_cmd[4], float quat[4],
 }
 
 // -----------------------------------------------------------------------------
-static void FormAngularCommand(float quat_cmd[4], float * heading_rate_cmd)
+static void FormAngularCommand(float quat_cmd[4], float * heading_rate_cmd,
+  float attitude_integral[3])
 {
   float attitude_error[3];
   AttitudeError(quat_cmd, Quat(), attitude_error);
@@ -303,12 +317,15 @@ static void FormAngularCommand(float quat_cmd[4], float * heading_rate_cmd)
   VectorGain(GravityInBodyVector(), *heading_rate_cmd, rate_cmd);
 
   // Apply the control gains.
-  angular_cmd_[X_BODY_AXIS] = k_phi_ * attitude_error[X_BODY_AXIS]
-    + k_p_ * (rate_cmd[X_BODY_AXIS] - p_kalman_) + k_p_dot_ * -p_dot_kalman_;
-  angular_cmd_[Y_BODY_AXIS] = k_phi_ * attitude_error[Y_BODY_AXIS]
-    + k_p_ * (rate_cmd[Y_BODY_AXIS] - q_kalman_) + k_p_dot_ * -q_dot_kalman_;
-  angular_cmd_[Z_BODY_AXIS] = k_psi_ * attitude_error[Z_BODY_AXIS]
-    + k_r_ * (rate_cmd[Z_BODY_AXIS] - AngularRate(Z_BODY_AXIS));
+  angular_cmd_[X_BODY_AXIS] = k_phi_ * (attitude_error[X_BODY_AXIS]
+    + attitude_integral[X_BODY_AXIS]) + k_p_ * (rate_cmd[X_BODY_AXIS]
+    - p_kalman_) + k_p_dot_ * -p_dot_kalman_;
+  angular_cmd_[Y_BODY_AXIS] = k_phi_ * (attitude_error[Y_BODY_AXIS]
+    + attitude_integral[Y_BODY_AXIS]) + k_p_ * (rate_cmd[Y_BODY_AXIS]
+    - q_kalman_) + k_p_dot_ * -q_dot_kalman_;
+  angular_cmd_[Z_BODY_AXIS] = k_psi_ * (attitude_error[Z_BODY_AXIS]
+    + attitude_integral[Z_BODY_AXIS]) + k_r_ * (rate_cmd[Z_BODY_AXIS]
+    - AngularRate(Z_BODY_AXIS));
 }
 
 // -----------------------------------------------------------------------------
@@ -386,4 +403,22 @@ static void UpdateAttitudeModel(float quat_cmd[4], float * heading_rate_cmd,
 
   UpdateQuaternion(quat_model, angular_rate, DT);
   QuaternionNormalizingFilter(quat_model);
+}
+
+// -----------------------------------------------------------------------------
+static void UpdateIntegrals(float quat_model[4], float attitude_integral[3])
+{
+  // Compute the error between the actual and model attitudes.
+  float attitude_error[3];
+  AttitudeError(quat_model, Quat(), attitude_error);
+
+  attitude_integral[X_BODY_AXIS] = FloatLimit(attitude_integral[X_BODY_AXIS]
+    + k_phi_int_ * attitude_error[X_BODY_AXIS] * DT, -attitude_integral_limit_,
+    attitude_integral_limit_);
+  attitude_integral[Y_BODY_AXIS] = FloatLimit(attitude_integral[Y_BODY_AXIS]
+    + k_phi_int_ * attitude_error[Y_BODY_AXIS] * DT, -attitude_integral_limit_,
+    attitude_integral_limit_);
+  attitude_integral[Z_BODY_AXIS] = FloatLimit(attitude_integral[Z_BODY_AXIS]
+    + k_psi_int_ * attitude_error[Z_BODY_AXIS] * DT, -heading_integral_limit_,
+    heading_integral_limit_);
 }
