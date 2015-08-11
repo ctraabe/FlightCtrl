@@ -14,6 +14,12 @@ float * QuaternionInverse(float quat[4], float result[4]);
 float * QuaternionMultiply(float quat1[4], float quat2[4], float result[4]);
 
 // -----------------------------------------------------------------------------
+// This functions performs quaternion multiplication of quat1 with the inverse
+// of quat[2].
+float * QuaternionMultiplyInverse(float quat1[4], float quat2[4],
+  float result[4]);
+
+// -----------------------------------------------------------------------------
 float QuaternionNorm(float quat[4]);
 
 // -----------------------------------------------------------------------------

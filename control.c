@@ -8,6 +8,7 @@
 #include "attitude.h"
 #include "custom_math.h"
 #include "eeprom.h"
+#include "main.h"
 #include "motors.h"
 #include "quaternion.h"
 #include "sbus.h"
@@ -40,10 +41,13 @@ static uint16_t setpoints_[MAX_MOTORS] = { 0 };
 // =============================================================================
 // Private function declarations:
 
-static void FormAngularCommand(float g_b_cmd[2], float * heading_cmd,
-  float * heading_rate_cmd);
 static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
   float * heading_rate_cmd, float * thrust_cmd);
+static void FormAngularCommand(float quat_cmd[4], float * heading_rate_cmd);
+static void QuaternionFromGravityAndHeading(float g_b_cmd[2],
+  float * heading_cmd, float quat_cmd[4]);
+static void UpdateAttitudeModel(float quat_cmd[4], float * heading_rate_cmd,
+  float quat_model[4]);
 static void UpdateKalmanFilter(void);
 
 
@@ -100,7 +104,6 @@ void ControlInit(void)
   k_p_dot_ = 1.45425059244632;
   k_psi_ = 7.071067812;
   k_r_ = 4.37792274833246;
-  // k_r_dot_ = -0.02029653396;
 
   // Compute the limit on the attitude error given the rate limit.
   attitude_error_limit_ = MAX_ATTITUDE_RATE * k_p_ / k_phi_;
@@ -131,19 +134,22 @@ void ControlInit(void)
 // -----------------------------------------------------------------------------
 void Control(void)
 {
+  float quat_cmd[4]; // Target attitude in quaternion
   float g_b_cmd[2];  // Target x and y components of the gravity vector in body
-  static float heading_cmd = 0.0;
   float heading_rate_cmd, thrust_cmd;
+  static float heading_cmd = 0.0;
+  static float quat_model[4] = { 1.0, 0.0, 0.0, 0.0 };
 
   // TODO: add routines to form commands from an external source.
   // Derive a target attitude from the position of the sticks.
   CommandsFromSticks(g_b_cmd, &heading_cmd, &heading_rate_cmd, &thrust_cmd);
+  QuaternionFromGravityAndHeading(g_b_cmd, &heading_cmd, quat_cmd);
 
   // Update the pitch and roll Kalman filters.
   UpdateKalmanFilter();
 
   // Compute a new attitude acceleration command.
-  FormAngularCommand(g_b_cmd, &heading_cmd, &heading_rate_cmd);
+  FormAngularCommand(quat_cmd, &heading_rate_cmd);
 
   for (uint8_t i = NMotors(); i--; )
     setpoints_[i] = (uint16_t)S16Limit(FloatToS16(thrust_cmd
@@ -158,6 +164,9 @@ void Control(void)
     for (uint8_t i = NMotors(); i--; ) SetMotorSetpoint(i, 0);
 
   TxMotorSetpoints();
+
+  // Update the model for the next time step.
+  UpdateAttitudeModel(quat_cmd, &heading_rate_cmd, quat_model);
 }
 
 // -----------------------------------------------------------------------------
@@ -172,80 +181,7 @@ void SetActuationInverse(float actuation_inverse[MAX_MOTORS][4])
 // =============================================================================
 // Private functions:
 
-static void FormAngularCommand(float g_b_cmd[2], float * heading_cmd,
-  float * heading_rate_cmd)
-{
-  // Compute the z component of the gravity vector command.
-  float g_b_cmd_z = sqrt(1.0 - square(g_b_cmd[X_BODY_AXIS])
-    - square(g_b_cmd[Y_BODY_AXIS]));
-
-  // Form a quaternion from these components (z component is 0).
-  float temp1 = 0.5 + 0.5 * g_b_cmd_z;
-  float quat_g_b_cmd_0 = sqrt(temp1);
-  float temp2 = 1.0 / (2.0 * quat_g_b_cmd_0);
-  float quat_g_b_cmd_x = g_b_cmd[Y_BODY_AXIS] * temp2;
-  float quat_g_b_cmd_y = -g_b_cmd[X_BODY_AXIS] * temp2;
-
-  // Determine the (approximate) heading of this command for removal (optional).
-  float psi_from_g_b_cmd = (quat_g_b_cmd_x * quat_g_b_cmd_y) / (temp1
-    + square(quat_g_b_cmd_x) - 0.5);
-
-  // Limit the heading error.
-  float heading_err = FloatLimit(WrapToPlusMinusPi(*heading_cmd
-    - HeadingAngle()), -heading_error_limit_, heading_error_limit_);
-
-  // Make a second quaternion for the commanded heading minus the residual
-  // heading from the gravity vector command (x and y components are zero).
-  temp1 = (HeadingAngle() + heading_err - psi_from_g_b_cmd) * 0.5;
-  float quat_heading_cmd_0 = cos(temp1);
-  float quat_heading_cmd_z = sin(temp1);
-
-  // Combine the quaternions (heading rotation first) to form the final
-  // quaternion command.
-  float quat_cmd[4];
-  quat_cmd[0] = quat_g_b_cmd_0 * quat_heading_cmd_0;
-  quat_cmd[1] = quat_g_b_cmd_x * quat_heading_cmd_0 + quat_g_b_cmd_y
-    * quat_heading_cmd_z;
-  quat_cmd[2] = -quat_g_b_cmd_x * quat_heading_cmd_z + quat_g_b_cmd_y
-    * quat_heading_cmd_0;
-  quat_cmd[3] = quat_g_b_cmd_0 * quat_heading_cmd_z;
-
-  // Find the quaternion that goes from the current to the command.
-  float quat_err[4], quat_inv[4];
-  QuaternionMultiply(quat_cmd, QuaternionInverse(Quat(), quat_inv), quat_err);
-
-  // The last 3 elements of the resulting quaternion represent a vector along
-  // axis of the rotation that will take the aircraft to the desired attitude
-  // (if the first element is positive). The magnitude of this vector is equal
-  // to the sine of half the rotation. Assume that the angle is small enough to
-  // ignore the sine, so just double the magnitude.
-  if (quat_err[0] < 0) QuaternionInverse(quat_err, quat_err);
-  float attitude_error[3] = { 2.0 * quat_err[1], 2.0 * quat_err[2],
-    2.0 * quat_err[3] };
-
-  // Saturate the error.
-  float attitude_error_norm = VectorNorm(attitude_error);
-  if (attitude_error_norm > attitude_error_limit_)
-    VectorGain(attitude_error, attitude_error_limit_
-      / attitude_error_norm, attitude_error);
-
-  // Transform the yaw rate command into the body axis. Note that yaw rate
-  // happens to occur along the gravity vector, so yaw rate command is a simple
-  // scalar multiplication of the gravity vector.
-  float rate_cmd[3];
-  VectorGain(GravityInBodyVector(), *heading_rate_cmd, rate_cmd);
-
-  // Apply the control gains.
-  angular_cmd_[X_BODY_AXIS] = k_phi_ * attitude_error[X_BODY_AXIS]
-    + k_p_ * (rate_cmd[X_BODY_AXIS] - p_kalman_) + k_p_dot_ * -p_dot_kalman_;
-  angular_cmd_[Y_BODY_AXIS] = k_phi_ * attitude_error[Y_BODY_AXIS]
-    + k_p_ * (rate_cmd[Y_BODY_AXIS] - q_kalman_) + k_p_dot_ * -q_dot_kalman_;
-  angular_cmd_[Z_BODY_AXIS] = k_psi_ * attitude_error[Z_BODY_AXIS]
-    + k_r_ * (rate_cmd[Z_BODY_AXIS] - AngularRate(Z_BODY_AXIS));
-}
-
-// -----------------------------------------------------------------------------
-void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
+static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
   float * heading_rate_cmd, float * thrust_cmd)
 {
   if (SBusStale())
@@ -281,12 +217,107 @@ void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
 }
 
 // -----------------------------------------------------------------------------
+static void QuaternionFromGravityAndHeading(float g_b_cmd[2],
+  float * heading_cmd, float quat_cmd[4])
+{
+  // Compute the z component of the gravity vector command.
+  float g_b_cmd_z = sqrt(1.0 - square(g_b_cmd[X_BODY_AXIS])
+    - square(g_b_cmd[Y_BODY_AXIS]));
+
+  // Form a quaternion from these components (z component is 0).
+  float temp1 = 0.5 + 0.5 * g_b_cmd_z;
+  float quat_g_b_cmd_0 = sqrt(temp1);
+  float temp2 = 1.0 / (2.0 * quat_g_b_cmd_0);
+  float quat_g_b_cmd_x = g_b_cmd[Y_BODY_AXIS] * temp2;
+  float quat_g_b_cmd_y = -g_b_cmd[X_BODY_AXIS] * temp2;
+
+  // Determine the (approximate) heading of this command for removal (optional).
+  float heading_from_g_b_cmd = (quat_g_b_cmd_x * quat_g_b_cmd_y) / (temp1
+    + square(quat_g_b_cmd_x) - 0.5);
+
+  // Limit the heading error.
+  float heading_err = FloatLimit(WrapToPlusMinusPi(*heading_cmd
+    - HeadingAngle()), -heading_error_limit_, heading_error_limit_);
+
+  // Make a second quaternion for the commanded heading minus the residual
+  // heading from the gravity vector command (x and y components are zero).
+  temp1 = (HeadingAngle() + heading_err - heading_from_g_b_cmd) * 0.5;
+  float quat_heading_cmd_0 = cos(temp1);
+  float quat_heading_cmd_z = sin(temp1);
+
+  // Combine the quaternions (heading rotation first) to form the final
+  // quaternion command.
+  quat_cmd[0] = quat_g_b_cmd_0 * quat_heading_cmd_0;
+  quat_cmd[1] = quat_g_b_cmd_x * quat_heading_cmd_0 + quat_g_b_cmd_y
+    * quat_heading_cmd_z;
+  quat_cmd[2] = -quat_g_b_cmd_x * quat_heading_cmd_z + quat_g_b_cmd_y
+    * quat_heading_cmd_0;
+  quat_cmd[3] = quat_g_b_cmd_0 * quat_heading_cmd_z;
+}
+
+// -----------------------------------------------------------------------------
+static float * AttitudeError(float quat_cmd[4], float quat[4],
+  float attitude_error[3])
+{
+  // Find the quaternion that goes from the current to the command.
+  float quat_err[4];
+  QuaternionMultiplyInverse(quat_cmd, quat, quat_err);
+
+  // Make sure the error is represented as a positive quaternion.
+  if (quat_err[0] < 0)
+  {
+    // quat_err[0] = -quat_err[0];  // Unused
+    quat_err[1] = -quat_err[1];
+    quat_err[2] = -quat_err[2];
+    quat_err[3] = -quat_err[3];
+  }
+
+  // The last 3 elements of the resulting quaternion represent a vector along
+  // axis of the rotation that will take the aircraft to the desired attitude
+  // (if the first element is positive). The magnitude of this vector is equal
+  // to the sine of half the rotation. Assume that the angle is small enough to
+  // ignore the sine, so just double the magnitude.
+  attitude_error[0] = 2.0 * quat_err[1];
+  attitude_error[1] = 2.0 * quat_err[2];
+  attitude_error[2] = 2.0 * quat_err[3];
+
+  return attitude_error;
+}
+
+// -----------------------------------------------------------------------------
+static void FormAngularCommand(float quat_cmd[4], float * heading_rate_cmd)
+{
+  float attitude_error[3];
+  AttitudeError(quat_cmd, Quat(), attitude_error);
+
+  // Saturate the error.
+  float attitude_error_norm = VectorNorm(attitude_error);
+  if (attitude_error_norm > attitude_error_limit_)
+    VectorGain(attitude_error, attitude_error_limit_
+      / attitude_error_norm, attitude_error);
+
+  // Transform the yaw rate command into the body axis. Note that yaw rate
+  // happens to occur along the gravity vector, so yaw rate command is a simple
+  // scalar multiplication of the gravity vector.
+  float rate_cmd[3];
+  VectorGain(GravityInBodyVector(), *heading_rate_cmd, rate_cmd);
+
+  // Apply the control gains.
+  angular_cmd_[X_BODY_AXIS] = k_phi_ * attitude_error[X_BODY_AXIS]
+    + k_p_ * (rate_cmd[X_BODY_AXIS] - p_kalman_) + k_p_dot_ * -p_dot_kalman_;
+  angular_cmd_[Y_BODY_AXIS] = k_phi_ * attitude_error[Y_BODY_AXIS]
+    + k_p_ * (rate_cmd[Y_BODY_AXIS] - q_kalman_) + k_p_dot_ * -q_dot_kalman_;
+  angular_cmd_[Z_BODY_AXIS] = k_psi_ * attitude_error[Z_BODY_AXIS]
+    + k_r_ * (rate_cmd[Z_BODY_AXIS] - AngularRate(Z_BODY_AXIS));
+}
+
+// -----------------------------------------------------------------------------
 static void UpdateKalmanFilter(void)
 {
   // Past values for derivatives.
   static float p_pv = 0.0, q_pv = 0.0;
 
-  // Precomputed constants.
+  // TODO: replace these precomputed constants with EEPROM.
   const float kA11 = 0.924848813216205, kA13 = 0.00751511867837952;
   const float kA21 = 0.00751511867837952, kA23 = 2.97381321620483e-05;
   const float kB11 = 0.0751511867837952, kB21 = 0.000297381321620483;
@@ -322,4 +353,43 @@ static void UpdateKalmanFilter(void)
   // Save past values for derivatives.
   p_pv = AngularRate(X_BODY_AXIS);
   q_pv = AngularRate(Y_BODY_AXIS);
+}
+
+// -----------------------------------------------------------------------------
+static void UpdateAttitudeModel(float quat_cmd[4], float * heading_rate_cmd,
+  float quat_model[4])
+{
+  // Compute the error between the model's attitude and the command.
+  float attitude_error[3];
+  AttitudeError(quat_cmd, quat_model, attitude_error);
+
+  // Distribute the heading rate command to the axes.
+  float g_b[3], rate_cmd[3];
+  UpdateGravtiyInBody(quat_model, g_b);
+  VectorGain(g_b, *heading_rate_cmd, rate_cmd);
+
+  float angular_rate[3];
+  static float delay[3][2] = { 0 };
+
+  // TODO: replace these precomputed constants with EEPROM.
+  const float np[2] = { 0.000286210197180126, 0.000268485917540157 };
+  const float dp[2] = { -1.81159070436859, 0.825522856832319 };
+  angular_rate[X_BODY_AXIS] = DirectForm2ZeroB0(k_p_ * rate_cmd[X_BODY_AXIS]
+    + k_phi_ * attitude_error[X_BODY_AXIS], np, dp, delay[X_BODY_AXIS]);
+  angular_rate[Y_BODY_AXIS] = DirectForm2ZeroB0(k_p_ * rate_cmd[Y_BODY_AXIS]
+    + k_phi_ * attitude_error[Y_BODY_AXIS], np, dp, delay[Y_BODY_AXIS]);
+
+  const float nr[2] = { 0.0118819811047824, -0.0113035400156885 };
+  const float dr[2] = { -1.89561493354849, 0.897611422809053 };
+  angular_rate[Z_BODY_AXIS] = DirectForm2ZeroB0(k_r_ * rate_cmd[Z_BODY_AXIS]
+    + k_psi_ * attitude_error[Z_BODY_AXIS], nr, dr, delay[Z_BODY_AXIS]);
+
+  // UARTPrintf("%f %f %f", attitude_error[0], attitude_error[1], attitude_error[2]);
+  // UARTPrintf("%f %f %f", rate_cmd[0], rate_cmd[1], rate_cmd[2]);
+  // UARTPrintf("%f %f %f", angular_rate[0], angular_rate[1], angular_rate[2]);
+  UARTPrintf("%f", quat_model[1]);
+  // UARTPrintf("%f", *heading_rate_cmd);
+
+  UpdateQuaternion(quat_model, angular_rate, DT);
+  QuaternionNormalizingFilter(quat_model);
 }

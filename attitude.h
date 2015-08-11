@@ -18,11 +18,6 @@ float HeadingAngle(void);
 // -----------------------------------------------------------------------------
 float * Quat(void);
 
-// TODO: REMOVE*****************************************************************
-void SetResetAttitude(void);
-uint8_t GetResetAttitude(void);
-uint8_t GetDebugResetAttitude(void);
-
 
 // =============================================================================
 // Public functions:
@@ -31,6 +26,12 @@ void ResetAttitude(void);
 
 // -----------------------------------------------------------------------------
 void UpdateAttitude(void);
+
+// -----------------------------------------------------------------------------
+float * UpdateGravtiyInBody(float quat[4], float g_b[3]);
+
+// -----------------------------------------------------------------------------
+float * UpdateQuaternion(float quat[4], float angular_rate[3], float dt);
 
 
 #endif  // ATTITUDE_H_

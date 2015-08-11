@@ -20,10 +20,8 @@ static uint8_t reset_attitude_ = 0;
 // =============================================================================
 // Private function declarations:
 
-static void CorrectQuaternionWithAccelerometer(void);
+static float * CorrectQuaternionWithAccelerometer(float quat[4]);
 static void HandleAttitudeReset(void);
-static void UpdateGravtiyInBody(void);
-static void UpdateQuaternion(void);
 
 
 // =============================================================================
@@ -54,16 +52,16 @@ void UpdateAttitude(void)
 {
   if (!reset_attitude_)
   {
-    UpdateQuaternion();
-    UpdateGravtiyInBody();
-    CorrectQuaternionWithAccelerometer();
+    UpdateQuaternion(quat_, AngularRateVector(), DT);
+    UpdateGravtiyInBody(quat_, g_b_);
+    CorrectQuaternionWithAccelerometer(quat_);
     QuaternionNormalizingFilter(quat_);
   }
   else
   {
     HandleAttitudeReset();
   }
-  UpdateGravtiyInBody();
+  UpdateGravtiyInBody(quat_, g_b_);
   heading_angle_ = atan2(2.0 * quat_[0] * quat_[3] + quat_[1] * quat_[2],
     1.0 - 2.0 * (square(quat_[2]) + square(quat_[3])));
 }
@@ -74,11 +72,41 @@ void ResetAttitude(void)
   reset_attitude_ = 1;
 }
 
+// -----------------------------------------------------------------------------
+float * UpdateGravtiyInBody(float quat[4], float g_b[3])
+{
+  g_b[X_BODY_AXIS] = 2.0 * (quat[1] * quat[3] - quat[0] * quat[2]);
+  g_b[Y_BODY_AXIS] = 2.0 * (quat[2] * quat[3] + quat[0] * quat[1]);
+  g_b[Z_BODY_AXIS] = 2.0 * (quat[0] * quat[0] + quat[3] * quat[3]) - 1.0;
+
+  return g_b;
+}
+
+// -----------------------------------------------------------------------------
+float * UpdateQuaternion(float quat[4], float angular_rate[3], float dt)
+{
+  float dpqr[3];
+  VectorGain(angular_rate, 0.5 * dt, dpqr);
+
+  float d_quat[4];
+  d_quat[0] = -dpqr[0] * quat[1] - dpqr[1] * quat[2] - dpqr[2] * quat[3];
+  d_quat[1] =  dpqr[0] * quat[0] - dpqr[1] * quat[3] + dpqr[2] * quat[2];
+  d_quat[2] =  dpqr[0] * quat[3] + dpqr[1] * quat[0] - dpqr[2] * quat[1];
+  d_quat[3] = -dpqr[0] * quat[2] + dpqr[1] * quat[1] + dpqr[2] * quat[0];
+
+  quat[0] += d_quat[0];
+  quat[1] += d_quat[1];
+  quat[2] += d_quat[2];
+  quat[3] += d_quat[3];
+
+  return quat;
+}
+
 
 // =============================================================================
 // Private functions:
 
-static void CorrectQuaternionWithAccelerometer(void)
+static float * CorrectQuaternionWithAccelerometer(float quat[4])
 {
   // Assume that the accelerometer measures ONLY the resistance to gravity (
   // opposite the gravity vector). The direction of rotation that takes the body
@@ -93,11 +121,13 @@ static void CorrectQuaternionWithAccelerometer(void)
 
   // Apply the correction to the attitude quaternion.
   float result[4];
-  QuaternionMultiply(quat_, quat_c, result);
-  quat_[0] = result[0];
-  quat_[1] = result[1];
-  quat_[2] = result[2];
-  quat_[3] = result[3];
+  QuaternionMultiply(quat, quat_c, result);
+  quat[0] = result[0];
+  quat[1] = result[1];
+  quat[2] = result[2];
+  quat[3] = result[3];
+
+  return quat;
 }
 
 // -----------------------------------------------------------------------------
@@ -111,30 +141,4 @@ static void HandleAttitudeReset(void)
   QuaternionNormalize(quat_);
 
   reset_attitude_ = 0;
-}
-
-// -----------------------------------------------------------------------------
-static void UpdateGravtiyInBody(void)
-{
-  g_b_[0] = 2.0 * (quat_[1] * quat_[3] - quat_[0] * quat_[2]);
-  g_b_[1] = 2.0 * (quat_[2] * quat_[3] + quat_[0] * quat_[1]);
-  g_b_[2] = 2.0 * (quat_[0] * quat_[0] + quat_[3] * quat_[3]) - 1.0;
-}
-
-// -----------------------------------------------------------------------------
-static void UpdateQuaternion(void)
-{
-  float dpqr[3];
-  VectorGain(AngularRateVector(), 0.5 * DT, dpqr);
-
-  float d_quat[4];
-  d_quat[0] = -dpqr[0] * quat_[1] - dpqr[1] * quat_[2] - dpqr[2] * quat_[3];
-  d_quat[1] =  dpqr[0] * quat_[0] - dpqr[1] * quat_[3] + dpqr[2] * quat_[2];
-  d_quat[2] =  dpqr[0] * quat_[3] + dpqr[1] * quat_[0] - dpqr[2] * quat_[1];
-  d_quat[3] = -dpqr[0] * quat_[2] + dpqr[1] * quat_[1] + dpqr[2] * quat_[0];
-
-  quat_[0] += d_quat[0];
-  quat_[1] += d_quat[1];
-  quat_[2] += d_quat[2];
-  quat_[3] += d_quat[3];
 }

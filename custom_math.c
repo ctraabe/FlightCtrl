@@ -6,6 +6,22 @@
 // =============================================================================
 // Public functions:
 
+// This function implements an IIR digital filter in direct form 2 with the
+// assumption that the most significant numerator coefficient (b0) is zero. See
+// en.wikipedia.org/wiki/Digital_biquad_filter for more information.
+float DirectForm2ZeroB0(float input, const float numerator[2],
+  const float denominator[2], float delay[2])
+{
+  input -= denominator[0] * delay[0] + denominator[1] * delay[1];
+  float result = 0.0 * input + numerator[0] * delay[0] + numerator[1]
+    * delay[1];
+
+  delay[1] = delay[0];
+  delay[0] = input;
+  return result;
+}
+
+// -----------------------------------------------------------------------------
 int16_t FloatToS16(float input)
 {
   if (input < 0.0)
