@@ -384,12 +384,6 @@ static void UpdateAttitudeModel(float quat_cmd[4], float * heading_rate_cmd,
   angular_rate[Z_BODY_AXIS] = DirectForm2ZeroB0(k_r_ * rate_cmd[Z_BODY_AXIS]
     + k_psi_ * attitude_error[Z_BODY_AXIS], nr, dr, delay[Z_BODY_AXIS]);
 
-  // UARTPrintf("%f %f %f", attitude_error[0], attitude_error[1], attitude_error[2]);
-  // UARTPrintf("%f %f %f", rate_cmd[0], rate_cmd[1], rate_cmd[2]);
-  // UARTPrintf("%f %f %f", angular_rate[0], angular_rate[1], angular_rate[2]);
-  UARTPrintf("%f", quat_model[1]);
-  // UARTPrintf("%f", *heading_rate_cmd);
-
   UpdateQuaternion(quat_model, angular_rate, DT);
   QuaternionNormalizingFilter(quat_model);
 }
