@@ -20,8 +20,9 @@ enum I2CMode {
 
 static volatile enum I2CMode i2c_mode_ = I2C_MODE_IDLE;
 static volatile enum I2CError i2c_error_ = I2C_ERROR_NONE;
-static volatile uint8_t rx_destination_len_ = 0, *rx_destination_ptr_ = 0;
-static volatile uint8_t tx_source_len_ = 0, *tx_source_ptr_ = 0;
+static volatile uint8_t rx_destination_len_ = 0, tx_source_len_ = 0;
+static volatile uint8_t * rx_destination_ptr_ = 0;
+static volatile const uint8_t * tx_source_ptr_ = 0;
 
 static uint8_t slave_address_ = 0x00;
 static I2CCallback callback_ptr_ = 0;
@@ -83,7 +84,7 @@ enum I2CError I2CRxThenCallback(uint8_t slave_address,
 }
 
 // -----------------------------------------------------------------------------
-enum I2CError I2CTxThenRx(uint8_t slave_address, uint8_t *tx_source_ptr,
+enum I2CError I2CTxThenRx(uint8_t slave_address, const uint8_t *tx_source_ptr,
   uint8_t tx_source_len, volatile uint8_t *rx_destination_ptr,
   uint8_t rx_destination_len)
 {
@@ -93,7 +94,7 @@ enum I2CError I2CTxThenRx(uint8_t slave_address, uint8_t *tx_source_ptr,
 
 // -----------------------------------------------------------------------------
 enum I2CError I2CTxThenRxThenCallback(uint8_t slave_address,
-  uint8_t *tx_source_ptr, uint8_t tx_source_len,
+  const uint8_t *tx_source_ptr, uint8_t tx_source_len,
   volatile uint8_t *rx_destination_ptr, uint8_t rx_destination_len,
   I2CCallback callback_ptr)
 {

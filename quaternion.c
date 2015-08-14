@@ -12,15 +12,16 @@
 // =============================================================================
 // Public functions:
 
-// -----------------------------------------------------------------------------
-float * QuaternionInverse(float quat[4], float result[4])
+float * QuaternionInverse(const float quat[4], float result[4])
 {
   result[0] = -quat[0];
 
   return result;
 }
 
-float * QuaternionMultiply(float quat1[4], float quat2[4], float result[4])
+// -----------------------------------------------------------------------------
+float * QuaternionMultiply(const float quat1[4], const float quat2[4],
+  float result[4])
 {
   result[0] = quat1[0] * quat2[0] - quat1[1] * quat2[1] - quat1[2] * quat2[2]
     - quat1[3] * quat2[3];
@@ -37,7 +38,7 @@ float * QuaternionMultiply(float quat1[4], float quat2[4], float result[4])
 // -----------------------------------------------------------------------------
 // This functions performs quaternion multiplication of quat1 with the inverse
 // of quat[2].
-float * QuaternionMultiplyInverse(float quat1[4], float quat2[4],
+float * QuaternionMultiplyInverse(const float quat1[4], const float quat2[4],
   float result[4])
 {
   result[0] = quat1[0] * -quat2[0] - quat1[1] * quat2[1] - quat1[2] * quat2[2]
@@ -53,7 +54,7 @@ float * QuaternionMultiplyInverse(float quat1[4], float quat2[4],
 }
 
 // -----------------------------------------------------------------------------
-float QuaternionNorm(float quat[4])
+float QuaternionNorm(const float quat[4])
 {
   return sqrt(square(quat[0]) + square(quat[1]) + square(quat[2])
     + square(quat[3]));
@@ -72,10 +73,10 @@ float * QuaternionNormalize(float quat[4])
 }
 
 // -----------------------------------------------------------------------------
+// This filter pushes the quaternion toward unity and is much more efficient
+// than direct normalization (no sqrt and no divide).
 float * QuaternionNormalizingFilter(float quat[4])
 {
-  // This filter pushes the quaternion toward unity and is much more efficient
-  // than normalization (no sqrt and no divide).
   float norm_correction = QUAT_NORMALIZATION_GAIN * (1.0 - quat[0] * quat[0]
     - quat[1] * quat[1] - quat[2] * quat[2] - quat[3] * quat[3]);
 
@@ -88,7 +89,8 @@ float * QuaternionNormalizingFilter(float quat[4])
 }
 
 // -----------------------------------------------------------------------------
-float * QuaternionRotateVector(float quat[4], float v[3], float result[3])
+float * QuaternionRotateVector(const float quat[4], const float v[3],
+  float result[3])
 {
   float temp, r_2[3][3];
 

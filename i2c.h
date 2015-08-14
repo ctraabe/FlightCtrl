@@ -42,13 +42,13 @@ enum I2CError I2CRxThenCallback(uint8_t slave_address,
   I2CCallback callback_ptr);
 
 // -----------------------------------------------------------------------------
-enum I2CError I2CTxThenRx(uint8_t slave_address, uint8_t *tx_source_ptr,
+enum I2CError I2CTxThenRx(uint8_t slave_address, const uint8_t *tx_source_ptr,
   uint8_t tx_source_len, volatile uint8_t *rx_destination_ptr,
   uint8_t rx_destination_len);
 
 // -----------------------------------------------------------------------------
 enum I2CError I2CTxThenRxThenCallback(uint8_t slave_address,
-  uint8_t *tx_source_ptr, uint8_t tx_source_len,
+  const uint8_t *tx_source_ptr, uint8_t tx_source_len,
   volatile uint8_t *rx_destination_ptr, uint8_t rx_destination_len,
   I2CCallback callback_ptr);
 

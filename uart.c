@@ -157,7 +157,7 @@ void UARTPrintf_P(const char *format, ...)
   // This function is slow and blocking, so NEVER use when motors are running.
   if (!MotorsInhibited()) return;
 
-  static char ascii[103];  // 100 chars + 2 newline chars + null terminator
+  char ascii[103];  // 100 chars + 2 newline chars + null terminator
 
   va_list arglist;
   va_start(arglist, format);

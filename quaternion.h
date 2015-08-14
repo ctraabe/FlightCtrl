@@ -8,28 +8,32 @@
 // =============================================================================
 // Public functions:
 
-float * QuaternionInverse(float quat[4], float result[4]);
+float * QuaternionInverse(const float quat[4], float result[4]);
 
 // -----------------------------------------------------------------------------
-float * QuaternionMultiply(float quat1[4], float quat2[4], float result[4]);
+float * QuaternionMultiply(const float quat1[4], const float quat2[4],
+  float result[4]);
 
 // -----------------------------------------------------------------------------
 // This functions performs quaternion multiplication of quat1 with the inverse
 // of quat[2].
-float * QuaternionMultiplyInverse(float quat1[4], float quat2[4],
+float * QuaternionMultiplyInverse(const float quat1[4], const float quat2[4],
   float result[4]);
 
 // -----------------------------------------------------------------------------
-float QuaternionNorm(float quat[4]);
+float QuaternionNorm(const float quat[4]);
 
 // -----------------------------------------------------------------------------
 float * QuaternionNormalize(float quat[4]);
 
 // -----------------------------------------------------------------------------
+// This filter pushes the quaternion toward unity and is much more efficient
+// than direct normalization (no sqrt and no divide).
 float * QuaternionNormalizingFilter(float quat[4]);
 
 // -----------------------------------------------------------------------------
-float * QuaternionRotateVector(float quat[4], float v[3], float result[3]);
+float * QuaternionRotateVector(const float quat[4], const float v[3],
+  float result[3]);
 
 
 #endif  // QUATERNION_H_

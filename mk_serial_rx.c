@@ -10,18 +10,18 @@
 
 // This function handles the response to data that has been received in the
 // MikroKopter protocol.
-void HandleMKRx(uint8_t address, uint8_t label, uint8_t * data_buffer)
+void HandleMKRx(uint8_t address, uint8_t label, const uint8_t * data_buffer)
 {
   // First check for the following address independent messages.
   switch (label)
   {
-    case 'i':  // Request MK data stream.
+    case 'i':  // Request MK data stream
       SetMKDataStream(MK_STREAM_CONTROL, 0);
       break;
-    case 'd':  // Request MK debug stream.
+    case 'd':  // Request MK debug stream
       SetMKDataStream(MK_STREAM_DEBUG, data_buffer[0]);
       break;
-    case 'v': // Version requirement and expansion stage
+    case 'v':  // Request firmware version
       SetMKTxRequest(MK_TX_VERSION);
       break;
     default:

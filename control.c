@@ -44,13 +44,14 @@ static uint16_t setpoints_[MAX_MOTORS] = { 0 };
 
 static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
   float * heading_rate_cmd, float * thrust_cmd);
-static void FormAngularCommand(float quat_cmd[4], float * heading_rate_cmd,
+static void FormAngularCommand(const float quat_cmd[4],
+  const float * heading_rate_cmd, const float attitude_integral[3]);
+static void QuaternionFromGravityAndHeading(const float g_b_cmd[2],
+  const float * heading_cmd, float quat_cmd[4]);
+static void UpdateAttitudeModel(const float quat_cmd[4],
+  const float * heading_rate_cmd, float quat_model[4]);
+static void UpdateIntegrals(const float quat_model[4],
   float attitude_integral[3]);
-static void QuaternionFromGravityAndHeading(float g_b_cmd[2],
-  float * heading_cmd, float quat_cmd[4]);
-static void UpdateAttitudeModel(float quat_cmd[4], float * heading_rate_cmd,
-  float quat_model[4]);
-static void UpdateIntegrals(float quat_model[4], float attitude_integral[3]);
 static void UpdateKalmanFilter(void);
 
 
@@ -230,8 +231,8 @@ static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
 }
 
 // -----------------------------------------------------------------------------
-static void QuaternionFromGravityAndHeading(float g_b_cmd[2],
-  float * heading_cmd, float quat_cmd[4])
+static void QuaternionFromGravityAndHeading(const float g_b_cmd[2],
+  const float * heading_cmd, float quat_cmd[4])
 {
   // Compute the z component of the gravity vector command.
   float g_b_cmd_z = sqrt(1.0 - square(g_b_cmd[X_BODY_AXIS])
@@ -269,7 +270,7 @@ static void QuaternionFromGravityAndHeading(float g_b_cmd[2],
 }
 
 // -----------------------------------------------------------------------------
-static float * AttitudeError(float quat_cmd[4], float quat[4],
+static float * AttitudeError(const float quat_cmd[4], const float quat[4],
   float attitude_error[3])
 {
   // Find the quaternion that goes from the current to the command.
@@ -298,8 +299,8 @@ static float * AttitudeError(float quat_cmd[4], float quat[4],
 }
 
 // -----------------------------------------------------------------------------
-static void FormAngularCommand(float quat_cmd[4], float * heading_rate_cmd,
-  float attitude_integral[3])
+static void FormAngularCommand(const float quat_cmd[4],
+  const float * heading_rate_cmd, const float attitude_integral[3])
 {
   float attitude_error[3];
   AttitudeError(quat_cmd, Quat(), attitude_error);
@@ -373,8 +374,8 @@ static void UpdateKalmanFilter(void)
 }
 
 // -----------------------------------------------------------------------------
-static void UpdateAttitudeModel(float quat_cmd[4], float * heading_rate_cmd,
-  float quat_model[4])
+static void UpdateAttitudeModel(const float quat_cmd[4],
+  const float * heading_rate_cmd, float quat_model[4])
 {
   // Compute the error between the model's attitude and the command.
   float attitude_error[3];
@@ -406,7 +407,8 @@ static void UpdateAttitudeModel(float quat_cmd[4], float * heading_rate_cmd,
 }
 
 // -----------------------------------------------------------------------------
-static void UpdateIntegrals(float quat_model[4], float attitude_integral[3])
+static void UpdateIntegrals(const float quat_model[4],
+  float attitude_integral[3])
 {
   // Compute the error between the actual and model attitudes.
   float attitude_error[3];

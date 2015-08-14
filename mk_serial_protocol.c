@@ -84,7 +84,7 @@ enum UARTRxMode MKSerialRx(uint8_t byte, uint8_t * data_buffer)
 // The message must contain at least a destination address and a label. If no
 // additional data is necessary, then the source pointer and length can both be
 // set to zero.
-void MKSerialTx(uint8_t address, uint8_t label, uint8_t * source,
+void MKSerialTx(uint8_t address, uint8_t label, const uint8_t * source,
   uint8_t length)
 {
   uint8_t * tx_buffer = RequestUARTTxBuffer();
@@ -150,7 +150,7 @@ static void DecodeMKSerialRx(uint8_t * data_buffer, uint8_t length)
 // -----------------------------------------------------------------------------
 // This function computes the MikroKopter checksum for encoded data. Here,
 // length excludes the start and end characters and the checksum.
-static uint16_t MKChecksum(uint8_t * buffer, uint8_t length)
+static uint16_t MKChecksum(const uint8_t * buffer, uint8_t length)
 {
   union U16Bytes result = { '#' };
   for (uint8_t i = length; i--; ) result.u16 += buffer[i];

@@ -28,10 +28,10 @@ void ResetAttitude(void);
 void UpdateAttitude(void);
 
 // -----------------------------------------------------------------------------
-float * UpdateGravtiyInBody(float quat[4], float g_b[3]);
+float * UpdateGravtiyInBody(const float quat[4], float g_b[3]);
 
 // -----------------------------------------------------------------------------
-float * UpdateQuaternion(float quat[4], float angular_rate[3], float dt);
+float * UpdateQuaternion(float quat[4], const float angular_rate[3], float dt);
 
 
 #endif  // ATTITUDE_H_

@@ -6,7 +6,7 @@
 // =============================================================================
 // Public functions:
 
-float * VectorAdd(float v1[3], float v2[3], float result[3])
+float * VectorAdd(const float v1[3], const float v2[3], float result[3])
 {
   result[0] = v1[0] + v2[0];
   result[1] = v1[1] + v2[1];
@@ -16,7 +16,7 @@ float * VectorAdd(float v1[3], float v2[3], float result[3])
 }
 
 // -----------------------------------------------------------------------------
-float * VectorCopy(float source[3], float destination[3])
+float * VectorCopy(const float source[3], float destination[3])
 {
   destination[0] = source[0];
   destination[1] = source[1];
@@ -26,7 +26,7 @@ float * VectorCopy(float source[3], float destination[3])
 }
 
 // -----------------------------------------------------------------------------
-float * VectorCross(float v1[3], float v2[3], float result[3])
+float * VectorCross(const float v1[3], const float v2[3], float result[3])
 {
   result[0] = v1[1] * v2[2] - v1[2] * v2[1];
   result[1] = v1[2] * v2[0] - v1[0] * v2[2];
@@ -36,13 +36,13 @@ float * VectorCross(float v1[3], float v2[3], float result[3])
 }
 
 // -----------------------------------------------------------------------------
-float VectorDot(float v1[3], float v2[3])
+float VectorDot(const float v1[3], const float v2[3])
 {
   return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
 }
 
 // -----------------------------------------------------------------------------
-float * VectorGain(float v[3], float gain, float result[3])
+float * VectorGain(const float v[3], float gain, float result[3])
 {
   result[0] = v[0] * gain;
   result[1] = v[1] * gain;
@@ -52,7 +52,7 @@ float * VectorGain(float v[3], float gain, float result[3])
 }
 
 // -----------------------------------------------------------------------------
-float * VectorGainAndAccumulate(float v[3], float gain, float result[3])
+float * VectorGainAndAccumulate(const float v[3], float gain, float result[3])
 {
   result[0] += v[0] * gain;
   result[1] += v[1] * gain;
@@ -62,13 +62,13 @@ float * VectorGainAndAccumulate(float v[3], float gain, float result[3])
 }
 
 // -----------------------------------------------------------------------------
-float VectorNorm(float v[3])
+float VectorNorm(const float v[3])
 {
   return sqrt(VectorNorm2(v));
 }
 
 // -----------------------------------------------------------------------------
-float VectorNorm2(float v[3])
+float VectorNorm2(const float v[3])
 {
   return square(v[0]) + square(v[1]) + square(v[2]);
 }

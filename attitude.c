@@ -73,7 +73,7 @@ void ResetAttitude(void)
 }
 
 // -----------------------------------------------------------------------------
-float * UpdateGravtiyInBody(float quat[4], float g_b[3])
+float * UpdateGravtiyInBody(const float quat[4], float g_b[3])
 {
   g_b[X_BODY_AXIS] = 2.0 * (quat[1] * quat[3] - quat[0] * quat[2]);
   g_b[Y_BODY_AXIS] = 2.0 * (quat[2] * quat[3] + quat[0] * quat[1]);
@@ -83,7 +83,7 @@ float * UpdateGravtiyInBody(float quat[4], float g_b[3])
 }
 
 // -----------------------------------------------------------------------------
-float * UpdateQuaternion(float quat[4], float angular_rate[3], float dt)
+float * UpdateQuaternion(float quat[4], const float angular_rate[3], float dt)
 {
   float dpqr[3];
   VectorGain(angular_rate, 0.5 * dt, dpqr);

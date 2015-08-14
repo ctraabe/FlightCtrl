@@ -42,7 +42,7 @@ static int16_t gyro_offset_[3] = { -ADC_MIDDLE_VALUE * ADC_N_SAMPLES,
 // Private function declarations:
 
 static inline uint16_t ADCSample(enum ADCSensorIndex sensor);
-static void CheckOffset(int16_t offset[3], int16_t acceptable_deviation);
+static void CheckOffset(const int16_t offset[3], int16_t acceptable_deviation);
 static inline uint16_t SumRecords(enum ADCSensorIndex sensor);
 
 
@@ -360,7 +360,7 @@ static inline uint16_t ADCSample(enum ADCSensorIndex sensor)
 // -----------------------------------------------------------------------------
 // This function checks the calculated neutral value against predetermined
 // limits and reports an error if a limit is exceeded.
-static void CheckOffset(int16_t offset[3], int16_t acceptable_deviation)
+static void CheckOffset(const int16_t offset[3], int16_t acceptable_deviation)
 {
   for (int i = 0; i < 3; i++)
   {
