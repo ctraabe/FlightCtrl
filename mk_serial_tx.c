@@ -3,11 +3,13 @@
 #include "adc.h"
 #include "attitude.h"
 #include "control.h"
+#include "led.h"
 #include "mk_serial_protocol.h"
 #include "motors.h"
 #include "sbus.h"
 #include "state.h"
 #include "timing.h"
+#include "uart.h"
 #include "union_types.h"
 
 
@@ -29,6 +31,7 @@ static void SendKalmanData(void);
 static void SendMotorSetpoints(void);
 static void SendSensorData(void);
 static void SendVersion(void);
+static void UpdateLED(void);
 
 
 // =============================================================================
@@ -37,6 +40,7 @@ static void SendVersion(void);
 // This function sends data that has been requested.
 void SendPendingMKSerial(void)
 {
+  UpdateLED();
   // Handle only one request at a time.
   if (tx_request_)
   {
@@ -69,7 +73,7 @@ void SendPendingMKSerial(void)
     if (TimestampInPast(stream_timer_)) stream_timer_ = GetTimestamp();
 
     // Disable the stream if no request has been renewing received in a while.
-    if (TimestampInPast(stream_timeout_)) mk_stream_ = MK_STREAM_NONE;
+    // if (TimestampInPast(stream_timeout_)) mk_stream_ = MK_STREAM_NONE;
   }
 }
 
@@ -203,4 +207,21 @@ static void SendVersion(void)
 {
   MKSerialTx(1, 'V', 0, 0);
   tx_request_ &= ~MK_TX_VERSION;
+}
+
+// -----------------------------------------------------------------------------
+static void UpdateLED(void)
+{
+  static uint8_t counter = 0xFF;
+  if (mk_stream_ == MK_STREAM_SENSORS)
+  {
+    ++counter;
+    if (counter == 0) ExternalLED1On();
+    if (counter == 128) ExternalLED1Off();
+  }
+  else
+  {
+    ExternalLED1Off();
+    counter = 0xFF;
+  }
 }
