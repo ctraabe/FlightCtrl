@@ -16,7 +16,7 @@ void HandleMKRx(uint8_t address, uint8_t label, const uint8_t * data_buffer)
   switch (label)
   {
     case 'i':  // Request MK data stream
-      SetMKDataStream(MK_STREAM_CONTROL, 0);
+      SetMKDataStream(MK_STREAM_SENSORS, 0);
       break;
     case 'd':  // Request MK debug stream
       SetMKDataStream(MK_STREAM_DEBUG, data_buffer[0]);
