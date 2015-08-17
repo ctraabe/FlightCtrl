@@ -12,6 +12,9 @@ void LEDInit(void)
   LED_DDR |= GREEN_LED_PIN | RED_LED_PIN;
   // Set external LED pins to output.
   EXTERNAL_LED_DDR |= EXTERNAL_LED_1_PIN | EXTERNAL_LED_3_PIN;
+
+  ExternalLED1Off();
+  ExternalLED3Off();
 }
 
 // -----------------------------------------------------------------------------
@@ -35,13 +38,13 @@ void GreenLEDToggle(void)
 // -----------------------------------------------------------------------------
 void ExternalLED1Off(void)
 {
-  EXTERNAL_LED_PORT |= EXTERNAL_LED_1_PIN;
+  EXTERNAL_LED_PORT &= ~EXTERNAL_LED_1_PIN;
 }
 
 // -----------------------------------------------------------------------------
 void ExternalLED1On(void)
 {
-  EXTERNAL_LED_PORT &= ~EXTERNAL_LED_1_PIN;
+  EXTERNAL_LED_PORT |= EXTERNAL_LED_1_PIN;
 }
 
 // -----------------------------------------------------------------------------
@@ -53,13 +56,13 @@ void ExternalLED1Toggle(void)
 // -----------------------------------------------------------------------------
 void ExternalLED3Off(void)
 {
-  EXTERNAL_LED_PORT |= EXTERNAL_LED_3_PIN;
+  EXTERNAL_LED_PORT &= ~EXTERNAL_LED_3_PIN;
 }
 
 // -----------------------------------------------------------------------------
 void ExternalLED3On(void)
 {
-  EXTERNAL_LED_PORT &= ~EXTERNAL_LED_3_PIN;
+  EXTERNAL_LED_PORT |= EXTERNAL_LED_3_PIN;
 }
 
 // -----------------------------------------------------------------------------
