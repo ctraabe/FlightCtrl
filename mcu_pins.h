@@ -52,6 +52,14 @@
 #define PRESSURE_BIAS_COARSE_PIN (_BV(4))
 #define PRESSURE_BIAS_FINE_PIN (_BV(3))
 
+// SPI
+#define SPI_DDR (DDRB)
+#define SPI_PORT (PORTB)
+#define SPI_MOSI_PIN (_BV(5))
+#define SPI_MISO_PIN (_BV(6))
+#define SPI_SCK_PIN (_BV(7))
+
+
 // UART
 #define UART_DDR (DDRD)
 #define UART_PORT (PORTD)
