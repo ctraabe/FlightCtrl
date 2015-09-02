@@ -58,7 +58,9 @@
 #define SPI_MOSI_PIN (_BV(5))
 #define SPI_MISO_PIN (_BV(6))
 #define SPI_SCK_PIN (_BV(7))
-
+#define SPI_SS_DDR (DDRC)
+#define SPI_SS_PORT (PORTC)
+#define SPI_SS_PIN (_BV(5))
 
 // UART
 #define UART_DDR (DDRD)
