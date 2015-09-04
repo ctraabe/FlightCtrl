@@ -135,26 +135,25 @@ int16_t main(void)
   //   {  3.3856, -3.3856,  46.6148, 62.2433 }
   // };
   // SetActuationInverse(b_inv);
+  // PreflightInit();
+  // SensorCalibration();
 
   // Main loop
   for (;;)  // Preferred over while(1)
   {
     if (flag_128hz_)
     {
-      UpdateSBus();
+      // UpdateSBus();
 
-      UpdateState();
-
-      // if (State() & STATE_BIT_INITIALIZED)
-      //   SetMKDataStream(MK_STREAM_CONTROL, 0);
+      // UpdateState();
 
       ProcessSensorReadings();
 
-      UpdateAttitude();
+      // UpdateAttitude();
 
-      Control();
+      // Control();
 
-      ErrorCheck();
+      // ErrorCheck();
 
       ProcessIncomingUART();
       SendPendingUART();
@@ -166,6 +165,7 @@ int16_t main(void)
 
     if (flag_2hz_)
     {
+      RedLEDToggle();
       flag_2hz_ = 0;
     }
   }

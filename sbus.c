@@ -98,7 +98,7 @@ void SBusInit(void)
   UCSR1B = (1 << RXCIE1)  // RX Complete Interrupt Enable
          | (0 << TXCIE1)  // TX Complete Interrupt Enable
          | (0 << UDRIE1)  // Data Register Empty Interrupt Enable
-         | (0 << TXEN1)  // Transmitter Enable
+         | (1 << TXEN1)  // Transmitter Enable
          | (1 << RXEN1)  // Receiver Enable
          | (0 << UCSZ12);  // 9-bit Character Size Enable
   UCSR1C = (0 << UMSEL11) | (0 << UMSEL10)  // USART Mode (asynchronous)

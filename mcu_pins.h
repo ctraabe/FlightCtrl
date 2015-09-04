@@ -21,7 +21,7 @@
 #define VERSION_2_2_DDR (DDRD)
 #define VERSION_2_2_PORT (PORTD)
 #define VERSION_2_2_PIN (_BV(4))
-#define VERSION_2_2 (~PIND & _BV(4))
+#define VERSION_2_2 (~PIND & VERSION_2_2_PIN)
 
 // Buzzer
 #define BUZZER_DDR (DDRC)

@@ -6,6 +6,7 @@
 #include "led.h"
 #include "mk_serial_protocol.h"
 #include "motors.h"
+#include "mcu_pins.h"
 #include "sbus.h"
 #include "state.h"
 #include "timing.h"
@@ -21,6 +22,7 @@
 static uint16_t tx_request_ = 0x0000;
 static enum MKStream mk_stream_ = MK_STREAM_NONE;
 static uint16_t stream_period_ = 0, stream_timer_ = 0, stream_timeout_ = 0;
+static uint8_t counter_128_hz_ = 0;
 
 
 // =============================================================================
@@ -86,6 +88,8 @@ void SendPendingMKSerial(void)
 void SetMKDataStream(enum MKStream mk_stream, uint16_t period_10ms)
 {
   mk_stream_ = mk_stream;
+  if (mk_stream == MK_STREAM_SENSORS) RedLEDOn();
+  else RedLEDOff();
 
   uint16_t stream_period = period_10ms * 10;  // ms
   if (!stream_period_)
@@ -182,13 +186,15 @@ static void SendMotorSetpoints(void)
 static void SendSensorData(void)
 {
   struct SensorData {
+    uint16_t timestamp;
     int16_t accelerometer_sum[3];
     int16_t gyro_sum[3];
     uint16_t biased_pressure;
-    uint16_t battery_voltage;
-    uint16_t timestamp;
+    uint8_t counter_128_hz;
+    uint8_t led_on;
   } __attribute__((packed)) sensor_data;
 
+  sensor_data.timestamp = GetTimestamp();
   sensor_data.accelerometer_sum[0] = AccelerometerSum(X_BODY_AXIS);
   sensor_data.accelerometer_sum[1] = AccelerometerSum(Y_BODY_AXIS);
   sensor_data.accelerometer_sum[2] = AccelerometerSum(Z_BODY_AXIS);
@@ -196,8 +202,8 @@ static void SendSensorData(void)
   sensor_data.gyro_sum[1] = GyroSum(Y_BODY_AXIS);
   sensor_data.gyro_sum[2] = GyroSum(Z_BODY_AXIS);
   sensor_data.biased_pressure = BiasedPressure();
-  sensor_data.battery_voltage = BatteryVoltage();
-  sensor_data.timestamp = GetTimestamp();
+  sensor_data.counter_128_hz = counter_128_hz_;
+  sensor_data.led_on = EXTERNAL_LED_PORT & EXTERNAL_LED_1_PIN;
 
   MKSerialTx(1, 'I', (uint8_t *)&sensor_data, sizeof(sensor_data));
 }
@@ -212,16 +218,18 @@ static void SendVersion(void)
 // -----------------------------------------------------------------------------
 static void UpdateLED(void)
 {
-  static uint8_t counter = 0xFF;
   if (mk_stream_ == MK_STREAM_SENSORS)
   {
-    ++counter;
-    if (counter == 0) ExternalLED1On();
-    if (counter == 128) ExternalLED1Off();
+    counter_128_hz_ = (counter_128_hz_ + 1) & 0x7F;
+    if (counter_128_hz_ == 0) ExternalLED1On();
+    if (counter_128_hz_ == 64) ExternalLED1Off();
   }
   else
   {
+    counter_128_hz_ = 0xFF;
     ExternalLED1Off();
-    counter = 0xFF;
   }
+
+  // Send the counter out over UART1.
+  UDR1 = counter_128_hz_;
 }
