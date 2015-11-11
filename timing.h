@@ -8,8 +8,8 @@
 // =============================================================================
 // Public functions:
 
-// This function initializes TIMER1 and TIMER3. This timer trigger interrupts
-// at 1 kHz and 128 Hz respectively.
+// This function initializes TIMER1 and TIMER3. These timers trigger interrupts
+// at 1 kHz and 128 Hz respectively. TIMER1 also updates a 32-bit ms timestamp.
 void TimingInit(void);
 
 // -----------------------------------------------------------------------------
@@ -23,15 +23,14 @@ uint16_t GetTimestamp(void);
 uint16_t GetTimestampMillisFromNow(uint16_t t);
 
 // -----------------------------------------------------------------------------
-// This function compares a timestamp to the current timestamp and returns TRUE
-// if the timestamp is in the past. This function works for durations up to
+// This function compares timestamp "t" to the current timestamp and returns
+// TRUE if the timestamp is in the past. This function works for durations up to
 // 32767 ms.
 uint8_t TimestampInPast(uint16_t t);
 
 // -----------------------------------------------------------------------------
-// This function returns the amount of time that has elapsed since the timestamp
-// "last_time" has occurred. This function works for time periods up to 65535
-// ms.
+// This function returns the amount of time that has elapsed since timestamp "t"
+// has occurred. This function works for time periods up to 65535 ms.
 uint16_t MillisSinceTimestamp(uint16_t t);
 
 // -----------------------------------------------------------------------------
