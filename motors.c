@@ -135,26 +135,6 @@ void DetectMotors(void)
     }
   }
 
-  // Identify additional features of the brushless controllers.
-  UARTPrintf("motors: detected controllers with the following compatibility:");
-  switch (blc_status_code)
-  {
-    case BLC_STATUS_V3_FAST_READY:
-      UARTPrintf("  fast mode (20 kHz PWM)");
-      blc_feature_bits_ |= BLC_FEATURE_20KHz;
-    case BLC_STATUS_V3_READY:
-      UARTPrintf("  version 3");
-      blc_feature_bits_ |= BLC_FEATURE_V3;
-    case BLC_STATUS_V2_READY:
-      UARTPrintf("  version 2");
-      blc_feature_bits_ |= BLC_FEATURE_EXTENDED_COMMS;
-      setpoint_length_ = sizeof(uint16_t);
-      break;
-    default:
-      UARTPrintf("  version 1");
-      break;
-  }
-
   // Check for missing or extra motors. Assumes that present motors have
   // contiguous addresses beginning with 0.
   n_motors_ = eeprom_read_byte(&eeprom.n_motors);
@@ -167,7 +147,34 @@ void DetectMotors(void)
     UARTPrintf("motors: ERROR: expected controllers with addresses: 0 - %i",
       n_motors_ - 1);
     UARTPrintf("  Bit field of responding addresses is: %X", motors);
+    return;
   }
+
+  // Identify additional features of the brushless controllers.
+  UARTPrintf("motors: detected controllers with the following compatibility:");
+  switch (blc_status_code)
+  {
+    case BLC_STATUS_V3_FAST_READY:
+      blc_feature_bits_ |= BLC_FEATURE_20KHz;
+    case BLC_STATUS_V3_READY:
+      blc_feature_bits_ |= BLC_FEATURE_V3;
+    case BLC_STATUS_V2_READY:
+      blc_feature_bits_ |= BLC_FEATURE_EXTENDED_COMMS;
+      setpoint_length_ = sizeof(uint16_t);
+    default:
+      break;
+  }
+
+  // Report successful detection.
+  if (blc_status_code == BLC_FEATURE_V2)
+    UARTPrintf("motors: detected %u V2 controllers", n_motors_);
+  else if (blc_status_code == BLC_FEATURE_V3)
+    UARTPrintf("motors: detected %u V3 controllers", n_motors_);
+  else if (blc_status_code == BLC_STATUS_V3_FAST_READY)
+    UARTPrintf("motors: detected %u V3 controllers in fast mode (20 kHz PWM)",
+      n_motors_);
+  else
+    UARTPrintf("motors: detected %u V1 controllers", n_motors_);
 }
 
 // -----------------------------------------------------------------------------
