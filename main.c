@@ -53,7 +53,7 @@ void SensorCalibration(void)
   if (!MotorsInhibited()) return;
   BeepDuration(100);
   ZeroAccelerometers();
-  PressureSensorBiasCalibration();
+  // PressureSensorBiasCalibration();  // Not accurate
   ResetAttitude();
   BeepDuration(500);
   WaitForBuzzerToComplete();
@@ -79,7 +79,7 @@ static void Init(void)
 
   sei();  // Enable interrupts
 
-  UARTPrintf("University of Tokyo FlightCtrl firmware V2");
+  UARTPrintf("\n\rUniversity of Tokyo FlightCtrl firmware V2\n\r");
 
   LoadGyroOffsets();
   LoadAccelerometerOffsets();

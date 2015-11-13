@@ -32,5 +32,8 @@ void ResetPressureSensorRange(void);
 // relationship is possible due to imprecise resistor values.
 void PressureSensorBiasCalibration(void);
 
+// -----------------------------------------------------------------------------
+void UpdatePressureAltitude(void);
+
 
 #endif  // PRESSURE_ALTITUDE_H_

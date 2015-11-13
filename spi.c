@@ -93,7 +93,7 @@ void SPITxSensorData(void)
   sensor_data_ptr->gyro_sum[0] = GyroSum(X_BODY_AXIS);
   sensor_data_ptr->gyro_sum[1] = GyroSum(Y_BODY_AXIS);
   sensor_data_ptr->gyro_sum[2] = GyroSum(Z_BODY_AXIS);
-  sensor_data_ptr->biased_pressure = BiasedPressure();
+  sensor_data_ptr->biased_pressure = BiasedPressureSum();
   sensor_data_ptr->counter_128_hz = counter_128_hz;
 
   // Add 4 trailing zeros to force STR91x SPI Rx interrupt.

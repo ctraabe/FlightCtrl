@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include "adc.h"
+#include "main.h"
 #include "quaternion.h"
 #include "vector.h"
 

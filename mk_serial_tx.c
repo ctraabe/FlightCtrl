@@ -191,7 +191,7 @@ static void SendSensorData(void)
   sensor_data.gyro_sum[0] = GyroSum(X_BODY_AXIS);
   sensor_data.gyro_sum[1] = GyroSum(Y_BODY_AXIS);
   sensor_data.gyro_sum[2] = GyroSum(Z_BODY_AXIS);
-  sensor_data.biased_pressure = BiasedPressure();
+  sensor_data.biased_pressure = BiasedPressureSum();
   sensor_data.battery_voltage = BatteryVoltage();
   sensor_data.timestamp = GetTimestamp();
 

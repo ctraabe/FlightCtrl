@@ -49,12 +49,16 @@ static inline uint16_t SumRecords(enum ADCSensorIndex sensor);
 // =============================================================================
 // Accessors:
 
+// Body-axis acceleration from the accelerometer in g's.
 float Acceleration(enum BodyAxes axis)
 {
   return acceleration_[axis];
 }
 
 // -----------------------------------------------------------------------------
+// WARNING! This function passes the address of the array and there is no
+// protection against overwriting the value. Body-axis acceleration vector from
+// accelerometer in g's.
 float * AccelerationVector(void)
 {
   return acceleration_;
@@ -79,6 +83,8 @@ uint16_t Accelerometer(enum BodyAxes axis)
 }
 
 // -----------------------------------------------------------------------------
+// Returns the sum of the most recent ADC_N_SAMPLES accelerometer readings.
+// Scale is 5/1024/ADC_N_SAMPLES g/LSB.
 int16_t AccelerometerSum(enum BodyAxes axis)
 {
   return accelerometer_sum_[axis];
@@ -92,30 +98,41 @@ enum ADCState ADCState(void)
 }
 
 // -----------------------------------------------------------------------------
+// Body-axis angular rate from the gyros in rad/s.
 float AngularRate(enum BodyAxes axis)
 {
   return angular_rate_[axis];
 }
 
 // -----------------------------------------------------------------------------
+// WARNING! This function passes the address of the array and there is no
+// protection against overwriting the value. Body-axis angular rate from the
+// gyros in rad/s.
 float * AngularRateVector(void)
 {
   return angular_rate_;
 }
 
 // -----------------------------------------------------------------------------
+// Latest measurement of battery voltage in 1/10 Volts.
 uint16_t BatteryVoltage(void)
 {
   return battery_voltage_;
 }
 
 // -----------------------------------------------------------------------------
+// Returns the sum of the most recent ADC_N_SAMPLES biased pressure readings.
+// Slope is 1/578/ADC_N_SAMPLES kPa/LSB and bias is determined by a pair of
+// biasing voltages (see the PWM signals in pressure_altitude.c).
 uint16_t BiasedPressure(void)
 {
   return biased_pressure_;
 }
 
 // -----------------------------------------------------------------------------
+// Returns the most recent biased pressure reading. Slope is 1/578 kPa/LSB and
+// bias is determined by a pair of biasing voltages (see the PWM signals in
+// pressure_altitude.c).
 uint16_t BiasedPressureSensor(void)
 {
   return ADCSample(ADC_PRESSURE);
@@ -140,6 +157,8 @@ uint16_t Gyro(enum BodyAxes axis)
 }
 
 // -----------------------------------------------------------------------------
+// Returns the sum of the most recent ADC_N_SAMPLES gyro readings. Scale is
+// 5/6.144/ADC_N_SAMPLES deg/s/LSB.
 int16_t GyroSum(enum BodyAxes axis)
 {
   return gyro_sum_[axis];
@@ -198,6 +217,7 @@ void LoadGyroOffsets(void)
 // order to increase fidelity.
 void ProcessSensorReadings(void)
 {
+  // Raw accelerometer reading minus bias.
   accelerometer_sum_[X_BODY_AXIS] = -SumRecords(ADC_ACCEL_X)
     - acc_offset_[X_BODY_AXIS];
   accelerometer_sum_[Y_BODY_AXIS] = -SumRecords(ADC_ACCEL_Y)
@@ -205,10 +225,7 @@ void ProcessSensorReadings(void)
   accelerometer_sum_[Z_BODY_AXIS] = -SumRecords(ADC_ACCEL_Z)
     - acc_offset_[Z_BODY_AXIS];
 
-  gyro_sum_[X_BODY_AXIS] = -SumRecords(ADC_GYRO_X) - gyro_offset_[X_BODY_AXIS];
-  gyro_sum_[Y_BODY_AXIS] = -SumRecords(ADC_GYRO_Y) - gyro_offset_[Y_BODY_AXIS];
-  gyro_sum_[Z_BODY_AXIS] = SumRecords(ADC_GYRO_Z) - gyro_offset_[Z_BODY_AXIS];
-
+  // Convert raw accelerometer to g's.
   acceleration_[X_BODY_AXIS] = (float)accelerometer_sum_[X_BODY_AXIS]
     / ACCELEROMETER_SCALE / ADC_N_SAMPLES;
   acceleration_[Y_BODY_AXIS] = (float)accelerometer_sum_[Y_BODY_AXIS]
@@ -220,6 +237,12 @@ void ProcessSensorReadings(void)
     acceleration_[Z_BODY_AXIS] = (float)accelerometer_sum_[Z_BODY_AXIS]
       / ACCELEROMETER_SCALE / ADC_N_SAMPLES;
 
+  // Raw gyro reading minus bias.
+  gyro_sum_[X_BODY_AXIS] = -SumRecords(ADC_GYRO_X) - gyro_offset_[X_BODY_AXIS];
+  gyro_sum_[Y_BODY_AXIS] = -SumRecords(ADC_GYRO_Y) - gyro_offset_[Y_BODY_AXIS];
+  gyro_sum_[Z_BODY_AXIS] = SumRecords(ADC_GYRO_Z) - gyro_offset_[Z_BODY_AXIS];
+
+  // Convert raw gyro reading to rad/s.
   angular_rate_[X_BODY_AXIS] = (float)gyro_sum_[X_BODY_AXIS] / GYRO_SCALE
     / ADC_N_SAMPLES;
   angular_rate_[Y_BODY_AXIS] = (float)gyro_sum_[Y_BODY_AXIS] / GYRO_SCALE
@@ -227,6 +250,7 @@ void ProcessSensorReadings(void)
   angular_rate_[Z_BODY_AXIS] = (float)gyro_sum_[Z_BODY_AXIS] / GYRO_SCALE
     / ADC_N_SAMPLES;
 
+  // Raw pressure reading.
   biased_pressure_ = SumRecords(ADC_PRESSURE);
 
   // The ADC records voltage in 31 steps per Volt. The following converts to the

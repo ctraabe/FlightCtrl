@@ -21,9 +21,9 @@
 #include "main.h"
 
 
-#define ACCELEROMETER_SCALE (1024 / 5)  // LSB/g
+#define ACCELEROMETER_SCALE (1024 / 5)  // LSB / g
 #define ACCELEROMETER_2_2_SCALE (1024 / 6)  // LSB / g
-#define GYRO_SCALE (6.144 * 180 / M_PI / 5)  // LSB/(rad/s)
+#define GYRO_SCALE (6.144 * 180 / M_PI / 5)  // LSB / (rad/s)
 
 enum ADCState {
   ADC_INACTIVE = 0,
@@ -34,9 +34,10 @@ enum ADCState {
 // =============================================================================
 // Accessors:
 
-float Acceleration(enum BodyAxes axis);
-
 // -----------------------------------------------------------------------------
+// WARNING! This function passes the address of the array and there is no
+// protection against overwriting the value. Body-axis acceleration vector from
+// accelerometer in g's.
 float * AccelerationVector(void);
 
 // -----------------------------------------------------------------------------
@@ -44,24 +45,37 @@ float * AccelerationVector(void);
 uint16_t Accelerometer(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
+// Returns the sum of the most recent ADC_N_SAMPLES accelerometer readings.
+// Scale is 5/1024/ADC_N_SAMPLES g/LSB.
 int16_t AccelerometerSum(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
 enum ADCState ADCState(void);
 
 // -----------------------------------------------------------------------------
+// Body-axis angular rate from the gyros in rad/s.
 float AngularRate(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
+// WARNING! This function passes the address of the array and there is no
+// protection against overwriting the value. Body-axis angular rate from the
+// gyros in rad/s.
 float * AngularRateVector(void);
 
 // -----------------------------------------------------------------------------
+// Latest measurement of battery voltage in 1/10 Volts.
 uint16_t BatteryVoltage(void);
 
 // -----------------------------------------------------------------------------
-uint16_t BiasedPressure(void);
+// Returns the sum of the most recent ADC_N_SAMPLES biased pressure readings.
+// Slope is 1/578/ADC_N_SAMPLES kPa/LSB and bias is determined by a pair of
+// biasing voltages (see the PWM signals in pressure_altitude.c).
+uint16_t BiasedPressureSum(void);
 
 // -----------------------------------------------------------------------------
+// Returns the most recent biased pressure reading. Slope is 1/578 kPa/LSB and
+// bias is determined by a pair of biasing voltages (see the PWM signals in
+// pressure_altitude.c).
 uint16_t BiasedPressureSensor(void);
 
 // -----------------------------------------------------------------------------
@@ -69,6 +83,8 @@ uint16_t BiasedPressureSensor(void);
 uint16_t Gyro(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
+// Returns the sum of the most recent ADC_N_SAMPLES gyro readings. Scale is
+// 5/6.144/ADC_N_SAMPLES deg/s/LSB.
 int16_t GyroSum(enum BodyAxes axis);
 
 

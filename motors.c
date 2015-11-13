@@ -166,9 +166,9 @@ void DetectMotors(void)
   }
 
   // Report successful detection.
-  if (blc_status_code == BLC_FEATURE_V2)
+  if (blc_status_code == BLC_STATUS_V2_READY)
     UARTPrintf("motors: detected %u V2 controllers", n_motors_);
-  else if (blc_status_code == BLC_FEATURE_V3)
+  else if (blc_status_code == BLC_STATUS_V3_READY)
     UARTPrintf("motors: detected %u V3 controllers", n_motors_);
   else if (blc_status_code == BLC_STATUS_V3_FAST_READY)
     UARTPrintf("motors: detected %u V3 controllers in fast mode (20 kHz PWM)",
