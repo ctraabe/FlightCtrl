@@ -11,6 +11,7 @@
 #include "mk_serial_protocol.h"
 #include "mk_serial_tx.h"
 #include "motors.h"
+#include "nav_comms.h"
 #include "pressure_altitude.h"
 #include "sbus.h"
 #include "state.h"
@@ -155,6 +156,8 @@ int16_t main(void)
       Control();
 
       ErrorCheck();
+
+      SendDataToNav();
 
       ProcessIncomingUART();
       SendPendingUART();

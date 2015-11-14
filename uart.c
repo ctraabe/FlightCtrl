@@ -54,9 +54,10 @@
 
 #define USART0_BAUD (57600)
 
-static volatile uint8_t rx_buffer_head_ = 0, rx_buffer_[RX_BUFFER_LENGTH];
+static volatile uint8_t rx_buffer_head_ = 0, rx_buffer_[UART_RX_BUFFER_LENGTH];
 static volatile uint8_t tx_bytes_remaining_ = 0, *tx_ptr_ = 0;
-static uint8_t data_buffer_[DATA_BUFFER_LENGTH], tx_buffer_[TX_BUFFER_LENGTH];
+static uint8_t data_buffer_[UART_DATA_BUFFER_LENGTH];
+static uint8_t tx_buffer_[UART_TX_BUFFER_LENGTH];
 static uint8_t tx_overflow_counter_ = 0;
 
 
@@ -97,7 +98,7 @@ void ProcessIncomingUART(void)
   while (rx_buffer_tail != rx_buffer_head_)
   {
     // Move the ring buffer tail forward.
-    rx_buffer_tail = (rx_buffer_tail + 1) % RX_BUFFER_LENGTH;
+    rx_buffer_tail = (rx_buffer_tail + 1) % UART_RX_BUFFER_LENGTH;
 
     // Add other Rx protocols here.
     if (mode != UART_RX_MODE_IDLE)
@@ -195,6 +196,6 @@ ISR(USART0_UDRE_vect)
 // -----------------------------------------------------------------------------
 ISR(USART0_RX_vect)
 {
-  rx_buffer_head_ = (rx_buffer_head_ + 1) % RX_BUFFER_LENGTH;
+  rx_buffer_head_ = (rx_buffer_head_ + 1) % UART_RX_BUFFER_LENGTH;
   rx_buffer_[rx_buffer_head_] = UDR0;
 }

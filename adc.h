@@ -34,6 +34,9 @@ enum ADCState {
 // =============================================================================
 // Accessors:
 
+// Body-axis acceleration from the accelerometer in g's.
+float Acceleration(enum BodyAxes axis);
+
 // -----------------------------------------------------------------------------
 // WARNING! This function passes the address of the array and there is no
 // protection against overwriting the value. Body-axis acceleration vector from

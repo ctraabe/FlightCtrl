@@ -5,17 +5,20 @@
 #include <inttypes.h>
 
 
+#define SPI_TX_BUFFER_LENGTH (64)
+
+
 // =============================================================================
 // Public functions:
 
 void SPIInit(void);
 
 // -----------------------------------------------------------------------------
-// This function initiates the transmission of the data in the Tx buffer.
-void SPITxBuffer(uint8_t tx_length);
+uint8_t * RequestSPITxBuffer(void);
 
 // -----------------------------------------------------------------------------
-void SPITxSensorData(void);
+// This function initiates the transmission of the data in the Tx buffer.
+void SPITxBuffer(uint8_t tx_length);
 
 
 #endif  // SPI_H_

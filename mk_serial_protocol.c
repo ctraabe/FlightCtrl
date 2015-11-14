@@ -65,7 +65,7 @@ enum UARTRxMode MKSerialRx(uint8_t byte, uint8_t * data_buffer)
 
   if (byte != '\r')  // The byte '/r' marks the end of an MK message
   {
-    if (length < DATA_BUFFER_LENGTH)
+    if (length < UART_DATA_BUFFER_LENGTH)
     {
       data_buffer[length++] = byte;
       return UART_RX_MODE_MK_ONGOING;

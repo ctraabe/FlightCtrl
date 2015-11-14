@@ -31,7 +31,7 @@ volatile uint16_t samples_[ADC_N_SAMPLES][ADC_N_CHANNELS];
 volatile uint8_t samples_index_;
 
 static float acceleration_[3], angular_rate_[3];
-static uint16_t biased_pressure_, battery_voltage_;
+static uint16_t biased_pressure_sum_, battery_voltage_;
 static int16_t accelerometer_sum_[3], gyro_sum_[3];
 static int16_t acc_offset_[3];
 static int16_t gyro_offset_[3] = { -ADC_MIDDLE_VALUE * ADC_N_SAMPLES,
@@ -124,9 +124,9 @@ uint16_t BatteryVoltage(void)
 // Returns the sum of the most recent ADC_N_SAMPLES biased pressure readings.
 // Slope is 1/578/ADC_N_SAMPLES kPa/LSB and bias is determined by a pair of
 // biasing voltages (see the PWM signals in pressure_altitude.c).
-uint16_t BiasedPressure(void)
+uint16_t BiasedPressureSum(void)
 {
-  return biased_pressure_;
+  return biased_pressure_sum_;
 }
 
 // -----------------------------------------------------------------------------
@@ -251,7 +251,7 @@ void ProcessSensorReadings(void)
     / ADC_N_SAMPLES;
 
   // Raw pressure reading.
-  biased_pressure_ = SumRecords(ADC_PRESSURE);
+  biased_pressure_sum_ = SumRecords(ADC_PRESSURE);
 
   // The ADC records voltage in 31 steps per Volt. The following converts to the
   // desired 1 step per 0.1 V. The following gyration avoids overflow.

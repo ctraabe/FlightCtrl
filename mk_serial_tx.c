@@ -112,6 +112,9 @@ static void SendControlData(void)
     uint8_t stick_8[2];
   } __attribute__((packed)) debug_data;
 
+  _Static_assert(sizeof(struct DebugData) + 6 < UART_TX_BUFFER_LENGTH,
+    "struct DebugData is too large for the UART TX buffer");
+
   union S16Bytes temp;
 
   debug_data.accelerometer_sum[0] = AccelerometerSum(X_BODY_AXIS);
@@ -142,6 +145,9 @@ static void SendKalmanData(void)
     uint16_t timestamp;
   } __attribute__((packed)) kalman_data;
 
+  _Static_assert(sizeof(struct KalmanData) + 6 < UART_TX_BUFFER_LENGTH,
+    "struct KalmanData is too large for the UART TX buffer");
+
   kalman_data.gyro_sum[0] = GyroSum(X_BODY_AXIS);
   kalman_data.gyro_sum[1] = GyroSum(Y_BODY_AXIS);
   kalman_data.command[0] = (int16_t)(AngularCommand(X_BODY_AXIS) * 100.0);
@@ -167,6 +173,9 @@ static void SendMotorSetpoints(void)
     uint16_t timestamp;
   } __attribute__((packed)) motor_setpoints;
 
+  _Static_assert(sizeof(struct MotorSetpoints) + 6 < UART_TX_BUFFER_LENGTH,
+    "struct MotorSetpoints is too large for the UART TX buffer");
+
   for (uint16_t i = MAX_MOTORS; i--; )
     motor_setpoints.motor_setpoints[i] = MotorSetpoint(i);
   motor_setpoints.timestamp = GetTimestamp();
@@ -184,6 +193,9 @@ static void SendSensorData(void)
     uint16_t battery_voltage;
     uint16_t timestamp;
   } __attribute__((packed)) sensor_data;
+
+  _Static_assert(sizeof(struct SensorData) + 6 < UART_TX_BUFFER_LENGTH,
+    "struct SensorData is too large for the UART TX buffer");
 
   sensor_data.accelerometer_sum[0] = AccelerometerSum(X_BODY_AXIS);
   sensor_data.accelerometer_sum[1] = AccelerometerSum(Y_BODY_AXIS);

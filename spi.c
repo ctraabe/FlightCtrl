@@ -12,12 +12,10 @@
 // =============================================================================
 // Private data:
 
-#define TX_BUFFER_LENGTH (32)
-#define SPI_START_BYTE (0xFE)
-
-static uint8_t tx_buffer_[TX_BUFFER_LENGTH];
+static uint8_t tx_buffer_[SPI_TX_BUFFER_LENGTH];
 static volatile uint8_t logging_ = 0, tx_bytes_remaining_ = 0, * tx_ptr_ = 0;
 static volatile uint16_t logging_timeout_ = 0;
+static uint8_t tx_overflow_counter_ = 0;
 
 
 // =============================================================================
@@ -48,6 +46,19 @@ void SPIInit(void)
 }
 
 // -----------------------------------------------------------------------------
+// This function returns the address of the shared Tx buffer (tx_buffer_) if it
+// is available of zero if not.
+uint8_t * RequestSPITxBuffer(void)
+{
+  if (tx_bytes_remaining_)
+  {
+    tx_overflow_counter_++;
+    return 0;
+  }
+  return tx_buffer_;
+}
+
+// -----------------------------------------------------------------------------
 // This function initiates the transmission of the data in the Tx buffer.
 void SPITxBuffer(uint8_t tx_length)
 {
@@ -57,52 +68,6 @@ void SPITxBuffer(uint8_t tx_length)
   tx_ptr_ = &tx_buffer_[1];
   tx_bytes_remaining_ = tx_length - 1;
   SPCR |= _BV(SPIE);  // Enable the SPI transmission complete interrupt.
-}
-
-// -----------------------------------------------------------------------------
-void SPITxSensorData(void)
-{
-  static uint8_t counter_128_hz = 0;
-  if (logging_ == 0 || TimestampInPast(logging_timeout_))
-  {
-    counter_128_hz = 0xFF;
-    logging_ = 0;
-  }
-  else
-  {
-    counter_128_hz = (counter_128_hz + 1) & 0x7F;
-  }
-
-  // Send the counter out over UART1.
-  UDR1 = counter_128_hz;
-
-  tx_buffer_[0] = SPI_START_BYTE;
-
-  struct SensorData {
-    int16_t accelerometer_sum[3];
-    int16_t gyro_sum[3];
-    uint16_t biased_pressure;
-    uint8_t counter_128_hz;
-  } __attribute__((packed));
-
-  struct SensorData * sensor_data_ptr = (struct SensorData *)&tx_buffer_[1];
-
-  sensor_data_ptr->accelerometer_sum[0] = AccelerometerSum(X_BODY_AXIS);
-  sensor_data_ptr->accelerometer_sum[1] = AccelerometerSum(Y_BODY_AXIS);
-  sensor_data_ptr->accelerometer_sum[2] = AccelerometerSum(Z_BODY_AXIS);
-  sensor_data_ptr->gyro_sum[0] = GyroSum(X_BODY_AXIS);
-  sensor_data_ptr->gyro_sum[1] = GyroSum(Y_BODY_AXIS);
-  sensor_data_ptr->gyro_sum[2] = GyroSum(Z_BODY_AXIS);
-  sensor_data_ptr->biased_pressure = BiasedPressureSum();
-  sensor_data_ptr->counter_128_hz = counter_128_hz;
-
-  // Add 4 trailing zeros to force STR91x SPI Rx interrupt.
-  tx_buffer_[sizeof(struct SensorData) + 1] = 0x00;
-  tx_buffer_[sizeof(struct SensorData) + 2] = 0x00;
-  tx_buffer_[sizeof(struct SensorData) + 3] = 0x00;
-  tx_buffer_[sizeof(struct SensorData) + 4] = 0x00;
-
-  SPITxBuffer(sizeof(struct SensorData) + 5);
 }
 
 
