@@ -14,6 +14,7 @@
 #include "nav_comms.h"
 #include "pressure_altitude.h"
 #include "sbus.h"
+#include "spi.h"
 #include "state.h"
 #include "timing.h"
 #include "uart.h"
@@ -72,6 +73,7 @@ static void Init(void)
   BuzzerInit();
   I2CInit();
   UARTInit();
+  SPIInit();
   SBusInit();
   PressureSensorInit();
 

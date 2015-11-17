@@ -6,12 +6,13 @@
 #include "attitude.h"
 #include "main.h"
 #include "spi.h"
+#include "union_types.h"
 
 
 // =============================================================================
 // Private data:
 
-#define NAV_MESSAGE_START_BYTE (0xFE)
+#define NAV_MESSAGE_START_BYTE (0xAA)
 
 
 // =============================================================================
@@ -23,22 +24,24 @@
 
 void SendDataToNav(void)
 {
+  // Request the SPI transmit buffer. Return if not available.
   uint8_t * tx_buffer = RequestSPITxBuffer();
+  if (tx_buffer == 0) return;
 
+  // Specify the payload structure.
   struct ToNav {
-    uint8_t header;
     float acceleration[3];
     float angular_rate[3];
     float quaternion[4];
-    uint16_t crc;
   } __attribute__((packed));
-
   _Static_assert(sizeof(struct ToNav) + 4 < SPI_TX_BUFFER_LENGTH,
     "struct ToNav is too large for the SPI TX buffer");
 
-  struct ToNav * to_nav_ptr = (struct ToNav *)&tx_buffer[0];
+  // Populate the transmit buffer.
+  tx_buffer[0] = NAV_MESSAGE_START_BYTE;
+  tx_buffer[1] = sizeof(struct ToNav);
 
-  to_nav_ptr->header = NAV_MESSAGE_START_BYTE;
+  struct ToNav * to_nav_ptr = (struct ToNav *)&tx_buffer[2];
   to_nav_ptr->acceleration[0] = Acceleration(X_BODY_AXIS);
   to_nav_ptr->acceleration[1] = Acceleration(Y_BODY_AXIS);
   to_nav_ptr->acceleration[2] = Acceleration(Z_BODY_AXIS);
@@ -50,19 +53,23 @@ void SendDataToNav(void)
   to_nav_ptr->quaternion[2] = Quat()[2];
   to_nav_ptr->quaternion[3] = Quat()[3];
 
-  // Add a CRC (same version used in MAVLink).
-  to_nav_ptr->crc = 0xFFFF;
-  const uint8_t * tx_buffer_ptr = &tx_buffer[0];
-  for (uint8_t i = sizeof(struct ToNav) - sizeof(uint16_t); i--; )
-  {
-    to_nav_ptr->crc = _crc_ccitt_update(to_nav_ptr->crc, *tx_buffer_ptr++);
-  }
+  // Add a CRC just after the data payload. Note that this is the same CRC that
+  // is used in MAVLink. It uses a polynomial represented by 0x1021, an initial
+  // value of 0xFFFF, and with both the input and output reflected.
+  union U16Bytes * crc = (union U16Bytes *)&tx_buffer[2 + sizeof(struct ToNav)];
+  crc->u16 = 0xFFFF;
+  uint8_t * tx_buffer_ptr = &tx_buffer[1];  // Skip the start byte
+  for (uint8_t i = sizeof(struct ToNav) + 1; i--; )
+    crc->u16 = _crc_ccitt_update(crc->u16, *tx_buffer_ptr++);
 
-  // Add 4 trailing zeros to force STR91x SPI Rx interrupt.
-  tx_buffer[sizeof(struct ToNav) + 0] = 0x00;
-  tx_buffer[sizeof(struct ToNav) + 1] = 0x00;
-  tx_buffer[sizeof(struct ToNav) + 2] = 0x00;
-  tx_buffer[sizeof(struct ToNav) + 3] = 0x00;
+  // The MikroKopter NaviCtrl board employs a STR91x microcontroller. The SPI Rx
+  // interrupt for this board only occurs when the Rx buffer (8 bytes) is more
+  // than half full. To make sure that this interrupt is triggered, add 4
+  // trailing bytes to the end of the transmission.
+  tx_buffer_ptr += sizeof(uint16_t);  // Skip the CRC
+  for (uint8_t i = 4; i--; ) *tx_buffer_ptr++ = 0x00;
 
-  SPITxBuffer(sizeof(struct ToNav) + 4);
+  // Send the entire packet (1-byte header, 1-byte length, payload, 2-byte CRC &
+  // 4-bytes trailing zeros).
+  SPITxBuffer(2 + sizeof(struct ToNav) + 2 + 4);
 }
