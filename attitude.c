@@ -28,7 +28,7 @@ static void HandleAttitudeReset(void);
 // =============================================================================
 // Accessors:
 
-float * GravityInBodyVector(void)
+const float * GravityInBodyVector(void)
 {
   return g_b_;
 }
@@ -40,7 +40,7 @@ float HeadingAngle(void)
 }
 
 // -----------------------------------------------------------------------------
-float * Quat(void)
+const float * Quat(void)
 {
   return quat_;
 }

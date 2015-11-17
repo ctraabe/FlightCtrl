@@ -38,10 +38,8 @@ enum ADCState {
 float Acceleration(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
-// WARNING! This function passes the address of the array and there is no
-// protection against overwriting the value. Body-axis acceleration vector from
-// accelerometer in g's.
-float * AccelerationVector(void);
+// Body-axis acceleration vector from accelerometer in g's.
+const float * AccelerationVector(void);
 
 // -----------------------------------------------------------------------------
 // Returns the most recent accelerometer reading. Scale is 5/1024 g/LSB.
@@ -60,10 +58,8 @@ enum ADCState ADCState(void);
 float AngularRate(enum BodyAxes axis);
 
 // -----------------------------------------------------------------------------
-// WARNING! This function passes the address of the array and there is no
-// protection against overwriting the value. Body-axis angular rate from the
-// gyros in rad/s.
-float * AngularRateVector(void);
+// Body-axis angular rate vector from the gyros in rad/s.
+const float * AngularRateVector(void);
 
 // -----------------------------------------------------------------------------
 // Latest measurement of battery voltage in 1/10 Volts.

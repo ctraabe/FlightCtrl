@@ -56,10 +56,8 @@ float Acceleration(enum BodyAxes axis)
 }
 
 // -----------------------------------------------------------------------------
-// WARNING! This function passes the address of the array and there is no
-// protection against overwriting the value. Body-axis acceleration vector from
-// accelerometer in g's.
-float * AccelerationVector(void)
+// Body-axis acceleration vector from accelerometer in g's.
+const float * AccelerationVector(void)
 {
   return acceleration_;
 }
@@ -105,10 +103,8 @@ float AngularRate(enum BodyAxes axis)
 }
 
 // -----------------------------------------------------------------------------
-// WARNING! This function passes the address of the array and there is no
-// protection against overwriting the value. Body-axis angular rate from the
-// gyros in rad/s.
-float * AngularRateVector(void)
+// Body-axis angular rate vector from the gyros in rad/s.
+const float * AngularRateVector(void)
 {
   return angular_rate_;
 }
