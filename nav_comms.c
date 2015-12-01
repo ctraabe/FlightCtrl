@@ -1,12 +1,17 @@
 #include "nav_comms.h"
 
+#include <avr/interrupt.h>
+#include <avr/io.h>
 #include <util/crc16.h>
 
 #include "adc.h"
 #include "attitude.h"
 #include "main.h"
 #include "spi.h"
+#include "timing.h"
 #include "union_types.h"
+// TODO: remove
+#include "led.h"
 
 
 // =============================================================================
@@ -22,8 +27,34 @@
 // =============================================================================
 // Public functions:
 
+void NavCommsInit(void)
+{
+  // Pull up pin PC4.
+  PORTC |= _BV(4);
+
+  // Enable pin change interrupts.
+  PCICR |= _BV(PCIE2);
+}
+
+// -----------------------------------------------------------------------------
+void NotifyNav(void)
+{
+  // Disable the pin change interrupt for PC4.
+  PCMSK2 &= ~_BV(PCINT20);
+
+  // Pull down PC4.
+  PORTC &= ~_BV(4);
+  DDRC |= _BV(4);
+  RedLEDOn();
+}
+
+// -----------------------------------------------------------------------------
 void SendDataToNav(void)
 {
+  // Set PC4 back to input and pull-up.
+  DDRC &= ~_BV(4);
+  PORTC |= _BV(4);
+
   // Request the SPI transmit buffer. Return if not available.
   uint8_t * tx_buffer = RequestSPITxBuffer();
   if (tx_buffer == 0) return;
@@ -72,4 +103,25 @@ void SendDataToNav(void)
   // Send the entire packet (1-byte header, 1-byte length, payload, 2-byte CRC &
   // 4-bytes trailing zeros).
   SPITxBuffer(2 + sizeof(struct ToNav) + 2 + 4);
+
+  // Re-enable the pin change interrupt for pin PC4.
+  PCMSK2 |= _BV(PCINT20);
+}
+
+
+// =============================================================================
+// Private function:
+
+ISR(PCINT2_vect)
+{
+  // TODO: This is a high priority interrupt. This routine should be changed to:
+  // if (~PINC & BV(4)) <trigger a low priority interrupt>
+
+  // Ignore rising edge.
+  if (PINC & _BV(4)) return;
+
+  // TODO: Move the following functionality to the low-priority interrupt.
+  // Disable the interrupt.
+  PCMSK2 &= ~_BV(PCINT20);
+  RedLEDOff();
 }

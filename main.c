@@ -94,6 +94,8 @@ static void Init(void)
   DetectMotors();
   ControlInit();  // Must be run after DetectMotors() to get NMotors()
 
+  NavCommsInit();
+
   ResetOverrun();
   GreenLEDOn();
 }
@@ -144,6 +146,8 @@ int16_t main(void)
   {
     if (flag_128hz_)
     {
+      NotifyNav();
+
       UpdateSBus();
 
       UpdateState();
@@ -157,9 +161,9 @@ int16_t main(void)
 
       Control();
 
-      ErrorCheck();
-
       SendDataToNav();
+
+      ErrorCheck();
 
       ProcessIncomingUART();
       SendPendingUART();
