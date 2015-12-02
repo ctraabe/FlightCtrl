@@ -173,9 +173,13 @@ int16_t main(void)
       flag_128hz_ = 0;
     }
 
+    if (NavDataReady()) ReceiveDataFromNav();
+    if (NavRecieved()) ProcessDataFromNav();
+
     if (flag_2hz_)
     {
       flag_2hz_ = 0;
+      // GreenLEDToggle();
     }
   }
 }

@@ -4,7 +4,6 @@
 #include <avr/io.h>
 
 #include "adc.h"
-#include "led.h"
 #include "mcu_pins.h"
 #include "timing.h"
 
@@ -12,17 +11,20 @@
 // =============================================================================
 // Private data:
 
-static uint8_t tx_buffer_[SPI_TX_BUFFER_LENGTH];
-static volatile uint8_t logging_ = 0, tx_bytes_remaining_ = 0, * tx_ptr_ = 0;
-static volatile uint16_t logging_timeout_ = 0;
-static uint8_t tx_overflow_counter_ = 0;
+static volatile uint8_t rx_bytes_remaining_ = 0, * volatile rx_ptr_ = 0;
+static volatile uint8_t tx_bytes_remaining_ = 0;
+static const uint8_t * volatile tx_ptr_ = 0;
 
+static uint8_t tx_buffer_[SPI_TX_BUFFER_LENGTH], tx_overflow_counter_ = 0;
+static SPICallback callback_ptr_ = 0;
+static volatile uint8_t temp = 0;
 
 // =============================================================================
 // Private function declarations:
 
 static inline void DeselectSlave(void);
 static inline void SelectSlave(void);
+static inline void SPITxByte(uint8_t byte);
 
 
 // =============================================================================
@@ -46,11 +48,24 @@ void SPIInit(void)
 }
 
 // -----------------------------------------------------------------------------
+uint8_t SPIRxThenCallback(uint8_t * rx_buffer, uint8_t rx_buffer_length,
+  SPICallback callback_ptr)
+{
+  if (tx_bytes_remaining_ != 0 || rx_bytes_remaining_ != 0 || rx_buffer == 0
+    || rx_buffer_length == 0) return 0;
+  rx_ptr_ = rx_buffer;
+  rx_bytes_remaining_ = rx_buffer_length;
+  callback_ptr_ = callback_ptr;
+  SPITxByte(0xFF);  // Start transmission with a dummy byte
+  return 1;  // Success
+}
+
+// -----------------------------------------------------------------------------
 // This function returns the address of the shared Tx buffer (tx_buffer_) if it
 // is available of zero if not.
 uint8_t * RequestSPITxBuffer(void)
 {
-  if (tx_bytes_remaining_)
+  if (tx_bytes_remaining_ != 0)
   {
     tx_overflow_counter_++;
     return 0;
@@ -62,12 +77,11 @@ uint8_t * RequestSPITxBuffer(void)
 // This function initiates the transmission of the data in the Tx buffer.
 void SPITxBuffer(uint8_t tx_length)
 {
-  if (tx_length == 0) return;
-  SelectSlave();
-  SPDR = tx_buffer_[0];
-  tx_ptr_ = &tx_buffer_[1];
+  if (tx_bytes_remaining_ != 0 || rx_bytes_remaining_ != 0 || tx_length == 0
+    || tx_length > SPI_TX_BUFFER_LENGTH) return;
+  tx_ptr_ = &tx_buffer_[0];  // Set the transmit pointer to the next byte
+  SPITxByte(*tx_ptr_);  // Start transmission with the first byte
   tx_bytes_remaining_ = tx_length - 1;
-  SPCR |= _BV(SPIE);  // Enable the SPI transmission complete interrupt.
 }
 
 
@@ -86,31 +100,46 @@ static inline void SelectSlave(void)
 }
 
 // -----------------------------------------------------------------------------
-// Transmission (byte) complete interrupt
+static inline void SPITxByte(uint8_t byte)
+{
+  SelectSlave();
+  SPDR = byte;
+  SPCR |= _BV(SPIE);  // Enable the SPI transmission complete interrupt
+}
+
+// -----------------------------------------------------------------------------
+// Transmission (byte) complete interrupt. Note, this is a very high frequency
+// interrupt (around 150kHz), so SPI transmission should be avoided until after
+// high-priority processing is finished. Also, make sure that any callback is
+// very brief.
 ISR(SPI_STC_vect)
 {
   DeselectSlave();
-  if (!tx_bytes_remaining_)
+
+  if (rx_bytes_remaining_ != 0)
   {
-    SPCR &= ~_BV(SPIE);  // Disable this interrupt
+    *rx_ptr_++ = SPDR;
+    if (--rx_bytes_remaining_ == 0 && callback_ptr_) (*callback_ptr_)();
   }
   else
   {
-    --tx_bytes_remaining_;
-    SelectSlave();
-    SPDR = *(tx_ptr_++);
+    temp = SPDR;  // Empty the RX buffer
   }
 
-  uint8_t rx_byte = SPDR;
-  if (rx_byte == 0xCC)
+  if (tx_bytes_remaining_ != 0)
   {
-    logging_timeout_ = GetTimestampMillisFromNow(100);
-    logging_ = 1;
-    RedLEDOn();
+    --tx_bytes_remaining_;
+    SelectSlave();
+    SPDR = *(++tx_ptr_);
   }
-  else if (rx_byte == 0x33)
+  else if (rx_bytes_remaining_ != 0)
   {
-    logging_ = 0;
-    RedLEDOff();
+    // Send a dummy byte to set the clock for reception.
+    SelectSlave();
+    SPDR = 0xFF;
+  }
+  else
+  {
+    SPCR &= ~_BV(SPIE);  // Disable this interrupt
   }
 }

@@ -19,9 +19,60 @@
 
 #define NAV_MESSAGE_START_BYTE (0xAA)
 
+enum NavCommsState {
+  NAV_COMMS_IDLE = 0,
+  NAV_COMMS_DATA_READY,
+  NAV_COMMS_DATA_RECEVIED,
+};
+
+static volatile struct FromNav {
+  float position[3];
+  float velocity[3];
+  float heading_correction;
+  uint16_t crc;
+} __attribute__((packed)) from_nav_[2];
+
+static volatile uint8_t nav_data_state_ = NAV_COMMS_IDLE;
+static uint8_t from_nav_head_ = 1, from_nav_tail_ = 0;
+
 
 // =============================================================================
 // Private function declarations:
+
+static void SetNavDataReceived(void);
+
+
+// =============================================================================
+// Accessors:
+
+uint8_t NavDataReady(void)
+{
+  return nav_data_state_ == NAV_COMMS_DATA_READY;
+}
+
+// -----------------------------------------------------------------------------
+uint8_t NavRecieved(void)
+{
+  return nav_data_state_ == NAV_COMMS_DATA_RECEVIED;
+}
+
+// -----------------------------------------------------------------------------
+const volatile float * Position(void)
+{
+  return from_nav_[from_nav_tail_].position;
+}
+
+// -----------------------------------------------------------------------------
+const volatile float * Velocity(void)
+{
+  return from_nav_[from_nav_tail_].velocity;
+}
+
+// -----------------------------------------------------------------------------
+float HeadingCorrection(void)
+{
+  return from_nav_[from_nav_tail_].heading_correction;
+}
 
 
 // =============================================================================
@@ -45,7 +96,32 @@ void NotifyNav(void)
   // Pull down PC4.
   PORTC &= ~_BV(4);
   DDRC |= _BV(4);
-  RedLEDOn();
+}
+
+// -----------------------------------------------------------------------------
+void ProcessDataFromNav(void)
+{
+  uint8_t * rx_buffer_ptr = (uint8_t *)&from_nav_[from_nav_head_];
+  uint16_t crc = 0xFFFF;
+  for (uint8_t i = sizeof(struct FromNav) - 2; i--; )
+    crc = _crc_ccitt_update(crc, *(rx_buffer_ptr++));
+
+  if (from_nav_[from_nav_head_].crc == crc)
+  {
+    // Swap buffers.
+    from_nav_tail_ = from_nav_head_;
+    from_nav_head_ = !from_nav_tail_;
+  }
+
+  RedLEDOff();
+  nav_data_state_ = NAV_COMMS_IDLE;
+}
+
+// -----------------------------------------------------------------------------
+void ReceiveDataFromNav(void)
+{
+  SPIRxThenCallback((uint8_t *)&from_nav_[from_nav_head_],
+    sizeof(struct FromNav), SetNavDataReceived);
 }
 
 // -----------------------------------------------------------------------------
@@ -112,16 +188,20 @@ void SendDataToNav(void)
 // =============================================================================
 // Private function:
 
+static void SetNavDataReceived(void)
+{
+  nav_data_state_ = NAV_COMMS_DATA_RECEVIED;
+}
+
+// -----------------------------------------------------------------------------
 ISR(PCINT2_vect)
 {
-  // TODO: This is a high priority interrupt. This routine should be changed to:
-  // if (~PINC & BV(4)) <trigger a low priority interrupt>
-
   // Ignore rising edge.
   if (PINC & _BV(4)) return;
 
-  // TODO: Move the following functionality to the low-priority interrupt.
+  nav_data_state_ = NAV_COMMS_DATA_READY;
+  RedLEDOn();
+
   // Disable the interrupt.
   PCMSK2 &= ~_BV(PCINT20);
-  RedLEDOff();
 }

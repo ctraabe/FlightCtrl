@@ -7,11 +7,17 @@
 
 #define SPI_TX_BUFFER_LENGTH (64)
 
+typedef void (*SPICallback)(void);
+
 
 // =============================================================================
 // Public functions:
 
 void SPIInit(void);
+
+// -----------------------------------------------------------------------------
+uint8_t SPIRxThenCallback(uint8_t * rx_buffer, uint8_t rx_buffer_length,
+  SPICallback callback_ptr);
 
 // -----------------------------------------------------------------------------
 uint8_t * RequestSPITxBuffer(void);
