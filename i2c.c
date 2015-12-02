@@ -12,7 +12,7 @@
 #define F_SCL (200000L)
 
 enum I2CMode {
-  I2C_MODE_IDLE,
+  I2C_MODE_IDLE = 0,
   I2C_MODE_TX,
   I2C_MODE_RX,
   I2C_MODE_TX_THEN_RX
@@ -21,8 +21,8 @@ enum I2CMode {
 static volatile enum I2CMode i2c_mode_ = I2C_MODE_IDLE;
 static volatile enum I2CError i2c_error_ = I2C_ERROR_NONE;
 static volatile uint8_t rx_destination_len_ = 0, tx_source_len_ = 0;
-static volatile uint8_t * rx_destination_ptr_ = 0;
-static volatile const uint8_t * tx_source_ptr_ = 0;
+static volatile uint8_t * volatile rx_destination_ptr_ = 0;
+static const uint8_t * volatile tx_source_ptr_ = 0;
 
 static uint8_t slave_address_ = 0x00;
 static I2CCallback callback_ptr_ = 0;
@@ -36,7 +36,7 @@ static void I2CStop(void);
 
 
 // =============================================================================
-// Accessors
+// Accessors:
 
 enum I2CError I2CError(void)
 {
