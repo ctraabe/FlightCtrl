@@ -28,7 +28,7 @@ static struct SBusData
 
 static uint8_t sbus_error_bits_ = 0x00;
 static uint8_t channel_pitch_, channel_roll_, channel_yaw_, channel_thrust_,
-  channel_on_off_;
+  channel_on_off_, channel_switch_[6], channel_trim_[4];
 
 
 // =============================================================================
@@ -73,9 +73,24 @@ int16_t SBusThrust(void)
 uint8_t SBusOnOff(void)
 {
   if (channel_on_off_ < 16)
-    return sbus_data_.channels[channel_on_off_] != 0;
+    return sbus_data_.channels[channel_on_off_] > 0;
   else
-    return sbus_data_.binary & (channel_on_off_ - 15);
+    return (sbus_data_.binary & _BV(channel_on_off_ - 16)) != 0;
+}
+
+// -----------------------------------------------------------------------------
+int16_t SBusSwitch(uint8_t i)
+{
+  if (channel_switch_[i] < 16)
+    return sbus_data_.channels[channel_switch_[i]];
+  else
+    return (sbus_data_.binary & _BV(channel_switch_[i] - 16)) != 0;
+}
+
+// -----------------------------------------------------------------------------
+int16_t SBusTrim(uint8_t i)
+{
+  return sbus_data_.channels[channel_trim_[i]];
 }
 
 // -----------------------------------------------------------------------------
@@ -111,22 +126,42 @@ void SBusInit(void)
   channel_yaw_ = eeprom_read_byte(&eeprom.sbus_channel_yaw);
   channel_thrust_ = eeprom_read_byte(&eeprom.sbus_channel_thrust);
   channel_on_off_ = eeprom_read_byte(&eeprom.sbus_channel_on_off);
+  eeprom_read_block((void*)channel_switch_,
+    (const void*)&eeprom.sbus_channel_switch[0], sizeof(channel_switch_));
+  eeprom_read_block((void*)channel_trim_,
+    (const void*)&eeprom.sbus_channel_trim[0], sizeof(channel_trim_));
 }
 
 // -----------------------------------------------------------------------------
 void SBusSetChannels(uint8_t pitch, uint8_t roll, uint8_t yaw, uint8_t thrust,
-  uint8_t on_off)
+  uint8_t on_off, uint8_t switch0, uint8_t switch1, uint8_t switch2,
+  uint8_t switch3, uint8_t switch4, uint8_t switch5, uint8_t trim0,
+  uint8_t trim1, uint8_t trim2, uint8_t trim3)
 {
   channel_pitch_ = pitch;
   channel_roll_ = roll;
   channel_yaw_ = yaw;
   channel_thrust_ = thrust;
   channel_on_off_ = on_off;
+  channel_switch_[0] = switch0;
+  channel_switch_[1] = switch1;
+  channel_switch_[2] = switch2;
+  channel_switch_[3] = switch3;
+  channel_switch_[4] = switch4;
+  channel_switch_[5] = switch5;
+  channel_trim_[0] = trim0;
+  channel_trim_[1] = trim1;
+  channel_trim_[2] = trim2;
+  channel_trim_[3] = trim3;
   eeprom_update_byte(&eeprom.sbus_channel_pitch, pitch);
   eeprom_update_byte(&eeprom.sbus_channel_roll, roll);
   eeprom_update_byte(&eeprom.sbus_channel_yaw, yaw);
   eeprom_update_byte(&eeprom.sbus_channel_thrust, thrust);
   eeprom_update_byte(&eeprom.sbus_channel_on_off, on_off);
+  eeprom_update_block((const void*)channel_switch_,
+    (void*)&eeprom.sbus_channel_switch[0], sizeof(channel_switch_));
+  eeprom_update_block((const void*)channel_trim_,
+    (void*)&eeprom.sbus_channel_trim[0], sizeof(channel_trim_));
 }
 
 // -----------------------------------------------------------------------------

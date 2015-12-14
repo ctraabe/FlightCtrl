@@ -28,6 +28,8 @@ extern struct EEPROM {
   uint8_t sbus_channel_yaw;
   uint8_t sbus_channel_thrust;
   uint8_t sbus_channel_on_off;
+  uint8_t sbus_channel_switch[6];
+  uint8_t sbus_channel_trim[4];
 } eeprom;
 
 
