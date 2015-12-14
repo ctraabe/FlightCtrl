@@ -37,7 +37,7 @@ float * QuaternionMultiply(const float quat1[4], const float quat2[4],
 
 // -----------------------------------------------------------------------------
 // This functions performs quaternion multiplication of quat1 with the inverse
-// of quat[2].
+// of quat2.
 float * QuaternionMultiplyInverse(const float quat1[4], const float quat2[4],
   float result[4])
 {
@@ -56,8 +56,8 @@ float * QuaternionMultiplyInverse(const float quat1[4], const float quat2[4],
 // -----------------------------------------------------------------------------
 float QuaternionNorm(const float quat[4])
 {
-  return sqrt(square(quat[0]) + square(quat[1]) + square(quat[2])
-    + square(quat[3]));
+  return sqrt(quat[0] * quat[0] + quat[1] * quat[1] + quat[2] * quat[2]
+    + quat[3] * quat[3]);
 }
 
 // -----------------------------------------------------------------------------
@@ -94,12 +94,12 @@ float * QuaternionRotateVector(const float quat[4], const float v[3],
 {
   float temp, r_2[3][3];
 
-  r_2[0][0] = square(quat[0]);
+  r_2[0][0] = quat[0] * quat[0];
   r_2[1][1] = r_2[0][0];
   r_2[2][2] = r_2[0][0];
-  r_2[0][0] += square(quat[1]) - 0.5;
-  r_2[1][1] += square(quat[2]) - 0.5;
-  r_2[2][2] += square(quat[3]) - 0.5;
+  r_2[0][0] += quat[1] * quat[1] - 0.5;
+  r_2[1][1] += quat[2] * quat[2] - 0.5;
+  r_2[2][2] += quat[3] * quat[3] - 0.5;
 
   r_2[1][0] = quat[0] * quat[3];
   r_2[0][1] = -r_2[1][0];

@@ -109,10 +109,10 @@ float * UpdateQuaternion(float quat[4], const float angular_rate[3], float dt)
 
 static float * CorrectQuaternionWithAccelerometer(float quat[4])
 {
-  // Assume that the accelerometer measures ONLY the resistance to gravity (
-  // opposite the gravity vector). The direction of rotation that takes the body
-  // from predicted to estimated gravity is (-accelerometer x g_b_ x). This is
-  // equivalent to (g_b_ x accelerometer). Form a corrective quaternion from
+  // Assume that the accelerometer measures ONLY the resistance to gravity
+  // (opposite the gravity vector). The direction of rotation that takes the
+  // body from predicted to estimated gravity is (-accelerometer x g_b_ x). This
+  // is equivalent to (g_b_ x accelerometer). Form a corrective quaternion from
   // this rotation.
   float quat_c[4] = { 1.0, 0.0, 0.0, 0.0 };
   VectorCross(g_b_, AccelerationVector(), &quat_c[1]);

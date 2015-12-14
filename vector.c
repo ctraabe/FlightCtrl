@@ -70,5 +70,5 @@ float VectorNorm(const float v[3])
 // -----------------------------------------------------------------------------
 float VectorNorm2(const float v[3])
 {
-  return square(v[0]) + square(v[1]) + square(v[2]);
+  return v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
 }
