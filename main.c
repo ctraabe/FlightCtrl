@@ -19,6 +19,10 @@
 #include "timing.h"
 #include "uart.h"
 
+#ifdef MOTOR_TEST
+  #include "motor_test.h"
+#endif
+
 
 // ============================================================================+
 // Private data:
@@ -130,8 +134,14 @@ int16_t main(void)
 {
   Init();
 
+#ifdef MOTOR_TEST
+  MotorTest();
+  Wait(100);
+  ResetOverrun();
+#endif
+
   // TODO: Delete these temporary EEPROM settings.
-  // SBusSetChannels(2, 3, 0, 1, 17);
+  // SBusSetChannels(2, 3, 0, 1, 17, 8, 9, 10, 11, 16, 13, 4, 5, 6, 7);
   // SetNMotors(4);
   // float b_inv[8][4] = {
   //   {  3.3856,  3.3856, -46.6148, 62.2433 },
@@ -179,7 +189,7 @@ int16_t main(void)
     if (flag_2hz_)
     {
       flag_2hz_ = 0;
-      // GreenLEDToggle();
+      GreenLEDToggle();
     }
   }
 }

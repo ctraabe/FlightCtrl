@@ -113,7 +113,7 @@ void ProcessDataFromNav(void)
     from_nav_head_ = !from_nav_tail_;
   }
 
-  RedLEDOff();
+  // RedLEDOff();
   nav_data_state_ = NAV_COMMS_IDLE;
 }
 
@@ -200,7 +200,7 @@ ISR(PCINT2_vect)
   if (PINC & _BV(4)) return;
 
   nav_data_state_ = NAV_COMMS_DATA_READY;
-  RedLEDOn();
+  // RedLEDOn();
 
   // Disable the interrupt.
   PCMSK2 &= ~_BV(PCINT20);
