@@ -136,7 +136,6 @@ int16_t main(void)
 
 #ifdef MOTOR_TEST
   MotorTest();
-  Wait(100);
   ResetOverrun();
 #endif
 

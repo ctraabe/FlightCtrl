@@ -24,6 +24,7 @@
 
 #include <avr/interrupt.h>
 
+#include "adc.h"
 #include "led.h"
 #include "mcu_pins.h"
 #include "motors.h"
@@ -50,6 +51,13 @@ static void MotorTestStep(uint16_t command, uint16_t duration_ms);
 
 void MotorTest(void)
 {
+  Wait(1000);
+  UpdateSBus();
+  if (SBusSwitch(0) < SBUS_MAX / 2) return;
+
+  // Turn off ADC (frequent interrupts).
+  ADCOff();
+
   // Set external LED pins to input.
   EXTERNAL_LED_DDR &= ~EXTERNAL_LED_1_PIN & ~EXTERNAL_LED_3_PIN;
 
@@ -57,11 +65,11 @@ void MotorTest(void)
   EICRA = _BV(ISC20);
   EIMSK = _BV(INTF2);
 
-  Wait(1000);
-  UpdateSBus();
-  if (SBusSwitch(0) < SBUS_MAX / 2) return;
-  uint16_t switch1_pv = SBusSwitch(1);
+  // Disable TIMER3 interrupts and reconfigure as 78125 Hz counter.
+  TIMSK3 = 0x00;
+  TCCR3B = (1 << CS32) | (0 << CS31) | (0 << CS30);
 
+  uint16_t switch1_pv = SBusSwitch(1);
   uint16_t delay = GetTimestampMillisFromNow(50);
   for (;;)
   {
@@ -74,8 +82,29 @@ void MotorTest(void)
   }
   RedLEDOff();
 
-  MotorTestStep(200,2000);
-  MotorTestStep(400,2000);
+  MotorTestStep(230,2000);
+  MotorTestStep(1840,2000);
+  MotorTestStep(230,2000);
+  MotorTestStep(460,2000);
+  MotorTestStep(690,2000);
+  MotorTestStep(920,2000);
+  MotorTestStep(1150,2000);
+  MotorTestStep(1380,2000);
+  MotorTestStep(1610,2000);
+  MotorTestStep(1380,2000);
+  MotorTestStep(1150,2000);
+  MotorTestStep(920,2000);
+  MotorTestStep(690,2000);
+  MotorTestStep(460,2000);
+  MotorTestStep(230,2000);
+  MotorTestStep(0,2000);
+
+  // Revert the system state.
+  EICRA = 0x00;
+  EIMSK = 0x00;
+  EXTERNAL_LED_DDR |= EXTERNAL_LED_1_PIN | EXTERNAL_LED_3_PIN;
+  TimingInit();
+  ADCOn();
 }
 
 
@@ -84,6 +113,8 @@ void MotorTest(void)
 
 static void MotorTestStep(uint16_t command, uint16_t duration_ms)
 {
+  if (SBusSwitch(1) < SBUS_MAX / 2) return;
+
   SetMotorSetpoint(0, command);
 
   uint16_t start_time = GetTimestamp();
@@ -91,7 +122,7 @@ static void MotorTestStep(uint16_t command, uint16_t duration_ms)
 
   uint16_t timeout = start_time + duration_ms;
   uint16_t update_timer = start_time + 20;
-  UARTPrintf("c%u:%u", start_time, command);
+  UARTPrintf("c%u,%u", TCNT3, command);
 
   for (;;)
   {
@@ -105,6 +136,7 @@ static void MotorTestStep(uint16_t command, uint16_t duration_ms)
     {
       TxMotorSetpoints();
       UpdateSBus();
+      if (SBusSwitch(1) < SBUS_MAX / 2) return;
       update_timer += 20;
     }
 
@@ -117,7 +149,7 @@ ISR(INT2_vect)
 {
   if (~PINB & _BV(2))
   {
-    pulse_timestamp = GetTimestamp();
+    pulse_timestamp = TCNT3;
     new_pulse = 1;
     RedLEDOn();
   }
