@@ -1,5 +1,5 @@
-#ifndef GLOBAL_DEFINITIONS_H_
-#define GLOBAL_DEFINITIONS_H_
+#ifndef MAIN_H_
+#define MAIN_H_
 
 
 #define FS (128.0)
@@ -22,4 +22,4 @@ void PreflightInit(void);
 void SensorCalibration(void);
 
 
-#endif  // GLOBAL_DEFINITIONS_H_
+#endif  // MAIN_H_

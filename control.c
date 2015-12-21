@@ -1,3 +1,15 @@
+// This file computes motor commands to achieve inner-loop attitude and thrust
+// control. The controller was designed to take the following commands:
+//   - thrust
+//   - heading rate
+//   - direction of gravity in the body frame
+
+// The structure of the attitude controller is state-feedback with model-based
+// integral action as described in:
+//   C. Raabe, S. Suzuki. “Model-Based Integral Action for Multicopters.” Asia
+//   Pacific International Symposium on Aerospace Technology, 2015.
+
+
 #include "control.h"
 
 #include <float.h>
@@ -46,7 +58,7 @@ static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
   float * heading_rate_cmd, float * thrust_cmd);
 static void FormAngularCommand(const float quat_cmd[4],
   const float * heading_rate_cmd, const float attitude_integral[3]);
-static void QuaternionFromGravityAndHeading(const float g_b_cmd[2],
+static void QuaternionFromGravityAndHeadingCommand(const float g_b_cmd[2],
   const float * heading_cmd, float quat_cmd[4]);
 static void UpdateAttitudeModel(const float quat_cmd[4],
   const float * heading_rate_cmd, float quat_model[4]);
@@ -154,7 +166,7 @@ void Control(void)
   // TODO: add routines to form commands from an external source.
   // Derive a target attitude from the position of the sticks.
   CommandsFromSticks(g_b_cmd, &heading_cmd, &heading_rate_cmd, &thrust_cmd);
-  QuaternionFromGravityAndHeading(g_b_cmd, &heading_cmd, quat_cmd);
+  QuaternionFromGravityAndHeadingCommand(g_b_cmd, &heading_cmd, quat_cmd);
 
   // Update the integral paths.
   UpdateIntegrals(quat_model, attitude_integral);
@@ -195,6 +207,12 @@ void SetActuationInverse(float actuation_inverse[MAX_MOTORS][4])
 // =============================================================================
 // Private functions:
 
+// This function converts the position of the R/C transmitter sticks to a thrust
+// command, heading rate command, and command corresponding to the direction of
+// gravity in the body frame. Note that commanding the direction of gravity is
+// similar to a pitch and roll command, but is actually closer to the intended
+// result and has the benefit of a direct correspondence with linear
+// acceleration.
 static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
   float * heading_rate_cmd, float * thrust_cmd)
 {
@@ -231,7 +249,14 @@ static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
 }
 
 // -----------------------------------------------------------------------------
-static void QuaternionFromGravityAndHeading(const float g_b_cmd[2],
+// This function converts the combination of the x and y components of a unit
+// vector corresponding to the commanded direction of gravity in the body frame
+// and a heading commanded to a target quaternion. Note that, in the interest of
+// computational efficiency, the heading of the resulting quaternion may not
+// exactly match heading command for attitude commands that are far from level.
+// Also note that the heading error is saturated in this step to avoid an overly
+// large yawing command.
+static void QuaternionFromGravityAndHeadingCommand(const float g_b_cmd[2],
   const float * heading_cmd, float quat_cmd[4])
 {
   // Compute the z component of the gravity vector command.
@@ -270,6 +295,9 @@ static void QuaternionFromGravityAndHeading(const float g_b_cmd[2],
 }
 
 // -----------------------------------------------------------------------------
+// This function computes the rotation vector that will take the multicopter
+// from the current attitude to the commanded attitude (represented by
+// quat_cmd).
 static float * AttitudeError(const float quat_cmd[4], const float quat[4],
   float attitude_error[3])
 {
@@ -330,6 +358,12 @@ static void FormAngularCommand(const float quat_cmd[4],
 }
 
 // -----------------------------------------------------------------------------
+// This function updates a Kalman filter that combines the angular acceleration
+// that is expected given the motor commands and the derivative of the measured
+// angular rate. This step is necessary because the derivative of the measured
+// angular rate is extremely noisy, resulting in large commands. Note that the
+// process and measurement noise covariances are assumed to be constant and the
+// Kalman gains are pre-computed for the resulting stead-state error covariance.
 static void UpdateKalmanFilter(void)
 {
   // Past values for derivatives.
@@ -374,6 +408,8 @@ static void UpdateKalmanFilter(void)
 }
 
 // -----------------------------------------------------------------------------
+// This function updates the attitude model that is used for the model-based
+// integral action.
 static void UpdateAttitudeModel(const float quat_cmd[4],
   const float * heading_rate_cmd, float quat_model[4])
 {
@@ -407,6 +443,7 @@ static void UpdateAttitudeModel(const float quat_cmd[4],
 }
 
 // -----------------------------------------------------------------------------
+// This function updates the error integrals.
 static void UpdateIntegrals(const float quat_model[4],
   float attitude_integral[3])
 {
