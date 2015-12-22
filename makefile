@@ -8,7 +8,7 @@ LDFLAGS   = -Ofast -Wall -Wextra -Wundef -Werror -fshort-enums -ffreestanding \
             -ffunction-sections -fdata-sections \
             -Wl,--relax,--gc-sections,-u,vfprintf -lprintf_flt -lm
 LTOFLAGS := -flto -fwhole-program
-ALLFLAGS  = -mmcu=$(MCU) -DF_CPU="$(F_CPU)UL" -DMOTOR_TEST
+ALLFLAGS  = -mmcu=$(MCU) -DF_CPU="$(F_CPU)UL"
 DUDEFLAGS = -c avrisp2 -p $(MCU)
 
 PROGRAM_START := 0x0000

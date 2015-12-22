@@ -62,8 +62,8 @@ static void QuaternionFromGravityAndHeadingCommand(const float g_b_cmd[2],
   const float * heading_cmd, float quat_cmd[4]);
 static void UpdateAttitudeModel(const float quat_cmd[4],
   const float * heading_rate_cmd, float quat_model[4]);
-static void UpdateIntegrals(const float quat_model[4],
-  float attitude_integral[3]);
+// static void UpdateIntegrals(const float quat_model[4],
+//   float attitude_integral[3]);
 static void UpdateKalmanFilter(void);
 
 
@@ -130,7 +130,7 @@ void ControlInit(void)
   // Set the heading error limit to half the attitude error so heading error
   // won't saturate the attitude error.
   heading_error_limit_ = 0.5 * attitude_error_limit_;
-
+/*
   // Compute the thrust limits that give the margin necessary to guarantee
   // that the maximum attitude command is achievable.
   min_thrust_cmd_ = 0;
@@ -146,6 +146,9 @@ void ControlInit(void)
     min_thrust_cmd_ = FloatMax(min + temp, min_thrust_cmd_);
     max_thrust_cmd_ = FloatMin(max - temp, max_thrust_cmd_);
   }
+*/
+  min_thrust_cmd_ = 100;
+  max_thrust_cmd_ = 1740;
 
   k_sbus_to_thrust_ = (max_thrust_cmd_ - min_thrust_cmd_) / (2.0 * SBUS_MAX);
 
@@ -169,7 +172,9 @@ void Control(void)
   QuaternionFromGravityAndHeadingCommand(g_b_cmd, &heading_cmd, quat_cmd);
 
   // Update the integral paths.
-  UpdateIntegrals(quat_model, attitude_integral);
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// !! TEMPRORAIRLY REMOVED INTEGRALS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  // UpdateIntegrals(quat_model, attitude_integral);
 
   // Update the pitch and roll Kalman filters.
   UpdateKalmanFilter();
@@ -177,10 +182,11 @@ void Control(void)
   // Compute a new attitude acceleration command.
   FormAngularCommand(quat_cmd, &heading_rate_cmd, attitude_integral);
 
+  int16_t thrust_cmd_s16 = FloatToS16(thrust_cmd);
+  int16_t limit = thrust_cmd_s16 * 2 < MAX_CMD ? thrust_cmd_s16 * 2 : MAX_CMD;
   for (uint8_t i = NMotors(); i--; )
-    setpoints_[i] = (uint16_t)S16Limit(FloatToS16(thrust_cmd
-      * actuation_inverse_[i][3] + VectorDot(angular_cmd_,
-      actuation_inverse_[i])), MIN_CMD, MAX_CMD);
+    setpoints_[i] = (uint16_t)(thrust_cmd_s16 + S16Limit(FloatToS16(
+      VectorDot(angular_cmd_, actuation_inverse_[i])), MIN_CMD, limit));
 
   if (MotorsRunning())
     for (uint8_t i = NMotors(); i--; ) SetMotorSetpoint(i, setpoints_[i]);
@@ -236,9 +242,10 @@ static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
     * MAX_G_B_CMD / (4.0 * (float)SBUS_MAX);
 
   // Integrate the yaw stick to get a heading command.
-  if (MotorsRunning())
-    *heading_cmd += *heading_rate_cmd * DT;
-  else
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  // if (MotorsRunning())
+  //   *heading_cmd += *heading_rate_cmd * DT;
+  // else
     *heading_cmd = HeadingAngle();
   while (*heading_cmd > M_PI) *heading_cmd -= 2.0 * M_PI;
   while (*heading_cmd < -M_PI) *heading_cmd += 2.0 * M_PI;
@@ -441,7 +448,7 @@ static void UpdateAttitudeModel(const float quat_cmd[4],
   UpdateQuaternion(quat_model, angular_rate, DT);
   QuaternionNormalizingFilter(quat_model);
 }
-
+/*
 // -----------------------------------------------------------------------------
 // This function updates the error integrals.
 static void UpdateIntegrals(const float quat_model[4],
@@ -461,3 +468,4 @@ static void UpdateIntegrals(const float quat_model[4],
     + k_psi_int_ * attitude_error[Z_BODY_AXIS] * DT, -heading_integral_limit_,
     heading_integral_limit_);
 }
+*/
