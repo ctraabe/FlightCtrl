@@ -55,6 +55,19 @@ void MotorTest(void)
   UpdateSBus();
   if (SBusSwitch(0) < SBUS_MAX / 2) return;
 
+  uint16_t switch1_pv = SBusSwitch(1);
+  uint16_t delay = GetTimestampMillisFromNow(50);
+  for (;;)
+  {
+    while (!TimestampInPast(delay)) continue;
+    delay += 50;
+    RedLEDToggle();
+    UpdateSBus();
+    if ((SBusSwitch(1) > SBUS_MAX / 2) && (switch1_pv < SBUS_MAX / 2)) break;
+    switch1_pv = SBusSwitch(1);
+  }
+  RedLEDOff();
+
   // Turn off ADC (frequent interrupts).
   ADCOff();
 
@@ -69,35 +82,26 @@ void MotorTest(void)
   TIMSK3 = 0x00;
   TCCR3B = (1 << CS32) | (0 << CS31) | (0 << CS30);
 
-  uint16_t switch1_pv = SBusSwitch(1);
-  uint16_t delay = GetTimestampMillisFromNow(50);
-  for (;;)
-  {
-    while (!TimestampInPast(delay)) continue;
-    delay += 50;
-    RedLEDToggle();
-    UpdateSBus();
-    if ((SBusSwitch(1) > SBUS_MAX / 2) && (switch1_pv < SBUS_MAX / 2)) break;
-    switch1_pv = SBusSwitch(1);
-  }
-  RedLEDOff();
+  TCNT3 = 0x0000;
 
-  MotorTestStep(230,2000);
-  MotorTestStep(1840,2000);
-  MotorTestStep(230,2000);
-  MotorTestStep(460,2000);
-  MotorTestStep(690,2000);
-  MotorTestStep(920,2000);
-  MotorTestStep(1150,2000);
-  MotorTestStep(1380,2000);
-  MotorTestStep(1610,2000);
-  MotorTestStep(1380,2000);
-  MotorTestStep(1150,2000);
-  MotorTestStep(920,2000);
-  MotorTestStep(690,2000);
-  MotorTestStep(460,2000);
-  MotorTestStep(230,2000);
-  MotorTestStep(0,2000);
+  MotorTestStep(230,1000);
+  MotorTestStep(1840,1000);
+  MotorTestStep(230,1000);
+  MotorTestStep(460,1000);
+  MotorTestStep(690,1000);
+  MotorTestStep(920,1000);
+  MotorTestStep(1150,1000);
+  MotorTestStep(1380,1000);
+  MotorTestStep(1610,1000);
+  MotorTestStep(1840,1000);
+  MotorTestStep(1610,1000);
+  MotorTestStep(1380,1000);
+  MotorTestStep(1150,1000);
+  MotorTestStep(920,1000);
+  MotorTestStep(690,1000);
+  MotorTestStep(460,1000);
+  MotorTestStep(230,1000);
+  MotorTestStep(0,100);
 
   // Revert the system state.
   EICRA = 0x00;
@@ -115,7 +119,7 @@ static void MotorTestStep(uint16_t command, uint16_t duration_ms)
 {
   if (SBusSwitch(1) < SBUS_MAX / 2) return;
 
-  SetMotorSetpoint(0, command);
+  SetMotorSetpoint(7, command);
 
   uint16_t start_time = GetTimestamp();
   TxMotorSetpoints();
