@@ -182,11 +182,11 @@ void Control(void)
   // Compute a new attitude acceleration command.
   FormAngularCommand(quat_cmd, &heading_rate_cmd, attitude_integral);
 
-  int16_t thrust_cmd_s16 = FloatToS16(thrust_cmd);
-  int16_t limit = thrust_cmd_s16 * 2 < MAX_CMD ? thrust_cmd_s16 * 2 : MAX_CMD;
+  int16_t limit = FloatToS16(thrust_cmd * 2.0);
+  if (limit > MAX_CMD) limit = MAX_CMD;
   for (uint8_t i = NMotors(); i--; )
-    setpoints_[i] = (uint16_t)(thrust_cmd_s16 + S16Limit(FloatToS16(
-      VectorDot(angular_cmd_, actuation_inverse_[i])), MIN_CMD, limit));
+    setpoints_[i] = (uint16_t)S16Limit(FloatToS16(thrust_cmd
+      + VectorDot(angular_cmd_, actuation_inverse_[i])), MIN_CMD, limit);
 
   if (MotorsRunning())
     for (uint8_t i = NMotors(); i--; ) SetMotorSetpoint(i, setpoints_[i]);
