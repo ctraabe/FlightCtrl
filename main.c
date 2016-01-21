@@ -72,6 +72,7 @@ void SensorCalibration(void)
 
 static void Init(void)
 {
+  RedLEDOn();
   TimingInit();
   LEDInit();
   BuzzerInit();
@@ -183,8 +184,6 @@ int16_t main(void)
 
       Control();
 
-      SendDataToNav();
-
       ErrorCheck();
 
       ProcessIncomingUART();
@@ -195,7 +194,7 @@ int16_t main(void)
       flag_128hz_ = 0;
     }
 
-    if (NavDataReady()) ReceiveDataFromNav();
+    if (NavDataReady()) ExchangeDataWithNav();
     if (NavRecieved()) ProcessDataFromNav();
 
     if (flag_2hz_)

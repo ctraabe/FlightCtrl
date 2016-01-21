@@ -48,19 +48,6 @@ void SPIInit(void)
 }
 
 // -----------------------------------------------------------------------------
-uint8_t SPIRxThenCallback(uint8_t * rx_buffer, uint8_t rx_buffer_length,
-  SPICallback callback_ptr)
-{
-  if (tx_bytes_remaining_ != 0 || rx_bytes_remaining_ != 0 || rx_buffer == 0
-    || rx_buffer_length == 0) return 0;
-  rx_ptr_ = rx_buffer;
-  rx_bytes_remaining_ = rx_buffer_length;
-  callback_ptr_ = callback_ptr;
-  SPITxByte(0xFF);  // Start transmission with a dummy byte
-  return 1;  // Success
-}
-
-// -----------------------------------------------------------------------------
 // This function returns the address of the shared Tx buffer (tx_buffer_) if it
 // is available of zero if not.
 uint8_t * RequestSPITxBuffer(void)
@@ -74,14 +61,51 @@ uint8_t * RequestSPITxBuffer(void)
 }
 
 // -----------------------------------------------------------------------------
+void SPIExchangeThenCallback(uint8_t tx_length, uint8_t * rx_buffer,
+  uint8_t rx_buffer_length, SPICallback callback_ptr)
+{
+  if (tx_bytes_remaining_ != 0 || rx_bytes_remaining_ != 0) return;
+
+  tx_ptr_ = &tx_buffer_[0];  // Set the transmit pointer to the next byte
+  rx_ptr_ = rx_buffer;
+  rx_bytes_remaining_ = rx_buffer_length;
+
+  callback_ptr_ = callback_ptr;
+
+  if (tx_length != 0)
+  {
+    SPITxByte(*tx_ptr_);  // Start transmission with the first byte
+    tx_bytes_remaining_ = tx_length - 1;
+  }
+  else
+  {
+    SPITxByte(0xFF);  // Transmit a dummy byte
+    tx_bytes_remaining_ = 0;
+  }
+}
+
+// -----------------------------------------------------------------------------
+void SPIRxThenCallback(uint8_t * rx_buffer, uint8_t rx_buffer_length,
+  SPICallback callback_ptr)
+{
+  if (rx_buffer == 0 || rx_buffer_length == 0) return;
+
+  SPIExchangeThenCallback(0, rx_buffer, rx_buffer_length, callback_ptr);
+}
+
+// -----------------------------------------------------------------------------
 // This function initiates the transmission of the data in the Tx buffer.
 void SPITxBuffer(uint8_t tx_length)
 {
-  if (tx_bytes_remaining_ != 0 || rx_bytes_remaining_ != 0 || tx_length == 0
-    || tx_length > SPI_TX_BUFFER_LENGTH) return;
-  tx_ptr_ = &tx_buffer_[0];  // Set the transmit pointer to the next byte
-  SPITxByte(*tx_ptr_);  // Start transmission with the first byte
-  tx_bytes_remaining_ = tx_length - 1;
+  SPITxBufferThenCallback(tx_length, 0);
+}
+
+// -----------------------------------------------------------------------------
+void SPITxBufferThenCallback(uint8_t tx_length, SPICallback callback_ptr)
+{
+  if (tx_length == 0 || tx_length > SPI_TX_BUFFER_LENGTH) return;
+
+  SPIExchangeThenCallback(tx_length, 0, 0, callback_ptr);
 }
 
 
@@ -118,8 +142,8 @@ ISR(SPI_STC_vect)
 
   if (rx_bytes_remaining_ != 0)
   {
+    --rx_bytes_remaining_;
     *rx_ptr_++ = SPDR;
-    if (--rx_bytes_remaining_ == 0 && callback_ptr_) (*callback_ptr_)();
   }
   else
   {
@@ -141,5 +165,6 @@ ISR(SPI_STC_vect)
   else
   {
     SPCR &= ~_BV(SPIE);  // Disable this interrupt
+    if (callback_ptr_) (*callback_ptr_)();
   }
 }

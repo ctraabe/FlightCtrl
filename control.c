@@ -40,15 +40,24 @@
 #define MAX_ATTITUDE_RATE (M_PI / 2.0)
 #define MAX_HEADING_RATE (M_PI / 2.0)
 
+// Computed constants.
 static float actuation_inverse_[MAX_MOTORS][4];
-static float angular_cmd_[3] = { 0 };
 static float attitude_error_limit_, heading_error_limit_;
 static float attitude_integral_limit_, heading_integral_limit_;
 static float k_p_dot_, k_p_, k_phi_, k_phi_int_, k_r_, k_psi_, k_psi_int_;
 static float k_sbus_to_thrust_, min_thrust_cmd_, max_thrust_cmd_;
+
+// Variables for control.
+static float angular_cmd_[3] = { 0 };
+static float attitude_integral_[3] = { 0.0, 0.0, 0.0 };
+static float heading_cmd_ = 0.0;
+static float quat_cmd_[4];  // Target attitude in quaternion
+static float quat_model_[4] = { 1.0, 0.0, 0.0, 0.0 };
+static uint16_t setpoints_[MAX_MOTORS] = { 0 };
+
+// Variables for the observer.
 static float p_kalman_ = 0.0, p_dot_kalman_ = 0.0, p_dot_bias_ = 0.0;
 static float q_kalman_ = 0.0, q_dot_kalman_ = 0.0, q_dot_bias_ = 0.0;
-static uint16_t setpoints_[MAX_MOTORS] = { 0 };
 
 
 // =============================================================================
@@ -57,14 +66,15 @@ static uint16_t setpoints_[MAX_MOTORS] = { 0 };
 static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
   float * heading_rate_cmd, float * thrust_cmd);
 static void FormAngularCommand(const float quat_cmd[4],
-  const float * heading_rate_cmd, const float attitude_integral[3]);
+  const float * heading_rate_cmd, const float attitude_integral[3],
+  float angular_cmd[3]);
 static void QuaternionFromGravityAndHeadingCommand(const float g_b_cmd[2],
   const float * heading_cmd, float quat_cmd[4]);
 static void UpdateAttitudeModel(const float quat_cmd[4],
   const float * heading_rate_cmd, float quat_model[4]);
 // static void UpdateIntegrals(const float quat_model[4],
 //   float attitude_integral[3]);
-static void UpdateKalmanFilter(void);
+static void UpdateKalmanFilter(const float angular_cmd[3]);
 
 
 // =============================================================================
@@ -73,6 +83,18 @@ static void UpdateKalmanFilter(void);
 float AngularCommand(enum BodyAxes axis)
 {
   return angular_cmd_[axis];
+}
+
+// -----------------------------------------------------------------------------
+const float * AttitudeIntegralVector(void)
+{
+  return attitude_integral_;
+}
+
+// -----------------------------------------------------------------------------
+float HeadingCommand(void)
+{
+  return heading_cmd_;
 }
 
 // -----------------------------------------------------------------------------
@@ -103,6 +125,18 @@ float KalmanQDot(void)
 uint16_t MotorSetpoint(uint8_t n)
 {
   return setpoints_[n];
+}
+
+// -----------------------------------------------------------------------------
+const float * QuatCommandVector(void)
+{
+  return quat_cmd_;
+}
+
+// -----------------------------------------------------------------------------
+const float * QuatModelVector(void)
+{
+  return quat_model_;
 }
 
 
@@ -159,28 +193,25 @@ void ControlInit(void)
 // -----------------------------------------------------------------------------
 void Control(void)
 {
-  float quat_cmd[4]; // Target attitude in quaternion
   float g_b_cmd[2];  // Target x and y components of the gravity vector in body
   float heading_rate_cmd, thrust_cmd;
-  static float heading_cmd = 0.0;
-  static float quat_model[4] = { 1.0, 0.0, 0.0, 0.0 };
-  static float attitude_integral[3] = { 0.0, 0.0, 0.0 };
 
   // TODO: add routines to form commands from an external source.
   // Derive a target attitude from the position of the sticks.
-  CommandsFromSticks(g_b_cmd, &heading_cmd, &heading_rate_cmd, &thrust_cmd);
-  QuaternionFromGravityAndHeadingCommand(g_b_cmd, &heading_cmd, quat_cmd);
+  CommandsFromSticks(g_b_cmd, &heading_cmd_, &heading_rate_cmd, &thrust_cmd);
+  QuaternionFromGravityAndHeadingCommand(g_b_cmd, &heading_cmd_, quat_cmd_);
 
   // Update the integral paths.
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 // !! TEMPRORAIRLY REMOVED INTEGRALS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  // UpdateIntegrals(quat_model, attitude_integral);
+  // UpdateIntegrals(quat_model_, attitude_integral_);
 
-  // Update the pitch and roll Kalman filters.
-  UpdateKalmanFilter();
+  // Update the pitch and roll Kalman filters before recomputing the command.
+  UpdateKalmanFilter(angular_cmd_);
 
   // Compute a new attitude acceleration command.
-  FormAngularCommand(quat_cmd, &heading_rate_cmd, attitude_integral);
+  FormAngularCommand(quat_cmd_, &heading_rate_cmd, attitude_integral_,
+    angular_cmd_);
 
   int16_t limit = FloatToS16(thrust_cmd * 2.0);
   if (limit > MAX_CMD) limit = MAX_CMD;
@@ -195,10 +226,10 @@ void Control(void)
   else
     for (uint8_t i = NMotors(); i--; ) SetMotorSetpoint(i, 0);
 
-  TxMotorSetpoints();
+  // TxMotorSetpoints();
 
   // Update the model for the next time step.
-  UpdateAttitudeModel(quat_cmd, &heading_rate_cmd, quat_model);
+  UpdateAttitudeModel(quat_cmd_, &heading_rate_cmd, quat_model_);
 }
 
 // -----------------------------------------------------------------------------
@@ -335,7 +366,8 @@ static float * AttitudeError(const float quat_cmd[4], const float quat[4],
 
 // -----------------------------------------------------------------------------
 static void FormAngularCommand(const float quat_cmd[4],
-  const float * heading_rate_cmd, const float attitude_integral[3])
+  const float * heading_rate_cmd, const float attitude_integral[3],
+  float angular_cmd[3])
 {
   float attitude_error[3];
   AttitudeError(quat_cmd, Quat(), attitude_error);
@@ -353,13 +385,13 @@ static void FormAngularCommand(const float quat_cmd[4],
   VectorGain(GravityInBodyVector(), *heading_rate_cmd, rate_cmd);
 
   // Apply the control gains.
-  angular_cmd_[X_BODY_AXIS] = k_phi_ * (attitude_error[X_BODY_AXIS]
+  angular_cmd[X_BODY_AXIS] = k_phi_ * (attitude_error[X_BODY_AXIS]
     + attitude_integral[X_BODY_AXIS]) + k_p_ * (rate_cmd[X_BODY_AXIS]
     - p_kalman_) + k_p_dot_ * -p_dot_kalman_;
-  angular_cmd_[Y_BODY_AXIS] = k_phi_ * (attitude_error[Y_BODY_AXIS]
+  angular_cmd[Y_BODY_AXIS] = k_phi_ * (attitude_error[Y_BODY_AXIS]
     + attitude_integral[Y_BODY_AXIS]) + k_p_ * (rate_cmd[Y_BODY_AXIS]
     - q_kalman_) + k_p_dot_ * -q_dot_kalman_;
-  angular_cmd_[Z_BODY_AXIS] = k_psi_ * (attitude_error[Z_BODY_AXIS]
+  angular_cmd[Z_BODY_AXIS] = k_psi_ * (attitude_error[Z_BODY_AXIS]
     + attitude_integral[Z_BODY_AXIS]) + k_r_ * (rate_cmd[Z_BODY_AXIS]
     - AngularRate(Z_BODY_AXIS));
 }
@@ -371,7 +403,7 @@ static void FormAngularCommand(const float quat_cmd[4],
 // angular rate is extremely noisy, resulting in large commands. Note that the
 // process and measurement noise covariances are assumed to be constant and the
 // Kalman gains are pre-computed for the resulting stead-state error covariance.
-static void UpdateKalmanFilter(void)
+static void UpdateKalmanFilter(const float angular_cmd[3])
 {
   // Past values for derivatives.
   static float p_pv = 0.0, q_pv = 0.0;
@@ -387,14 +419,14 @@ static void UpdateKalmanFilter(void)
 
   // Prediction.
   p_kalman_ += kA21 * p_dot_kalman_ + kA23 * p_dot_bias_
-    + kB21 * angular_cmd_[X_BODY_AXIS];
+    + kB21 * angular_cmd[X_BODY_AXIS];
   p_dot_kalman_ = kA11 * p_dot_kalman_ + kA13 * p_dot_bias_
-    + kB11 * angular_cmd_[X_BODY_AXIS];
+    + kB11 * angular_cmd[X_BODY_AXIS];
 
   q_kalman_ += kA21 * q_dot_kalman_ + kA23 * q_dot_bias_
-    + kB21 * angular_cmd_[Y_BODY_AXIS];
+    + kB21 * angular_cmd[Y_BODY_AXIS];
   q_dot_kalman_ = kA11 * q_dot_kalman_ + kA13 * q_dot_bias_
-    + kB11 * angular_cmd_[Y_BODY_AXIS];
+    + kB11 * angular_cmd[Y_BODY_AXIS];
 
   // Correction.
   float p_dot_err = (AngularRate(X_BODY_AXIS) - p_pv) / DT - p_dot_kalman_;

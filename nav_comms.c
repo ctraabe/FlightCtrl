@@ -6,7 +6,10 @@
 
 #include "adc.h"
 #include "attitude.h"
+#include "control.h"
 #include "main.h"
+#include "state.h"
+#include "sbus.h"
 #include "spi.h"
 #include "timing.h"
 #include "union_types.h"
@@ -88,60 +91,37 @@ void NavCommsInit(void)
 }
 
 // -----------------------------------------------------------------------------
-void NotifyNav(void)
+void ExchangeDataWithNav(void)
 {
-  // Disable the pin change interrupt for PC4.
-  PCMSK2 &= ~_BV(PCINT20);
-
-  // Pull down PC4.
-  PORTC &= ~_BV(4);
-  DDRC |= _BV(4);
-}
-
-// -----------------------------------------------------------------------------
-void ProcessDataFromNav(void)
-{
-  uint8_t * rx_buffer_ptr = (uint8_t *)&from_nav_[from_nav_head_];
-  uint16_t crc = 0xFFFF;
-  for (uint8_t i = sizeof(struct FromNav) - 2; i--; )
-    crc = _crc_ccitt_update(crc, *(rx_buffer_ptr++));
-
-  if (from_nav_[from_nav_head_].crc == crc)
-  {
-    // Swap buffers.
-    from_nav_tail_ = from_nav_head_;
-    from_nav_head_ = !from_nav_tail_;
-  }
-
-  // RedLEDOff();
-  nav_data_state_ = NAV_COMMS_IDLE;
-}
-
-// -----------------------------------------------------------------------------
-void ReceiveDataFromNav(void)
-{
-  SPIRxThenCallback((uint8_t *)&from_nav_[from_nav_head_],
-    sizeof(struct FromNav), SetNavDataReceived);
-}
-
-// -----------------------------------------------------------------------------
-void SendDataToNav(void)
-{
-  // Set PC4 back to input and pull-up.
-  DDRC &= ~_BV(4);
-  PORTC |= _BV(4);
-
   // Request the SPI transmit buffer. Return if not available.
   uint8_t * tx_buffer = RequestSPITxBuffer();
   if (tx_buffer == 0) return;
 
   // Specify the payload structure.
   struct ToNav {
-    float acceleration[3];
-    float angular_rate[3];
+    int16_t accelerometer[3];
+    int16_t gyro[3];
     float quaternion[4];
+#ifdef LOG_FLT_CTRL_DEBUG_TO_SD
+    int16_t sbus_pitch;
+    int16_t sbus_roll;
+    int16_t sbus_yaw;
+    int16_t sbus_thrust;
+    int16_t sbus_on_off;
+    uint16_t state;
+    uint16_t battery_voltage;
+    float heading;
+    float quaternion_command[4];
+    float heading_command;
+    float angular_command[3];
+    float attitude_integral[3];
+    float quaternion_model[4];
+    uint16_t motor_setpoints[8];
+    uint16_t timestamp;
+#endif
   } __attribute__((packed));
-  _Static_assert(sizeof(struct ToNav) + 4 < SPI_TX_BUFFER_LENGTH,
+
+  _Static_assert(2 + sizeof(struct ToNav) + 2 + 4 < SPI_TX_BUFFER_LENGTH,
     "struct ToNav is too large for the SPI TX buffer");
 
   // Populate the transmit buffer.
@@ -149,16 +129,51 @@ void SendDataToNav(void)
   tx_buffer[1] = sizeof(struct ToNav);
 
   struct ToNav * to_nav_ptr = (struct ToNav *)&tx_buffer[2];
-  to_nav_ptr->acceleration[0] = Acceleration(X_BODY_AXIS);
-  to_nav_ptr->acceleration[1] = Acceleration(Y_BODY_AXIS);
-  to_nav_ptr->acceleration[2] = Acceleration(Z_BODY_AXIS);
-  to_nav_ptr->angular_rate[0] = AngularRate(X_BODY_AXIS);
-  to_nav_ptr->angular_rate[1] = AngularRate(Y_BODY_AXIS);
-  to_nav_ptr->angular_rate[2] = AngularRate(Z_BODY_AXIS);
+
+  to_nav_ptr->accelerometer[0] = AccelerometerSum(X_BODY_AXIS);
+  to_nav_ptr->accelerometer[1] = AccelerometerSum(Y_BODY_AXIS);
+  to_nav_ptr->accelerometer[2] = AccelerometerSum(Z_BODY_AXIS);
+  to_nav_ptr->gyro[0] = GyroSum(X_BODY_AXIS);
+  to_nav_ptr->gyro[1] = GyroSum(Y_BODY_AXIS);
+  to_nav_ptr->gyro[2] = GyroSum(Z_BODY_AXIS);
   to_nav_ptr->quaternion[0] = Quat()[0];
   to_nav_ptr->quaternion[1] = Quat()[1];
   to_nav_ptr->quaternion[2] = Quat()[2];
   to_nav_ptr->quaternion[3] = Quat()[3];
+#ifdef LOG_FLT_CTRL_DEBUG_TO_SD
+  to_nav_ptr->sbus_pitch = SBusPitch();
+  to_nav_ptr->sbus_roll = SBusRoll();
+  to_nav_ptr->sbus_yaw = SBusYaw();
+  to_nav_ptr->sbus_thrust = SBusThrust();
+  to_nav_ptr->sbus_on_off = SBusOnOff();
+  to_nav_ptr->state = State();
+  to_nav_ptr->battery_voltage = BatteryVoltage();
+  to_nav_ptr->heading = HeadingAngle();
+  to_nav_ptr->quaternion_command[0] = QuatCommandVector()[0];
+  to_nav_ptr->quaternion_command[1] = QuatCommandVector()[1];
+  to_nav_ptr->quaternion_command[2] = QuatCommandVector()[2];
+  to_nav_ptr->quaternion_command[3] = QuatCommandVector()[3];
+  to_nav_ptr->heading_command = HeadingCommand();
+  to_nav_ptr->angular_command[0] = AngularCommand(0);
+  to_nav_ptr->angular_command[1] = AngularCommand(1);
+  to_nav_ptr->angular_command[2] = AngularCommand(2);
+  to_nav_ptr->attitude_integral[0] = AttitudeIntegralVector()[0];
+  to_nav_ptr->attitude_integral[1] = AttitudeIntegralVector()[1];
+  to_nav_ptr->attitude_integral[2] = AttitudeIntegralVector()[2];
+  to_nav_ptr->quaternion_model[0] = QuatModelVector()[0];
+  to_nav_ptr->quaternion_model[1] = QuatModelVector()[1];
+  to_nav_ptr->quaternion_model[2] = QuatModelVector()[2];
+  to_nav_ptr->quaternion_model[3] = QuatModelVector()[3];
+  to_nav_ptr->motor_setpoints[0] = MotorSetpoint(0);
+  to_nav_ptr->motor_setpoints[1] = MotorSetpoint(1);
+  to_nav_ptr->motor_setpoints[2] = MotorSetpoint(2);
+  to_nav_ptr->motor_setpoints[3] = MotorSetpoint(3);
+  to_nav_ptr->motor_setpoints[4] = MotorSetpoint(4);
+  to_nav_ptr->motor_setpoints[5] = MotorSetpoint(5);
+  to_nav_ptr->motor_setpoints[6] = MotorSetpoint(6);
+  to_nav_ptr->motor_setpoints[7] = MotorSetpoint(7);
+  to_nav_ptr->timestamp = GetTimestamp();
+#endif
 
   // Add a CRC just after the data payload. Note that this is the same CRC that
   // is used in MAVLink. It uses a polynomial represented by 0x1021, an initial
@@ -178,12 +193,49 @@ void SendDataToNav(void)
 
   // Send the entire packet (1-byte header, 1-byte length, payload, 2-byte CRC &
   // 4-bytes trailing zeros).
-  SPITxBuffer(2 + sizeof(struct ToNav) + 2 + 4);
+  SPIExchangeThenCallback(2 + sizeof(struct ToNav) + 2 + 4,
+    (uint8_t *)&from_nav_[from_nav_head_], sizeof(struct FromNav),
+    SetNavDataReceived);
+}
+
+// -----------------------------------------------------------------------------
+void NotifyNav(void)
+{
+  // Disable the pin change interrupt for PC4.
+  PCMSK2 &= ~_BV(PCINT20);
+
+  // Pull down PC4.
+  PORTC &= ~_BV(4);
+  DDRC |= _BV(4);
+
+  asm ("nop");  // Wait one cycle
+
+  // Set PC4 back to input and pull-up.
+  DDRC &= ~_BV(4);
+  PORTC |= _BV(4);
 
   // Re-enable the pin change interrupt for pin PC4.
   PCMSK2 |= _BV(PCINT20);
 }
 
+// -----------------------------------------------------------------------------
+void ProcessDataFromNav(void)
+{
+  uint8_t * rx_buffer_ptr = (uint8_t *)&from_nav_[from_nav_head_];
+  uint16_t crc = 0xFFFF;
+  for (uint8_t i = sizeof(struct FromNav) - 2; i--; )
+    crc = _crc_ccitt_update(crc, *(rx_buffer_ptr++));
+
+  if (from_nav_[from_nav_head_].crc == crc)
+  {
+    // Swap buffers.
+    from_nav_tail_ = from_nav_head_;
+    from_nav_head_ = !from_nav_tail_;
+  }
+
+  RedLEDOff();
+  nav_data_state_ = NAV_COMMS_IDLE;
+}
 
 // =============================================================================
 // Private function:
@@ -200,7 +252,7 @@ ISR(PCINT2_vect)
   if (PINC & _BV(4)) return;
 
   nav_data_state_ = NAV_COMMS_DATA_READY;
-  // RedLEDOn();
+  RedLEDOn();
 
   // Disable the interrupt.
   PCMSK2 &= ~_BV(PCINT20);
