@@ -226,7 +226,7 @@ void Control(void)
   else
     for (uint8_t i = NMotors(); i--; ) SetMotorSetpoint(i, 0);
 
-  // TxMotorSetpoints();
+  TxMotorSetpoints();
 
   // Update the model for the next time step.
   UpdateAttitudeModel(quat_cmd_, &heading_rate_cmd, quat_model_);

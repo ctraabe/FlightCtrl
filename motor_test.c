@@ -119,7 +119,7 @@ static void MotorTestStep(uint16_t command, uint16_t duration_ms)
 {
   if (SBusSwitch(1) < SBUS_MAX / 2) return;
 
-  SetMotorSetpoint(7, command);
+  SetMotorSetpoint(0, command);
 
   uint16_t start_time = GetTimestamp();
   TxMotorSetpoints();
