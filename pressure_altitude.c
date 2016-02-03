@@ -269,8 +269,8 @@ void UpdatePressureAltitude(void)
   pressure_ = (float)BiasedPressureSum() / (float)(578 * ADC_N_SAMPLES)
     + (float)(OCR0B + 1) * 0.12 + (float)(OCR0A + 1) * 0.060 + 67.1;
 
-  pressure_altitude_ = 13305.0 - 182.09 * pressure_ + 0.50192
-    * square(pressure_);
+  pressure_altitude_ = 13305.0 - 182.09 * pressure_ + 0.50192 * pressure_
+    * pressure_;
 }
 
 
