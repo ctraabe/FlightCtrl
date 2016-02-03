@@ -31,5 +31,12 @@ float * UpdateGravtiyInBody(const float quat[4], float g_b[3]);
 // -----------------------------------------------------------------------------
 float * UpdateQuaternion(float quat[4], const float angular_rate[3], float dt);
 
+// -----------------------------------------------------------------------------
+void EulerAnglesFromQuaternion(const float quat[4], float * phi, float * theta,
+  float * psi);
+
+// -----------------------------------------------------------------------------
+float HeadingFromQuaternion(const float quat[4]);
+
 
 #endif  // ATTITUDE_H_
