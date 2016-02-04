@@ -99,6 +99,8 @@ void ExchangeDataWithNav(void)
 
   // Specify the payload structure.
   struct ToNav {
+    uint16_t timestamp;
+    uint16_t state;
     int16_t accelerometer[3];
     int16_t gyro[3];
     float quaternion[4];
@@ -108,7 +110,6 @@ void ExchangeDataWithNav(void)
     int16_t sbus_yaw;
     int16_t sbus_thrust;
     int16_t sbus_on_off;
-    uint16_t state;
     uint16_t battery_voltage;
     float heading;
     float quaternion_command[4];
@@ -117,7 +118,6 @@ void ExchangeDataWithNav(void)
     float attitude_integral[3];
     float quaternion_model[4];
     uint16_t motor_setpoints[8];
-    uint16_t timestamp;
 #endif
   } __attribute__((packed));
 
