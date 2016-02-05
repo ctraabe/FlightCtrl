@@ -61,7 +61,7 @@ uint8_t * RequestSPITxBuffer(void)
 }
 
 // -----------------------------------------------------------------------------
-void SPIExchangeThenCallback(uint8_t tx_length, uint8_t * rx_buffer,
+void SPIExchangeThenCallback(uint8_t tx_length, volatile uint8_t * rx_buffer,
   uint8_t rx_buffer_length, SPICallback callback_ptr)
 {
   if (tx_bytes_remaining_ != 0 || rx_bytes_remaining_ != 0) return;
@@ -85,7 +85,7 @@ void SPIExchangeThenCallback(uint8_t tx_length, uint8_t * rx_buffer,
 }
 
 // -----------------------------------------------------------------------------
-void SPIRxThenCallback(uint8_t * rx_buffer, uint8_t rx_buffer_length,
+void SPIRxThenCallback(volatile uint8_t * rx_buffer, uint8_t rx_buffer_length,
   SPICallback callback_ptr)
 {
   if (rx_buffer == 0 || rx_buffer_length == 0) return;

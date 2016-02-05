@@ -19,11 +19,11 @@ void SPIInit(void);
 uint8_t * RequestSPITxBuffer(void);
 
 // -----------------------------------------------------------------------------
-void SPIExchangeThenCallback(uint8_t tx_length, uint8_t * rx_buffer,
+void SPIExchangeThenCallback(uint8_t tx_length, volatile uint8_t * rx_buffer,
   uint8_t rx_buffer_length, SPICallback callback_ptr);
 
 // -----------------------------------------------------------------------------
-void SPIRxThenCallback(uint8_t * rx_buffer, uint8_t rx_buffer_length,
+void SPIRxThenCallback(volatile uint8_t * rx_buffer, uint8_t rx_buffer_length,
   SPICallback callback_ptr);
 
 // -----------------------------------------------------------------------------

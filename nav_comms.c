@@ -25,14 +25,18 @@
 enum NavCommsState {
   NAV_COMMS_IDLE = 0,
   NAV_COMMS_DATA_READY,
+  NAV_COMMS_DATA_IN_PROGRESS,
   NAV_COMMS_DATA_RECEVIED,
 };
 
 static volatile struct FromNav {
-  float position[3];
-  float velocity[3];
-  float heading_correction;
-  uint16_t crc;
+    uint16_t version;
+    float position[3];
+    float velocity[3];
+    float heading_correction_quat_0;
+    float heading_correction_quat_z;
+    uint16_t status;
+    uint16_t crc;
 } __attribute__((packed)) from_nav_[2];
 
 static volatile uint8_t nav_data_state_ = NAV_COMMS_IDLE;
@@ -74,7 +78,7 @@ const volatile float * Velocity(void)
 // -----------------------------------------------------------------------------
 float HeadingCorrection(void)
 {
-  return from_nav_[from_nav_tail_].heading_correction;
+  return from_nav_[from_nav_tail_].heading_correction_quat_z;
 }
 
 
@@ -194,8 +198,10 @@ void ExchangeDataWithNav(void)
   // Send the entire packet (1-byte header, 1-byte length, payload, 2-byte CRC &
   // 4-bytes trailing zeros).
   SPIExchangeThenCallback(2 + sizeof(struct ToNav) + 2 + 4,
-    (uint8_t *)&from_nav_[from_nav_head_], sizeof(struct FromNav),
+    (volatile uint8_t *)&from_nav_[from_nav_head_], sizeof(struct FromNav),
     SetNavDataReceived);
+
+  nav_data_state_ = NAV_COMMS_DATA_IN_PROGRESS;
 }
 
 // -----------------------------------------------------------------------------
@@ -216,12 +222,15 @@ void NotifyNav(void)
 
   // Re-enable the pin change interrupt for pin PC4.
   PCMSK2 |= _BV(PCINT20);
+  RedLEDOn();
 }
 
 // -----------------------------------------------------------------------------
 void ProcessDataFromNav(void)
 {
-  uint8_t * rx_buffer_ptr = (uint8_t *)&from_nav_[from_nav_head_];
+  volatile uint8_t * rx_buffer_ptr =
+    (volatile uint8_t *)&from_nav_[from_nav_head_];
+
   uint16_t crc = 0xFFFF;
   for (uint8_t i = sizeof(struct FromNav) - 2; i--; )
     crc = _crc_ccitt_update(crc, *(rx_buffer_ptr++));
@@ -231,9 +240,9 @@ void ProcessDataFromNav(void)
     // Swap buffers.
     from_nav_tail_ = from_nav_head_;
     from_nav_head_ = !from_nav_tail_;
+    RedLEDOff();
   }
 
-  RedLEDOff();
   nav_data_state_ = NAV_COMMS_IDLE;
 }
 
@@ -252,7 +261,6 @@ ISR(PCINT2_vect)
   if (PINC & _BV(4)) return;
 
   nav_data_state_ = NAV_COMMS_DATA_READY;
-  RedLEDOn();
 
   // Disable the interrupt.
   PCMSK2 &= ~_BV(PCINT20);
