@@ -30,8 +30,8 @@ void DetectBattery(void)
   uint8_t n_cells;
   const uint8_t kMinVoltsPerCell = 33;  // 3.3 V is the LiPo operational minimum
   const uint8_t kMaxVoltsPerCell = 42;  // 4.3 V is max for LiPo batteries
-  for (n_cells = 2; (n_cells < 7) && (BatteryVoltage() > n_cells
-    * kMaxVoltsPerCell + 2); n_cells++) continue;  // 0.2 V margin
+  for (n_cells = 2; (n_cells < 7) && (BatteryVoltage() > (n_cells
+    * kMaxVoltsPerCell - 2U)); n_cells++) continue;  // 0.2 V margin
 
   if (n_cells < 7) voltage_low_limit_ = n_cells * kMinVoltsPerCell;
   BeepNTimes(n_cells, 200);
