@@ -194,13 +194,14 @@ void ControlInit(void)
 
   // TODO: remove these temporary initializations and replace computations.
 #ifdef SMALL_QUAD
-  feedback_gains_.p_dot = 1.858089118e+00;
-  feedback_gains_.p = 3.713033366e+01;
-  feedback_gains_.phi = 2.192599227e+02;
-  feedback_gains_.phi_int = 4.672101704e+02;
-  feedback_gains_.r = 4.022482343e+00;
-  feedback_gains_.psi = 1.592463592e+01;
-  feedback_gains_.psi_int = 1.404020971e+01;
+  // control proportion: 0.500000
+  feedback_gains_.p_dot = 3.046702738e+00;
+  feedback_gains_.p = 7.144888332e+01;
+  feedback_gains_.phi = 4.844637366e+02;
+  feedback_gains_.phi_int = 1.085035883e+03;
+  feedback_gains_.r = 5.367196113e+00;
+  feedback_gains_.psi = 2.409048597e+01;
+  feedback_gains_.psi_int = 2.270522950e+01;
   kalman_coefficients_.A11 = 9.248488132e-01;
   kalman_coefficients_.A13 = 7.515118678e-03;
   kalman_coefficients_.A21 = 7.515118678e-03;
@@ -213,22 +214,23 @@ void ControlInit(void)
   kalman_coefficients_.K[1][1] = 3.062778776e-01;
   kalman_coefficients_.K[2][0] = 2.359221725e-01;
   kalman_coefficients_.K[2][1] = 1.445698341e+02;
-  attitude_model_coefficients_.p_q[0][0] = 2.831478707e-04;
-  attitude_model_coefficients_.p_q[0][1] = 2.628309697e-04;
-  attitude_model_coefficients_.p_q[1][0] = -1.779611903e+00;
-  attitude_model_coefficients_.p_q[1][1] = 7.998842796e-01;
-  attitude_model_coefficients_.r[0][0] = 1.209203101e-02;
-  attitude_model_coefficients_.r[0][1] = -1.151944898e-02;
-  attitude_model_coefficients_.r[1][0] = -1.876908207e+00;
-  attitude_model_coefficients_.r[1][1] = 8.792114079e-01;
+  attitude_model_coefficients_.p_q[0][0] = 2.744268912e-04;
+  attitude_model_coefficients_.p_q[0][1] = 2.469601072e-04;
+  attitude_model_coefficients_.p_q[1][0] = -1.691698564e+00;
+  attitude_model_coefficients_.p_q[1][1] = 7.289510825e-01;
+  attitude_model_coefficients_.r[0][0] = 1.395671668e-02;
+  attitude_model_coefficients_.r[0][1] = -1.339214299e-02;
+  attitude_model_coefficients_.r[1][0] = -1.851291018e+00;
+  attitude_model_coefficients_.r[1][1] = 8.543211959e-01;
 #else
-  feedback_gains_.p_dot = 2.819390728e-01;
-  feedback_gains_.p = 9.029493332e+00;
-  feedback_gains_.phi = 2.446166591e+01;
-  feedback_gains_.phi_int = 2.254032887e+01;
-  feedback_gains_.r = 1.610370425e+00;
-  feedback_gains_.psi = 9.736402829e-01;
-  feedback_gains_.psi_int = 7.002698066e-01;
+  // control proportion: 0.400000
+  feedback_gains_.p_dot = 6.125465888e-01;
+  feedback_gains_.p = 1.620762355e+01;
+  feedback_gains_.phi = 6.256019555e+01;
+  feedback_gains_.phi_int = 7.978628452e+01;
+  feedback_gains_.r = 2.493839316e+00;
+  feedback_gains_.psi = 3.316200008e+00;
+  feedback_gains_.psi_int = 1.453949640e+00;
   kalman_coefficients_.A11 = 8.943955582e-01;
   kalman_coefficients_.A13 = 7.392310928e-03;
   kalman_coefficients_.A21 = 7.392310928e-03;
@@ -241,14 +243,14 @@ void ControlInit(void)
   kalman_coefficients_.K[1][1] = 2.905144232e-01;
   kalman_coefficients_.K[2][0] = 2.225348506e-01;
   kalman_coefficients_.K[2][1] = 1.470361439e+02;
-  attitude_model_coefficients_.p_q[0][0] = 4.156264348e-04;
-  attitude_model_coefficients_.p_q[0][1] = 3.962678586e-04;
-  attitude_model_coefficients_.p_q[1][0] = -1.859359321e+00;
-  attitude_model_coefficients_.p_q[1][1] = 8.666903152e-01;
-  attitude_model_coefficients_.r[0][0] = 2.410909791e-02;
-  attitude_model_coefficients_.r[0][1] = -2.330059519e-02;
-  attitude_model_coefficients_.r[1][0] = -1.857031615e+00;
-  attitude_model_coefficients_.r[1][1] = 8.583336043e-01;
+  attitude_model_coefficients_.p_q[0][0] = 4.104693647e-04;
+  attitude_model_coefficients_.p_q[0][1] = 3.865637733e-04;
+  attitude_model_coefficients_.p_q[1][0] = -1.822375822e+00;
+  attitude_model_coefficients_.p_q[1][1] = 8.352938353e-01;
+  attitude_model_coefficients_.r[0][0] = 1.700238472e-02;
+  attitude_model_coefficients_.r[0][1] = -1.619532952e-02;
+  attitude_model_coefficients_.r[1][0] = -1.853281890e+00;
+  attitude_model_coefficients_.r[1][1] = 8.552945558e-01;
 #endif
 
   // Compute the limit on the attitude error given the rate limit.
