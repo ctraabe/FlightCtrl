@@ -200,7 +200,6 @@ int16_t main(void)
     if (flag_2hz_)
     {
       flag_2hz_ = 0;
-      GreenLEDToggle();
     }
   }
 }

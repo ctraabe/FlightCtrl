@@ -312,7 +312,7 @@ void Control(void)
   if (limit > MAX_CMD) limit = MAX_CMD;
   for (uint8_t i = NMotors(); i--; )
     setpoints_[i] = (uint16_t)S16Limit(FloatToS16(thrust_cmd
-      + VectorDot(angular_cmd_, actuation_inverse_[i])), MIN_CMD, limit);
+      + Vector3Dot(angular_cmd_, actuation_inverse_[i])), MIN_CMD, limit);
 
   if (MotorsRunning())
     for (uint8_t i = NMotors(); i--; ) SetMotorSetpoint(i, setpoints_[i]);
@@ -471,16 +471,16 @@ static void FormAngularCommand(const float quat_cmd[4],
   AttitudeError(quat_cmd, Quat(), attitude_error);
 
   // Saturate the error.
-  float attitude_error_norm = VectorNorm(attitude_error);
+  float attitude_error_norm = Vector3Norm(attitude_error);
   if (attitude_error_norm > limits->attitude_error)
-    VectorGain(attitude_error, limits->attitude_error
+    Vector3Scale(attitude_error, limits->attitude_error
       / attitude_error_norm, attitude_error);
 
   // Transform the yaw rate command into the body axis. Note that yaw rate
   // happens to occur along the gravity vector, so yaw rate command is a simple
   // scalar multiplication of the gravity vector.
   float rate_cmd[3];
-  VectorGain(GravityInBodyVector(), heading_rate_cmd, rate_cmd);
+  Vector3Scale(GravityInBodyVector(), heading_rate_cmd, rate_cmd);
 
   // Apply the control gains.
   angular_cmd[X_BODY_AXIS] =
@@ -513,7 +513,7 @@ static void UpdateAttitudeModel(const float quat_cmd[4], float heading_rate_cmd,
   // Distribute the heading rate command to the axes.
   float g_b[3], rate_cmd[3];
   UpdateGravtiyInBody(model->quat, g_b);
-  VectorGain(g_b, heading_rate_cmd, rate_cmd);
+  Vector3Scale(g_b, heading_rate_cmd, rate_cmd);
 
   float angular_rate[3];
   angular_rate[X_BODY_AXIS] = DirectForm2ZeroB0(k->p * rate_cmd[X_BODY_AXIS]

@@ -38,7 +38,7 @@ void ResetAltitude(void)
 // -----------------------------------------------------------------------------
 void UpdateAltitude(void)
 {
-  float vertical_acceration = 1.0 - VectorDot(GravityInBodyVector(),
+  float vertical_acceration = 1.0 - Vector3Dot(GravityInBodyVector(),
     AccelerationVector());  // g
   vertical_speed_ += vertical_acceration * DT;
   altitude_ += vertical_speed_ * DT;

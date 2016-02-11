@@ -11,6 +11,9 @@
 float * QuaternionInverse(const float quat[4], float result[4]);
 
 // -----------------------------------------------------------------------------
+float * QuaternionInvertSelf(float quat[4]);
+
+// -----------------------------------------------------------------------------
 // This functions performs quaternion multiplication of the inverse of quat1
 // with quat2.
 float * QuaternionInverseMultiply(const float quat1[4], const float quat2[4],

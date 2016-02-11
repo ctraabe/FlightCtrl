@@ -13,8 +13,6 @@
 #include "spi.h"
 #include "timing.h"
 #include "union_types.h"
-// TODO: remove
-#include "led.h"
 
 
 // =============================================================================
@@ -105,22 +103,20 @@ void ExchangeDataWithNav(void)
   struct ToNav {
     uint16_t timestamp;
     uint16_t state;
-    int16_t accelerometer[3];
-    int16_t gyro[3];
+    float accelerometer[3];
+    float gyro[3];
     float quaternion[4];
 #ifdef LOG_FLT_CTRL_DEBUG_TO_SD
     int16_t sbus_pitch;
     int16_t sbus_roll;
     int16_t sbus_yaw;
     int16_t sbus_thrust;
-    int16_t sbus_on_off;
+    uint16_t biased_pressure;
     uint16_t battery_voltage;
-    float heading;
-    float quaternion_command[4];
     float heading_command;
-    float angular_command[3];
     float attitude_integral[3];
     float quaternion_model[4];
+    float angular_command[3];
     uint16_t motor_setpoints[8];
 #endif
   } __attribute__((packed));
@@ -134,12 +130,14 @@ void ExchangeDataWithNav(void)
 
   struct ToNav * to_nav_ptr = (struct ToNav *)&tx_buffer[2];
 
-  to_nav_ptr->accelerometer[0] = AccelerometerSum(X_BODY_AXIS);
-  to_nav_ptr->accelerometer[1] = AccelerometerSum(Y_BODY_AXIS);
-  to_nav_ptr->accelerometer[2] = AccelerometerSum(Z_BODY_AXIS);
-  to_nav_ptr->gyro[0] = GyroSum(X_BODY_AXIS);
-  to_nav_ptr->gyro[1] = GyroSum(Y_BODY_AXIS);
-  to_nav_ptr->gyro[2] = GyroSum(Z_BODY_AXIS);
+  to_nav_ptr->timestamp = GetTimestamp();
+  to_nav_ptr->state = State();
+  to_nav_ptr->accelerometer[0] = AccelerationVector()[X_BODY_AXIS];
+  to_nav_ptr->accelerometer[1] = AccelerationVector()[Y_BODY_AXIS];
+  to_nav_ptr->accelerometer[2] = AccelerationVector()[Z_BODY_AXIS];
+  to_nav_ptr->gyro[0] = AngularRateVector()[X_BODY_AXIS];
+  to_nav_ptr->gyro[1] = AngularRateVector()[Y_BODY_AXIS];
+  to_nav_ptr->gyro[2] = AngularRateVector()[Z_BODY_AXIS];
   to_nav_ptr->quaternion[0] = Quat()[0];
   to_nav_ptr->quaternion[1] = Quat()[1];
   to_nav_ptr->quaternion[2] = Quat()[2];
@@ -149,18 +147,9 @@ void ExchangeDataWithNav(void)
   to_nav_ptr->sbus_roll = SBusRoll();
   to_nav_ptr->sbus_yaw = SBusYaw();
   to_nav_ptr->sbus_thrust = SBusThrust();
-  to_nav_ptr->sbus_on_off = SBusOnOff();
-  to_nav_ptr->state = State();
   to_nav_ptr->battery_voltage = BatteryVoltage();
-  to_nav_ptr->heading = HeadingAngle();
-  to_nav_ptr->quaternion_command[0] = QuatCommandVector()[0];
-  to_nav_ptr->quaternion_command[1] = QuatCommandVector()[1];
-  to_nav_ptr->quaternion_command[2] = QuatCommandVector()[2];
-  to_nav_ptr->quaternion_command[3] = QuatCommandVector()[3];
+  to_nav_ptr->battery_voltage = BiasedPressureSum();
   to_nav_ptr->heading_command = HeadingCommand();
-  to_nav_ptr->angular_command[0] = AngularCommand(0);
-  to_nav_ptr->angular_command[1] = AngularCommand(1);
-  to_nav_ptr->angular_command[2] = AngularCommand(2);
   to_nav_ptr->attitude_integral[0] = AttitudeIntegralVector()[0];
   to_nav_ptr->attitude_integral[1] = AttitudeIntegralVector()[1];
   to_nav_ptr->attitude_integral[2] = AttitudeIntegralVector()[2];
@@ -168,6 +157,9 @@ void ExchangeDataWithNav(void)
   to_nav_ptr->quaternion_model[1] = QuatModelVector()[1];
   to_nav_ptr->quaternion_model[2] = QuatModelVector()[2];
   to_nav_ptr->quaternion_model[3] = QuatModelVector()[3];
+  to_nav_ptr->angular_command[0] = AngularCommand(0);
+  to_nav_ptr->angular_command[1] = AngularCommand(1);
+  to_nav_ptr->angular_command[2] = AngularCommand(2);
   to_nav_ptr->motor_setpoints[0] = MotorSetpoint(0);
   to_nav_ptr->motor_setpoints[1] = MotorSetpoint(1);
   to_nav_ptr->motor_setpoints[2] = MotorSetpoint(2);
@@ -176,7 +168,6 @@ void ExchangeDataWithNav(void)
   to_nav_ptr->motor_setpoints[5] = MotorSetpoint(5);
   to_nav_ptr->motor_setpoints[6] = MotorSetpoint(6);
   to_nav_ptr->motor_setpoints[7] = MotorSetpoint(7);
-  to_nav_ptr->timestamp = GetTimestamp();
 #endif
 
   // Add a CRC just after the data payload. Note that this is the same CRC that
@@ -222,7 +213,6 @@ void NotifyNav(void)
 
   // Re-enable the pin change interrupt for pin PC4.
   PCMSK2 |= _BV(PCINT20);
-  RedLEDOn();
 }
 
 // -----------------------------------------------------------------------------
@@ -240,7 +230,6 @@ void ProcessDataFromNav(void)
     // Swap buffers.
     from_nav_tail_ = from_nav_head_;
     from_nav_head_ = !from_nav_tail_;
-    RedLEDOff();
   }
 
   nav_data_state_ = NAV_COMMS_IDLE;

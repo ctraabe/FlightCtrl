@@ -86,7 +86,7 @@ float * UpdateGravtiyInBody(const float quat[4], float g_b[3])
 float * UpdateQuaternion(float quat[4], const float angular_rate[3], float dt)
 {
   float dpqr[3];
-  VectorGain(angular_rate, 0.5 * dt, dpqr);
+  Vector3Scale(angular_rate, 0.5 * dt, dpqr);
 
   float d_quat[4];
   d_quat[0] = -dpqr[0] * quat[1] - dpqr[1] * quat[2] - dpqr[2] * quat[3];
@@ -131,7 +131,7 @@ static float * CorrectQuaternionWithAccelerometer(float quat[4])
   // is equivalent to (g_b_ x accelerometer). Form a corrective quaternion from
   // this rotation.
   float quat_c[4] = { 1.0, 0.0, 0.0, 0.0 };
-  VectorCross(g_b_, AccelerationVector(), &quat_c[1]);
+  Vector3Cross(g_b_, AccelerationVector(), &quat_c[1]);
   quat_c[1] *= 0.5 * ACCELEROMETER_CORRECTION_GAIN;
   quat_c[2] *= 0.5 * ACCELEROMETER_CORRECTION_GAIN;
   quat_c[3] *= 0.5 * ACCELEROMETER_CORRECTION_GAIN;
