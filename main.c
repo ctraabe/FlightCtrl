@@ -27,7 +27,7 @@
 // ============================================================================+
 // Private data:
 
-static volatile uint8_t flag_128hz_ = 0, flag_2hz_ = 0;
+static volatile uint8_t flag_128hz_ = 0, flag_64hz_ = 0, flag_2hz_ = 0;
 static volatile uint16_t main_overrun_count_ = 0;
 
 
@@ -169,7 +169,7 @@ int16_t main(void)
   {
     if (flag_128hz_)
     {
-      NotifyNav();
+      // NotifyNav();
 
       UpdateSBus();
 
@@ -194,8 +194,13 @@ int16_t main(void)
       flag_128hz_ = 0;
     }
 
-    if (NavDataReady()) ExchangeDataWithNav();
     if (NavRecieved()) ProcessDataFromNav();
+
+    if (flag_64hz_)
+    {
+      flag_64hz_ = 0;
+      ExchangeDataWithNav();
+    }
 
     if (flag_2hz_)
     {
@@ -233,6 +238,7 @@ ISR(TIMER3_CAPT_vect)
       UpdateBuzzer();
     case COUNTER_32HZ:
     case COUNTER_64HZ:
+      flag_64hz_ = 1;
     case COUNTER_128HZ:
       if (flag_128hz_)
         main_overrun_count_++;
