@@ -47,6 +47,7 @@
 #include "mk_serial_protocol.h"
 #include "mk_serial_tx.h"
 #include "state.h"
+#include "timing.h"
 
 
 // =============================================================================
@@ -60,6 +61,12 @@ static const uint8_t * volatile tx_ptr_ = 0;
 static uint8_t data_buffer_[UART_DATA_BUFFER_LENGTH];
 static uint8_t tx_buffer_[UART_TX_BUFFER_LENGTH];
 static uint8_t tx_overflow_counter_ = 0;
+
+
+// =============================================================================
+// Private function declarations:
+
+static void Printf(const char *format, va_list arglist);
 
 
 // =============================================================================
@@ -146,40 +153,85 @@ void UARTTxBuffer(uint8_t tx_length)
 // transmission is commenced.
 void UARTTxByte(uint8_t byte)
 {
+  // Never allow blocking when motors are running.
   if (!MotorsInhibited()) return;
   loop_until_bit_is_set(UCSR0A, UDRE0);
   UDR0 = byte;
 }
 
 // -----------------------------------------------------------------------------
+uint32_t UARTWaitUntilCompletion(uint32_t time_limit_ms)
+{
+  uint32_t timeout = GetTimestampMillisFromNow(time_limit_ms);
+  while ((tx_bytes_remaining_ != 0) && !TimestampInPast(timeout)) continue;
+  return TimestampInPast(timeout);
+}
+
+// -----------------------------------------------------------------------------
 // This function mimics printf, but puts the result on the UART stream. It also
 // adds the end-of-line characters and checks that the character buffer is not
-// exceeded. Note that this function is slow and blocking.
+// exceeded. This version blocks program execution until UART is available and
+// then further blocks execution until the transmission has competed.
 void UARTPrintf_P(const char *format, ...)
 {
-  // This function is slow and blocking, so NEVER use when motors are running.
+  // Never allow blocking when motors are running.
   if (!MotorsInhibited()) return;
-
-  char ascii[103];  // 100 chars + 2 newline chars + null terminator
+  UARTWaitUntilCompletion(500);
 
   va_list arglist;
   va_start(arglist, format);
-  int length = vsnprintf_P(ascii, 101, format, arglist);
+  Printf(format, arglist);
   va_end(arglist);
+  UARTWaitUntilCompletion(500);
+}
 
-  if (length < 101)
-    sprintf_P(&ascii[length], PSTR("\n\r"));
-  else
-    sprintf_P(&ascii[80], PSTR("... MESSAGE TOO LONG\n\r"));
-
-  char *pointer = &ascii[0];
-  while (*pointer) UARTTxByte(*pointer++);
+// -----------------------------------------------------------------------------
+// This function mimics printf, but puts the result on the UART stream. It also
+// adds the end-of-line characters and checks that the character buffer is not
+// exceeded. This version attempts to get the UART Tx buffer and then initiates
+// an interrupt-bases transmission. This function is non-blocking, but may fail
+// to get access to the UART Tx buffer.
+void UARTPrintfSafe_P(const char *format, ...)
+{
+  va_list arglist;
+  va_start(arglist, format);
+  Printf(format, arglist);
+  va_end(arglist);
 }
 
 
 // =============================================================================
 // Private functions:
 
+// This function mimics printf, but puts the result on the UART stream. It also
+// adds the end-of-line characters and checks that the character buffer is not
+// exceeded.
+static void Printf(const char *format, va_list arglist)
+{
+  // Buffer requirement: 100 chars + 2 newline chars + 1 null terminator
+  _Static_assert(UART_TX_BUFFER_LENGTH >= 103,
+    "UART buffer not large enough for UARTPrintf");
+
+  uint8_t * ascii = RequestUARTTxBuffer();
+  if (!ascii) return;
+
+  int length = vsnprintf_P((char *)ascii, 101, format, arglist);
+
+  if (length < 101)
+  {
+    sprintf_P((char *)&ascii[length], PSTR("\n\r"));
+    length += 2;
+  }
+  else
+  {
+    sprintf_P((char *)&ascii[80], PSTR("... MESSAGE TOO LONG\n\r"));
+    length = 103;
+  }
+
+  UARTTxBuffer(length);
+}
+
+// -----------------------------------------------------------------------------
 // This function is called upon the "USART0 data register empty" interrupt,
 // indicating that the transmitter is ready to load another byte.
 ISR(USART0_UDRE_vect)
