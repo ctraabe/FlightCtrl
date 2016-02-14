@@ -13,6 +13,15 @@ enum PressureAltitudeErrorBits {
 
 
 // =============================================================================
+// Accessors
+
+uint8_t PressureAltitudeError(void);
+
+// -----------------------------------------------------------------------------
+float DeltaPressureAltitude(void);
+
+
+// =============================================================================
 // Public functions:
 
 // TIMER0 is used to drive the PWM signals that set the coarse and fine biases

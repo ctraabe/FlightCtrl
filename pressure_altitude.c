@@ -66,12 +66,19 @@
 // =============================================================================
 // Private data:
 
+#define ADC_SUM_TO_PRESSURE (1.0 / 578.0 / (float)ADC_N_SAMPLES)
+#define PRESSURE_TO_ALTITUDE_C2 (0.50192)
+#define PRESSURE_TO_ALTITUDE_C1 (-182.09)
+#define PRESSURE_TO_ALTITUDE_C0 (13305.0)
 #define TIMER0_DIVIDER (1)
 
 static uint8_t pressure_altitude_error_bits_ = 0x00;
 static int16_t coarse_bias_steps_to_pressure_steps_ = 0;
 static int16_t fine_bias_steps_to_pressure_steps_ = 0;
-static float pressure_ = 0.0, pressure_altitude_ = 0.0;
+static float delta_pressure_altitude_ = 0.0;
+static float pressure_sum_to_altitude_ = -0.2;
+static float pressure_0_ = 0.0, pressure_altitude_0_ = 0.0;
+static int16_t biased_pressure_sum_0_ = 0;
 
 
 // =============================================================================
@@ -87,6 +94,12 @@ static void CheckPressureSensorBiasCalibration(void);
 uint8_t PressureAltitudeError(void)
 {
   return pressure_altitude_error_bits_;
+}
+
+// -----------------------------------------------------------------------------
+float DeltaPressureAltitude(void)
+{
+  return delta_pressure_altitude_;
 }
 
 
@@ -202,16 +215,35 @@ void ResetPressureSensorRange(void)
   {
     UARTPrintf("  coarse bias set to %u", bias_coarse);
     UARTPrintf("  fine bias set to %u", bias_fine);
-    UpdatePressureAltitude();
-    UARTPrintf("  current pressure = %f kPa", pressure_);
-    UARTPrintf("  current pressure altitude = %f m", pressure_altitude_);
     pressure_altitude_error_bits_ &= ~PRESSURE_ERROR_BIT_BIAS_RANGE;
   }
   else
   {
     UARTPrintf("  ERROR: out of measurable range");
     pressure_altitude_error_bits_ |= PRESSURE_ERROR_BIT_BIAS_RANGE;
+    return;
   }
+
+  // Save the initial pressure sensor reading.
+  biased_pressure_sum_0_ = (int16_t)BiasedPressureSum();
+
+  // Compute the actual pressure corresponding to biased_pressure_sum_0_ given
+  // the current bias settings.
+  pressure_0_ = (float)biased_pressure_sum_0_ * ADC_SUM_TO_PRESSURE
+    + (float)(2 * (OCR0B + 1) + OCR0A + 1) * 0.060 + 67.1;
+
+  // Compute the pressure altitude corresponding to pressure_0_.
+  pressure_altitude_0_ = PRESSURE_TO_ALTITUDE_C2 * pressure_0_ * pressure_0_
+    + PRESSURE_TO_ALTITUDE_C1 * pressure_0_ + PRESSURE_TO_ALTITUDE_C0;
+
+  // Compute the conversion factor from ADC pressure sum to pressure altitude.
+  pressure_sum_to_altitude_ = (2.0 * PRESSURE_TO_ALTITUDE_C2 * pressure_0_
+    + PRESSURE_TO_ALTITUDE_C1) * ADC_SUM_TO_PRESSURE;
+
+  UARTPrintf("  current pressure = %f kPa", pressure_0_);
+  UARTPrintf("  current pressure altitude = %f m", pressure_altitude_0_);
+  UARTPrintf("  base reading = %i", biased_pressure_sum_0_);
+  UARTPrintf("  conversion factor = %f", pressure_sum_to_altitude_);
 }
 
 // -----------------------------------------------------------------------------
@@ -266,11 +298,8 @@ void PressureSensorBiasCalibration(void)
 // -----------------------------------------------------------------------------
 void UpdatePressureAltitude(void)
 {
-  pressure_ = (float)BiasedPressureSum() / (float)(578 * ADC_N_SAMPLES)
-    + (float)(OCR0B + 1) * 0.12 + (float)(OCR0A + 1) * 0.060 + 67.1;
-
-  pressure_altitude_ = 13305.0 - 182.09 * pressure_ + 0.50192 * pressure_
-    * pressure_;
+  delta_pressure_altitude_ = ((int16_t)BiasedPressureSum()
+    - biased_pressure_sum_0_) * pressure_sum_to_altitude_;
 }
 
 
@@ -334,4 +363,3 @@ static void CheckPressureSensorBiasCalibration(void)
     UARTPrintf("pressure_altitude: ERROR: fine bias calibration");
   }
 }
-

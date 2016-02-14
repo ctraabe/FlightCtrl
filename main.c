@@ -180,6 +180,8 @@ int16_t main(void)
 
       ProcessSensorReadings();
 
+      UpdatePressureAltitude();
+
       UpdateAttitude();
 
       Control();
