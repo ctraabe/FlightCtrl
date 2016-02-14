@@ -311,8 +311,6 @@ static void CheckPressureSensorBiasCalibration(void)
     * kAcceptableDeviationPercent) / 100)
   {
     pressure_altitude_error_bits_ &= ~PRESSURE_ERROR_BIT_COARSE_CALIBRATION;
-    UARTPrintf("pressure_altitude: a coarse bias step gives %i pressure steps",
-      coarse_bias_steps_to_pressure_steps_);
   }
   else
   {
@@ -328,8 +326,6 @@ static void CheckPressureSensorBiasCalibration(void)
     * kAcceptableDeviationPercent) / 100)
   {
     pressure_altitude_error_bits_ &= ~PRESSURE_ERROR_BIT_FINE_CALIBRATION;
-    UARTPrintf("pressure_altitude: a fine bias step gives %i pressure steps",
-      fine_bias_steps_to_pressure_steps_);
   }
   else
   {
