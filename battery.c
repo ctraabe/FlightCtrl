@@ -43,10 +43,3 @@ uint8_t BatteryLow(void)
 {
   return BatteryVoltage() < voltage_low_limit_;
 }
-
-// -----------------------------------------------------------------------------
-// This function estimates the current being drawn from the battery and
-// calculates the corresponding reduction in battery capacity.
-void BatteryUpdate(void)
-{
-}

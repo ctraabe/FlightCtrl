@@ -13,10 +13,5 @@ void DetectBattery(void);
 // -----------------------------------------------------------------------------
 uint8_t BatteryLow(void);
 
-// -----------------------------------------------------------------------------
-// This function estimates the current being drawn from the battery and
-// calculates the corresponding reduction in battery capacity.
-void BatteryUpdate(void);
-
 
 #endif  // BATTERY_H_
