@@ -1,15 +1,28 @@
 #include "state.h"
 
+#include <math.h>
+
+#include "adc.h"
+#include "attitude.h"
 #include "buzzer.h"
 #include "main.h"
+#include "motors.h"
+#include "pressure_altitude.h"
 #include "sbus.h"
 #include "timing.h"
+#include "vector.h"
 
 
 // =============================================================================
 // Private data:
 
 static enum StateBits state_ = STATE_BIT_MOTORS_INHIBITED;
+
+
+// =============================================================================
+// Private function declarations:
+
+static uint8_t SafetyCheck(void);
 
 
 // =============================================================================
@@ -49,7 +62,7 @@ void UpdateState(void)
       {
         stick_timer = GetTimestampMillisFromNow(2000);
         PreflightInit();
-        state_ |= STATE_BIT_INITIALIZED;
+        if (SafetyCheck()) state_ |= STATE_BIT_INITIALIZED;
       }
     }
     else if (SBusThrustStickUp() && SBusYawStickRight())
@@ -99,4 +112,18 @@ void UpdateState(void)
   }
 
   if (sbus_on_off_latch && !SBusOnOff()) sbus_on_off_latch = 0;
+}
+
+
+// =============================================================================
+// Private functions:
+
+static uint8_t SafetyCheck(void)
+{
+  if (PressureAltitudeError()) return 0;
+  if (BLCErrorBits()) return 0;
+  if (Vector3NormSquared(AngularRateVector()) > 0.1) return 0;
+  if (fabsf(Vector3NormSquared(AccelerationVector()) - 1.0) > 0.1) return 0;
+  if (GravityInBodyVector()[2] < 0.9) return 0;
+  return 1;
 }
