@@ -1,14 +1,18 @@
+# Compile option defined:
+# LOG_FLT_CTRL_DEBUG_TO_SD : sends extended data packet to nav for SD logging
+# MOTOR_TEST : enables motor/propeller response test routine
+
 TARGET := $(notdir $(shell pwd))
 
 MCU   := atmega1284p
 F_CPU := 20000000
 
-CCFLAGS   = -std=gnu99 -Wstrict-prototypes
+CCFLAGS   = -std=gnu11 -Wstrict-prototypes
 LDFLAGS   = -Ofast -Wall -Wextra -Wundef -Werror -fshort-enums -ffreestanding \
             -ffunction-sections -fdata-sections \
             -Wl,--relax,--gc-sections,-u,vfprintf -lprintf_flt -lm
 LTOFLAGS := -flto -fwhole-program
-ALLFLAGS  = -mmcu=$(MCU) -DF_CPU="$(F_CPU)UL" -DLOG_FLT_CTRL_DEBUG_TO_SD
+ALLFLAGS  = -mmcu=$(MCU) -DF_CPU="$(F_CPU)UL"
 DUDEFLAGS = -c avrisp2 -p $(MCU)
 
 PROGRAM_START := 0x0000
