@@ -4,6 +4,7 @@
 
 #define FS (128.0)
 #define DT (1.0 / FS)
+#define GRAVITY_ACCELERATION (9.8)
 
 #define MAX_MOTORS (8)
 

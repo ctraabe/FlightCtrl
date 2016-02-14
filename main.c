@@ -18,6 +18,7 @@
 #include "state.h"
 #include "timing.h"
 #include "uart.h"
+#include "vertical_speed.h"
 
 #ifdef MOTOR_TEST
   #include "motor_test.h"
@@ -172,17 +173,13 @@ int16_t main(void)
       // NotifyNav();
 
       UpdateSBus();
-
       UpdateState();
-
-      // if (State() & STATE_BIT_INITIALIZED)
-      //   SetMKDataStream(MK_STREAM_CONTROL, 0);
 
       ProcessSensorReadings();
 
-      UpdatePressureAltitude();
-
       UpdateAttitude();
+      UpdatePressureAltitude();
+      UpdateVerticalSpeed();
 
       Control();
 
