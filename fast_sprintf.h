@@ -1,5 +1,5 @@
-#ifndef FAST_SPRINTF_H
-#define FAST_SPRINTF_H
+#ifndef FAST_SPRINTF_H_
+#define FAST_SPRINTF_H_
 
 
 #include <inttypes.h>
@@ -18,4 +18,4 @@ uint8_t SPrintfS8(uint8_t *char_array, int8_t value);
 uint8_t SPrintfS16(uint8_t *char_array, int16_t value);
 
 
-#endif  // FAST_SPRINTF_H
+#endif  // FAST_SPRINTF_H_
