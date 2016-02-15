@@ -386,6 +386,7 @@ static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
     g_b_cmd[X_BODY_AXIS] = 0.0;
     g_b_cmd[Y_BODY_AXIS] = 0.0;
     *heading_rate_cmd = 0.0;
+    // TODO: determine hover thrust setting and set it here, minus a bit
   }
   else
   {
