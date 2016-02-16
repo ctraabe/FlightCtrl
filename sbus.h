@@ -22,6 +22,12 @@ enum SBusErrorBits {
   SBUS_ERROR_BIT_STALE = 1<<0,
 };
 
+enum SBusSwitchState {
+  SBUS_SWITCH_DOWN = 0,
+  SBUS_SWITCH_CENTER = 1,
+  SBUS_SWITCH_UP = 2,
+};
+
 
 // =============================================================================
 // Accessors:
@@ -44,7 +50,13 @@ int16_t SBusThrust(void);
 uint8_t SBusOnOff(void);
 
 // -----------------------------------------------------------------------------
-int16_t SBusSwitch(uint8_t i);
+enum SBusSwitchState SBusHorizontalControl(void);
+
+// -----------------------------------------------------------------------------
+enum SBusSwitchState SBusVerticalControl(void);
+
+// -----------------------------------------------------------------------------
+enum SBusSwitchState SBusSwitch(uint8_t i);
 
 // -----------------------------------------------------------------------------
 int16_t SBusTrim(uint8_t i);
@@ -65,10 +77,22 @@ void SBusSetChannels(uint8_t pitch, uint8_t roll, uint8_t yaw, uint8_t thrust,
   uint8_t trim1, uint8_t trim2, uint8_t trim3);
 
 // -----------------------------------------------------------------------------
+uint8_t SBusPitchStickCentered(void);
+
+// -----------------------------------------------------------------------------
+uint8_t SBusRollStickCentered(void);
+
+// -----------------------------------------------------------------------------
+uint8_t SBusThrustStickCentered(void);
+
+// -----------------------------------------------------------------------------
 uint8_t SBusThrustStickDown(void);
 
 // -----------------------------------------------------------------------------
 uint8_t SBusThrustStickUp(void);
+
+// -----------------------------------------------------------------------------
+uint8_t SBusYawStickCentered(void);
 
 // -----------------------------------------------------------------------------
 uint8_t SBusYawStickLeft(void);

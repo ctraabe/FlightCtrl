@@ -1,5 +1,6 @@
 #include "sbus.h"
 
+#include <stdlib.h>
 #include <avr/interrupt.h>
 
 #include "eeprom.h"
@@ -13,6 +14,7 @@
 #define SBUS_NO_NEW_DATA (-1)
 #define SBUS_SIGNAL_LOST_BIT (2)
 #define SBUS_STICK_EDGE_THRESHOLD (10)
+#define SBUS_STICK_CENTER_THRESHOLD (SBUS_MAX / 20)  // 5% on either side
 #define SBUS_FRESHNESS_LIMIT (100)  // millisends
 
 // The following is not declared static so that it will be visible to sbus.S.
@@ -28,13 +30,15 @@ static struct SBusData
 
 static uint8_t sbus_error_bits_ = 0x00;
 static uint8_t channel_pitch_, channel_roll_, channel_yaw_, channel_thrust_,
-  channel_on_off_, channel_switch_[6], channel_trim_[4];
+  channel_horizontal_control_, channel_on_off_, channel_vertical_control_,
+  channel_switch_[6], channel_trim_[4];
 
 
 // =============================================================================
 // Private function declarations:
 
 static inline uint8_t SBusByte(uint8_t);
+static enum SBusSwitchState SBusChannelSwitchState(uint8_t channel);
 
 
 // =============================================================================
@@ -72,19 +76,25 @@ int16_t SBusThrust(void)
 // -----------------------------------------------------------------------------
 uint8_t SBusOnOff(void)
 {
-  if (channel_on_off_ < 16)
-    return sbus_data_.channels[channel_on_off_] > 0;
-  else
-    return (sbus_data_.binary & _BV(channel_on_off_ - 16)) != 0;
+  return SBusChannelSwitchState(channel_on_off_) == SBUS_SWITCH_UP;
 }
 
 // -----------------------------------------------------------------------------
-int16_t SBusSwitch(uint8_t i)
+enum SBusSwitchState SBusHorizontalControl(void)
 {
-  if (channel_switch_[i] < 16)
-    return sbus_data_.channels[channel_switch_[i]];
-  else
-    return (sbus_data_.binary & _BV(channel_switch_[i] - 16)) != 0;
+  return SBusChannelSwitchState(channel_horizontal_control_);
+}
+
+// -----------------------------------------------------------------------------
+enum SBusSwitchState SBusVerticalControl(void)
+{
+  return SBusChannelSwitchState(channel_vertical_control_);
+}
+
+// -----------------------------------------------------------------------------
+enum SBusSwitchState SBusSwitch(uint8_t i)
+{
+  return SBusChannelSwitchState(channel_switch_[i]);
 }
 
 // -----------------------------------------------------------------------------
@@ -165,6 +175,24 @@ void SBusSetChannels(uint8_t pitch, uint8_t roll, uint8_t yaw, uint8_t thrust,
 }
 
 // -----------------------------------------------------------------------------
+uint8_t SBusPitchStickCentered(void)
+{
+  return SBusStale() || abs(SBusPitch()) < SBUS_STICK_CENTER_THRESHOLD;
+}
+
+// -----------------------------------------------------------------------------
+uint8_t SBusRollStickCentered(void)
+{
+  return SBusStale() || abs(SBusRoll()) < SBUS_STICK_CENTER_THRESHOLD;
+}
+
+// -----------------------------------------------------------------------------
+uint8_t SBusThrustStickCentered(void)
+{
+  return SBusStale() || abs(SBusThrust()) < SBUS_STICK_CENTER_THRESHOLD;
+}
+
+// -----------------------------------------------------------------------------
 uint8_t SBusThrustStickDown(void)
 {
   return !SBusStale() && SBusThrust() < -(SBUS_MAX - SBUS_STICK_EDGE_THRESHOLD);
@@ -174,6 +202,12 @@ uint8_t SBusThrustStickDown(void)
 uint8_t SBusThrustStickUp(void)
 {
   return !SBusStale() && SBusThrust() > SBUS_MAX - SBUS_STICK_EDGE_THRESHOLD;
+}
+
+// -----------------------------------------------------------------------------
+uint8_t SBusYawStickCentered(void)
+{
+  return SBusStale() || abs(SBusYaw()) < SBUS_STICK_CENTER_THRESHOLD;
 }
 
 // -----------------------------------------------------------------------------
@@ -314,4 +348,18 @@ void UpdateSBus(void)
 static inline uint8_t SBusByte(uint8_t n)
 {
   return SBUS_MESSAGE_LENGTH - n;
+}
+
+// -----------------------------------------------------------------------------
+static enum SBusSwitchState SBusChannelSwitchState(uint8_t channel)
+{
+  if (channel < 16)
+  {
+    return (sbus_data_.channels[channel] > -(SBUS_MAX / 2))
+      + (sbus_data_.channels[channel] > (SBUS_MAX / 2));
+  }
+  else
+  {
+    return 2 * ((sbus_data_.binary & _BV(channel - 16)) != 0);
+  }
 }

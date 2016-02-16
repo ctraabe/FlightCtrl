@@ -53,9 +53,9 @@ void MotorTest(void)
 {
   Wait(1000);
   UpdateSBus();
-  if (SBusSwitch(0) < SBUS_MAX / 2) return;
+  if (SBusSwitch(0) != SBUS_SWITCH_UP) return;
 
-  uint16_t switch1_pv = SBusSwitch(1);
+  enum SBusSwitchState switch1_pv = SBusSwitch(1);
   uint16_t delay = GetTimestampMillisFromNow(50);
   for (;;)
   {
@@ -63,7 +63,8 @@ void MotorTest(void)
     delay += 50;
     RedLEDToggle();
     UpdateSBus();
-    if ((SBusSwitch(1) > SBUS_MAX / 2) && (switch1_pv < SBUS_MAX / 2)) break;
+    if ((SBusSwitch(1) == SBUS_SWITCH_UP) && (switch1_pv != SBUS_SWITCH_UP))
+      break;
     switch1_pv = SBusSwitch(1);
   }
   RedLEDOff();
@@ -117,7 +118,7 @@ void MotorTest(void)
 
 static void MotorTestStep(uint16_t command, uint16_t duration_ms)
 {
-  if (SBusSwitch(1) < SBUS_MAX / 2) return;
+  if (SBusSwitch(1) != SBUS_SWITCH_UP) return;
 
   SetMotorSetpoint(0, command);
 
@@ -140,7 +141,7 @@ static void MotorTestStep(uint16_t command, uint16_t duration_ms)
     {
       TxMotorSetpoints();
       UpdateSBus();
-      if (SBusSwitch(1) < SBUS_MAX / 2) return;
+      if (SBusSwitch(1) != SBUS_SWITCH_UP) return;
       update_timer += 20;
     }
 

@@ -1,5 +1,7 @@
 #include "state.h"
 
+#include <stdlib.h>
+
 #include "adc.h"
 #include "attitude.h"
 #include "buzzer.h"
@@ -14,13 +16,10 @@
 // =============================================================================
 // Private data:
 
-enum ExternalControlBits {
-  EXTERNAL_CONTROL_BIT_INHIBITED = 1<<0,
-  EXTERNAL_CONTROL_BIT_ACTIVE = 1<<1,
-};
-
 static enum StateBits state_ = STATE_BIT_MOTORS_INHIBITED;
-static enum ExternalControlBits external_control_ = 0;
+static enum HorizontalControlState horizontal_control_state_ = 0;
+static enum VerticalControlState vertical_control_state_ = 0;
+
 
 
 // =============================================================================
@@ -119,41 +118,91 @@ void UpdateState(void)
 }
 
 // -----------------------------------------------------------------------------
-void ExternalControlMode(void)
+void UpdateControlState(void)
 {
   static int16_t thrust_stick_0 = 0;
-  int16_t ec_switch = SBusSwitch(external_control_channel);
+  static uint8_t hc_switch_pv = 0, vc_switch_pv = 0;
 
-  // Latch the inhibit bit if there is any thrust stick movement.
-  if (ec_switch >= 0)
+  if (SBusHorizontalControl() != hc_switch_pv)
   {
-    external_control_ |= -(abs(SBusThrust() - thrust_stick_0) > 10)
-      & EXTERNAL_CONTROL_BIT_INHIBITED;
-  }
-  else
-  {
-    external_control_ &= ~EXTERNAL_CONTROL_BIT_INHIBITED;
+    switch (SBusHorizontalControl())
+    {
+      case SBUS_SWITCH_DOWN:
+        horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_MANUAL;
+        break;
+      case SBUS_SWITCH_CENTER:
+        horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_HOLD;
+        break;
+      case SBUS_SWITCH_UP:
+        horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_AUTO;
+        break;
+    }
+
+    if (hc_switch_pv == SBUS_SWITCH_DOWN) thrust_stick_0 = SBusThrust();
+
+    if ((SBusHorizontalControl() != SBUS_SWITCH_DOWN) && SBusThrustStickDown()
+        && (SBusVerticalControl() == SBUS_SWITCH_DOWN))
+    {
+      horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_TAKEOFF;
+    }
   }
 
-  // External control request bit
-  if ((ec_switch > 0) && SBusThrustStickDown() && !(external_control_
-    & EXTERNAL_CONTROL_BIT_INHIBITED))
+  if (SBusVerticalControl() != vc_switch_pv)
   {
-    external_control_ |= EXTERNAL_CONTROL_BIT_ACTIVE;
-  }
-  else
-  {
-    external_control_ &= ~EXTERNAL_CONTROL_BIT_ACTIVE;
-    thrust_stick_initial = SBusThrust();
+    switch (SBusVerticalControl())
+    {
+      case SBUS_SWITCH_DOWN:
+        vertical_control_state_ = VERTICAL_CONTROL_STATE_MANUAL;
+        break;
+      case SBUS_SWITCH_CENTER:
+        vertical_control_state_ = VERTICAL_CONTROL_STATE_BARO;
+        break;
+      case SBUS_SWITCH_UP:
+        vertical_control_state_ = VERTICAL_CONTROL_STATE_AUTO;
+        break;
+    }
+
+    // Disable takeoff if engaged without the thrust stick centered.
+    if ((horizontal_control_state_ == HORIZONTAL_CONTROL_STATE_TAKEOFF)
+      && !SBusThrustStickCentered())
+    {
+      state_ &= STATE_BIT_POSITION_CONTROL_INHIBITED;
+    }
   }
 
-  // Takeoff mode request bit (latches to allow moving thrust stick to center)
-  if (to_switch >= 0 && (((thrust_stick < 30) && (ec_switch < 0))
-      || (MKToPTAM.request & PTAMToMK.status & PTAM_TAKEOFF))) {
-    MKToPTAM.request |= PTAM_TAKEOFF;
-  } else {
-    MKToPTAM.request &= ~PTAM_TAKEOFF;
+  // Allow thrust_stick movement in takeoff mode.
+  if (horizontal_control_state_ == HORIZONTAL_CONTROL_STATE_TAKEOFF)
+  {
+    thrust_stick_0 = SBusThrust();
   }
+
+  // Latch the position control inhibit bit if there is any thrust stick
+  // movement or any other sticks deviate from center.
+  if ((abs(SBusThrust() - thrust_stick_0) > 10) || !SBusPitchStickCentered()
+    || !SBusRollStickCentered() || !SBusYawStickCentered())
+  {
+    state_ |= STATE_BIT_POSITION_CONTROL_INHIBITED;
+  }
+
+  // Clear the position control inhibit bit only if the horizontal control
+  // switch is in manual and the vertical control switch is not in auto.
+  if ((SBusHorizontalControl() == SBUS_SWITCH_DOWN) && (SBusVerticalControl()
+    != SBUS_SWITCH_UP))
+  {
+    state_ &= ~STATE_BIT_POSITION_CONTROL_INHIBITED;
+  }
+
+  // Fall back to safer modes if position control is inhibited.
+  if (state_ & STATE_BIT_POSITION_CONTROL_INHIBITED)
+  {
+    horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_MANUAL;
+    if (vertical_control_state_ == VERTICAL_CONTROL_STATE_AUTO)
+      vertical_control_state_ = VERTICAL_CONTROL_STATE_BARO;
+  }
+
+  // Set the past values.
+  hc_switch_pv = SBusHorizontalControl();
+  vc_switch_pv = SBusVerticalControl();
 }
 
 
