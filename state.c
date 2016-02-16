@@ -11,6 +11,9 @@
 #include "sbus.h"
 #include "timing.h"
 #include "vector.h"
+// TODO: remove
+#include "led.h"
+#include "uart.h"
 
 
 // =============================================================================
@@ -26,6 +29,7 @@ static enum VerticalControlState vertical_control_state_ = 0;
 // Private function declarations:
 
 static uint8_t SafetyCheck(void);
+static void UpdateControlState(void);
 
 
 // =============================================================================
@@ -65,7 +69,16 @@ void UpdateState(void)
       {
         stick_timer = GetTimestampMillisFromNow(2000);
         PreflightInit();
-        if (SafetyCheck()) state_ |= STATE_BIT_INITIALIZED;
+        // TODO: move the safety check to preflight to main.c
+        if (SafetyCheck())
+        {
+          state_ |= STATE_BIT_INITIALIZED;
+        }
+        else
+        {
+          RedLEDOn();
+          BeepPattern(0x0000AAAA);
+        }
       }
     }
     else if (SBusThrustStickUp() && SBusYawStickRight())
@@ -115,10 +128,27 @@ void UpdateState(void)
   }
 
   if (sbus_on_off_latch && !SBusOnOff()) sbus_on_off_latch = 0;
+
+  UpdateControlState();
+}
+
+
+// =============================================================================
+// Private functions:
+
+static uint8_t SafetyCheck(void)
+{
+  if (PressureAltitudeError()) return 0;
+  if (BLCErrorBits()) return 0;
+  if (Vector3NormSquared(AngularRateVector()) > 0.01) return 0;
+  if (Vector3NormSquared(AccelerationVector()) > 1.1) return 0;
+  if (Vector3NormSquared(AccelerationVector()) < 0.9) return 0;
+  if (GravityInBodyVector()[2] < 0.9) return 0;
+  return 1;
 }
 
 // -----------------------------------------------------------------------------
-void UpdateControlState(void)
+static void UpdateControlState(void)
 {
   static int16_t thrust_stick_0 = 0;
   static uint8_t hc_switch_pv = 0, vc_switch_pv = 0;
@@ -129,12 +159,15 @@ void UpdateControlState(void)
     {
       case SBUS_SWITCH_DOWN:
         horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_MANUAL;
+        GreenLEDOff();
         break;
       case SBUS_SWITCH_CENTER:
         horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_HOLD;
+        GreenLEDOn();
         break;
       case SBUS_SWITCH_UP:
         horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_AUTO;
+        GreenLEDOn();
         break;
     }
 
@@ -145,6 +178,7 @@ void UpdateControlState(void)
     {
       horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_TAKEOFF;
     }
+    UARTPrintf("H%i", horizontal_control_state_);
   }
 
   if (SBusVerticalControl() != vc_switch_pv)
@@ -159,6 +193,7 @@ void UpdateControlState(void)
         break;
       case SBUS_SWITCH_UP:
         vertical_control_state_ = VERTICAL_CONTROL_STATE_AUTO;
+        thrust_stick_0 = SBusThrust();
         break;
     }
 
@@ -166,12 +201,14 @@ void UpdateControlState(void)
     if ((horizontal_control_state_ == HORIZONTAL_CONTROL_STATE_TAKEOFF)
       && !SBusThrustStickCentered())
     {
-      state_ &= STATE_BIT_POSITION_CONTROL_INHIBITED;
+      state_ |= STATE_BIT_POSITION_CONTROL_INHIBITED;
     }
+    UARTPrintf("V%i", vertical_control_state_);
   }
 
   // Allow thrust_stick movement in takeoff mode.
-  if (horizontal_control_state_ == HORIZONTAL_CONTROL_STATE_TAKEOFF)
+  if ((horizontal_control_state_ == HORIZONTAL_CONTROL_STATE_TAKEOFF)
+    && vertical_control_state_ == VERTICAL_CONTROL_STATE_MANUAL)
   {
     thrust_stick_0 = SBusThrust();
   }
@@ -196,26 +233,15 @@ void UpdateControlState(void)
   if (state_ & STATE_BIT_POSITION_CONTROL_INHIBITED)
   {
     horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_MANUAL;
+    GreenLEDOff();
     if (vertical_control_state_ == VERTICAL_CONTROL_STATE_AUTO)
+    {
       vertical_control_state_ = VERTICAL_CONTROL_STATE_BARO;
+      UARTPrintf("V%i", vertical_control_state_);
+    }
   }
 
   // Set the past values.
   hc_switch_pv = SBusHorizontalControl();
   vc_switch_pv = SBusVerticalControl();
-}
-
-
-// =============================================================================
-// Private functions:
-
-static uint8_t SafetyCheck(void)
-{
-  if (PressureAltitudeError()) return 0;
-  if (BLCErrorBits()) return 0;
-  if (Vector3NormSquared(AngularRateVector()) > 0.01) return 0;
-  if (Vector3NormSquared(AccelerationVector()) > 1.1) return 0;
-  if (Vector3NormSquared(AccelerationVector()) < 0.9) return 0;
-  if (GravityInBodyVector()[2] < 0.9) return 0;
-  return 1;
 }

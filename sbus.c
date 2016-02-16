@@ -14,7 +14,7 @@
 #define SBUS_NO_NEW_DATA (-1)
 #define SBUS_SIGNAL_LOST_BIT (2)
 #define SBUS_STICK_EDGE_THRESHOLD (10)
-#define SBUS_STICK_CENTER_THRESHOLD (SBUS_MAX / 20)  // 5% on either side
+#define SBUS_STICK_CENTER_THRESHOLD (SBUS_MAX / 16)  // 8% on either side
 #define SBUS_FRESHNESS_LIMIT (100)  // millisends
 
 // The following is not declared static so that it will be visible to sbus.S.
@@ -136,6 +136,10 @@ void SBusInit(void)
   channel_yaw_ = eeprom_read_byte(&eeprom.sbus_channel_yaw);
   channel_thrust_ = eeprom_read_byte(&eeprom.sbus_channel_thrust);
   channel_on_off_ = eeprom_read_byte(&eeprom.sbus_channel_on_off);
+  channel_horizontal_control_ =
+    eeprom_read_byte(&eeprom.sbus_channel_horizontal_control);
+  channel_vertical_control_ =
+    eeprom_read_byte(&eeprom.sbus_channel_vertical_control);
   eeprom_read_block((void*)channel_switch_,
     (const void*)&eeprom.sbus_channel_switch[0], sizeof(channel_switch_));
   eeprom_read_block((void*)channel_trim_,
@@ -144,15 +148,18 @@ void SBusInit(void)
 
 // -----------------------------------------------------------------------------
 void SBusSetChannels(uint8_t pitch, uint8_t roll, uint8_t yaw, uint8_t thrust,
-  uint8_t on_off, uint8_t switch0, uint8_t switch1, uint8_t switch2,
-  uint8_t switch3, uint8_t switch4, uint8_t switch5, uint8_t trim0,
-  uint8_t trim1, uint8_t trim2, uint8_t trim3)
+  uint8_t on_off, uint8_t horizontal_control, uint8_t vertical_control,
+  uint8_t switch0, uint8_t switch1, uint8_t switch2, uint8_t switch3,
+  uint8_t switch4, uint8_t switch5, uint8_t trim0, uint8_t trim1, uint8_t trim2,
+  uint8_t trim3)
 {
   channel_pitch_ = pitch;
   channel_roll_ = roll;
   channel_yaw_ = yaw;
   channel_thrust_ = thrust;
   channel_on_off_ = on_off;
+  channel_horizontal_control_ = horizontal_control;
+  channel_vertical_control_ = vertical_control;
   channel_switch_[0] = switch0;
   channel_switch_[1] = switch1;
   channel_switch_[2] = switch2;
@@ -167,6 +174,9 @@ void SBusSetChannels(uint8_t pitch, uint8_t roll, uint8_t yaw, uint8_t thrust,
   eeprom_update_byte(&eeprom.sbus_channel_roll, roll);
   eeprom_update_byte(&eeprom.sbus_channel_yaw, yaw);
   eeprom_update_byte(&eeprom.sbus_channel_thrust, thrust);
+  eeprom_update_byte(&eeprom.sbus_channel_horizontal_control,
+    horizontal_control);
+  eeprom_update_byte(&eeprom.sbus_channel_vertical_control, vertical_control);
   eeprom_update_byte(&eeprom.sbus_channel_on_off, on_off);
   eeprom_update_block((const void*)channel_switch_,
     (void*)&eeprom.sbus_channel_switch[0], sizeof(channel_switch_));
