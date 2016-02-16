@@ -23,6 +23,9 @@
 #ifdef MOTOR_TEST
   #include "motor_test.h"
 #endif
+// TODO: remove
+#include "union_types.h"
+#include <util/crc16.h>
 
 
 // ============================================================================+
@@ -198,7 +201,51 @@ int16_t main(void)
     if (flag_64hz_)
     {
       flag_64hz_ = 0;
-      ExchangeDataWithNav();
+
+      static float theta = 0.0;
+      theta += 2.0 * M_PI / 64.0;
+      if (theta > M_PI) theta -= 2.0 * M_PI;
+      float accel = sin(theta);
+      ExchangeDataWithNav(accel / 9.8);
+
+      static float velocity = 0.0;
+      velocity += accel / 64.0;
+
+      struct FromVision {
+        uint16_t latency;  // Latency (ms)
+        uint32_t capture_time;
+        uint16_t reliability;  // TBD
+        float velocity[3];  // (mm/frame)
+        float quaternion[3];  // [q_x, q_y, q_z]
+        float angular_velocity[3];  // (rad/frame)
+        float position[3];  // (mm)
+        uint16_t latency_ranging;  // (ms)
+        float nearest_point_parameters[3];  // Distance and two angles, TBD
+        float marking_point_parameters[3];  // Distance and two angles, TBD
+      } __attribute__((packed)) * from_vision_ptr;
+
+      uint8_t * tx_buffer = RequestUARTTxBuffer();
+      if (tx_buffer)
+      {
+        uint8_t * temp_ptr;
+
+        tx_buffer[0] = 0xFE;
+        tx_buffer[1] = sizeof(struct FromVision);
+        tx_buffer[2] = 'a';
+
+        from_vision_ptr = (struct FromVision *)&tx_buffer[3];
+        temp_ptr = (uint8_t * )from_vision_ptr;
+        for (uint8_t i = sizeof(struct FromVision); i; --i) *temp_ptr++ = 0;
+        from_vision_ptr->reliability = 1;
+        from_vision_ptr->velocity[0] = velocity * 1000.0 / 30.0;
+
+        union U16Bytes * crc = (union U16Bytes *)&tx_buffer[3 + sizeof(struct FromVision)];
+        crc->u16 = 0xFFFF;
+        temp_ptr = &tx_buffer[1];  // Skip the start byte
+        for (uint8_t i = sizeof(struct FromVision) + 2; i; --i)
+          crc->u16 = _crc_ccitt_update(crc->u16, *temp_ptr++);
+        UARTTxBuffer(sizeof(struct FromVision) + 5);
+      }
     }
 
     if (flag_2hz_)

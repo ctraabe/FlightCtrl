@@ -93,7 +93,7 @@ void NavCommsInit(void)
 }
 
 // -----------------------------------------------------------------------------
-void ExchangeDataWithNav(void)
+void ExchangeDataWithNav(float accel)
 {
   // Request the SPI transmit buffer. Return if not available.
   uint8_t * tx_buffer = RequestSPITxBuffer();
@@ -132,12 +132,19 @@ void ExchangeDataWithNav(void)
 
   to_nav_ptr->timestamp = GetTimestamp();
   to_nav_ptr->state = State();
-  to_nav_ptr->accelerometer[0] = AccelerationVector()[X_BODY_AXIS];
-  to_nav_ptr->accelerometer[1] = AccelerationVector()[Y_BODY_AXIS];
-  to_nav_ptr->accelerometer[2] = AccelerationVector()[Z_BODY_AXIS];
-  to_nav_ptr->gyro[0] = AngularRateVector()[X_BODY_AXIS];
-  to_nav_ptr->gyro[1] = AngularRateVector()[Y_BODY_AXIS];
-  to_nav_ptr->gyro[2] = AngularRateVector()[Z_BODY_AXIS];
+
+  to_nav_ptr->accelerometer[0] = accel;
+  to_nav_ptr->accelerometer[1] = 0.0;
+  to_nav_ptr->accelerometer[2] = -1.0;
+  to_nav_ptr->gyro[0] = 0.0;
+  to_nav_ptr->gyro[1] = 0.0;
+  to_nav_ptr->gyro[2] = 0.0;
+  // to_nav_ptr->accelerometer[0] = AccelerationVector()[X_BODY_AXIS];
+  // to_nav_ptr->accelerometer[1] = AccelerationVector()[Y_BODY_AXIS];
+  // to_nav_ptr->accelerometer[2] = AccelerationVector()[Z_BODY_AXIS];
+  // to_nav_ptr->gyro[0] = AngularRateVector()[X_BODY_AXIS];
+  // to_nav_ptr->gyro[1] = AngularRateVector()[Y_BODY_AXIS];
+  // to_nav_ptr->gyro[2] = AngularRateVector()[Z_BODY_AXIS];
   to_nav_ptr->quaternion[0] = Quat()[0];
   to_nav_ptr->quaternion[1] = Quat()[1];
   to_nav_ptr->quaternion[2] = Quat()[2];

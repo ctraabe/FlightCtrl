@@ -29,7 +29,7 @@ float HeadingCorrection(void);
 void NavCommsInit(void);
 
 // -----------------------------------------------------------------------------
-void ExchangeDataWithNav(void);
+void ExchangeDataWithNav(float accel);
 
 // -----------------------------------------------------------------------------
 void NotifyNav(void);
