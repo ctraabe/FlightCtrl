@@ -34,6 +34,12 @@ enum VerticalControlState {
 enum StateBits State(void);
 
 // -----------------------------------------------------------------------------
+enum HorizontalControlState HorizontalControlState(void);
+
+// -----------------------------------------------------------------------------
+enum VerticalControlState VerticalControlState(void);
+
+// -----------------------------------------------------------------------------
 uint8_t MotorsInhibited(void);
 
 // -----------------------------------------------------------------------------

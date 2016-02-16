@@ -22,10 +22,12 @@
 #include "main.h"
 #include "motors.h"
 #include "quaternion.h"
+#include "pressure_altitude.h"
 #include "sbus.h"
 #include "state.h"
 #include "uart.h"
 #include "vector.h"
+#include "vertical_speed.h"
 
 
 // =============================================================================
@@ -53,6 +55,10 @@ static struct FeedbackGains {
   float r;
   float psi;
   float psi_int;
+  float w_dot;
+  float w;
+  float z;
+  float z_int;
 } feedback_gains_ = { 0 };
 
 static struct Limits {
@@ -60,6 +66,8 @@ static struct Limits {
   float heading_error;
   float attitude_integral;
   float heading_integral;
+  float altitude_error;
+  float altitude_integral;
 } limits_ = { 0 };
 
 static struct KalmanCoeffiecients {
@@ -101,18 +109,23 @@ static float quat_cmd_[4];  // Target attitude in quaternion
 static float quat_model_[4] = { 1.0, 0.0, 0.0, 0.0 };
 static uint16_t setpoints_[MAX_MOTORS] = { 0 };
 
+// TODO: remove
+static float thrust_cmd_to_z_integral = 0.0;
+
 
 // =============================================================================
 // Private function declarations:
 
 static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
-  float * heading_rate_cmd, float * thrust_cmd);
+  float * heading_rate_cmd);
 static void FormAngularCommand(const float quat_cmd[4],
   float heading_rate_cmd, const struct KalmanState * kalman,
   const float attitude_integral[3], const struct FeedbackGains * k,
   const struct Limits * limits, float angular_cmd[3]);
 static void QuaternionFromGravityAndHeadingCommand(const float g_b_cmd[2],
   float heading_cmd, float quat_cmd[4]);
+static float ThrustCommand(const struct FeedbackGains * k,
+  const struct Limits * limits);
 static void UpdateAttitudeModel(const float quat_cmd[4], float heading_rate_cmd,
   const struct FeedbackGains * k, const struct AttitudeModelCoefficients * c,
   struct AttitudeModel * model);
@@ -202,6 +215,10 @@ void ControlInit(void)
   feedback_gains_.r = 5.367196113e+00;
   feedback_gains_.psi = 2.409048597e+01;
   feedback_gains_.psi_int = 2.270522950e+01;
+  feedback_gains_.w_dot = -2.022580993e-01 * 9.8;
+  feedback_gains_.w = 2.776627664e+00;
+  feedback_gains_.z = 3.711458217e+00;
+  feedback_gains_.z_int = 2.591737201e+00;
   kalman_coefficients_.A11 = 9.248488132e-01;
   kalman_coefficients_.A13 = 7.515118678e-03;
   kalman_coefficients_.A21 = 7.515118678e-03;
@@ -251,6 +268,7 @@ void ControlInit(void)
   attitude_model_coefficients_.r[0][1] = -1.619532952e-02;
   attitude_model_coefficients_.r[1][0] = -1.853281890e+00;
   attitude_model_coefficients_.r[1][1] = 8.552945558e-01;
+  UPDATE ME
 #endif
 
   // Compute the limit on the attitude error given the rate limit.
@@ -285,6 +303,13 @@ void ControlInit(void)
     / feedback_gains_.phi_int;
   limits_.heading_integral = MAX_HEADING_RATE * 0.5 * feedback_gains_.psi
     / feedback_gains_.psi_int;
+
+  limits_.altitude_error = 1.0;
+  limits_.altitude_integral = 8.0;
+
+  // TODO remove:
+  thrust_cmd_to_z_integral = 1.0 / feedback_gains_.z_int
+    / actuation_inverse_[0][3];
 }
 
 // -----------------------------------------------------------------------------
@@ -295,7 +320,7 @@ void Control(void)
 
   // TODO: add routines to form commands from an external source.
   // Derive a target attitude from the position of the sticks.
-  CommandsFromSticks(g_b_cmd, &heading_cmd_, &heading_rate_cmd, &thrust_cmd);
+  CommandsFromSticks(g_b_cmd, &heading_cmd_, &heading_rate_cmd);
   QuaternionFromGravityAndHeadingCommand(g_b_cmd, heading_cmd_, quat_cmd_);
 
   // Update the integral paths.
@@ -307,6 +332,9 @@ void Control(void)
   // Compute a new attitude acceleration command.
   FormAngularCommand(quat_cmd_, heading_rate_cmd, &kalman_state_,
     attitude_integral_, &feedback_gains_, &limits_, angular_cmd_);
+
+  // Compute a thrust command
+  thrust_cmd = ThrustCommand(&feedback_gains_, &limits_);
 
   int16_t limit = FloatToS16(thrust_cmd * 2.0);
   if (limit > MAX_CMD) limit = MAX_CMD;
@@ -379,7 +407,7 @@ static float * AttitudeError(const float quat_cmd[4], const float quat[4],
 // result and has the benefit of a direct correspondence with linear
 // acceleration.
 static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
-  float * heading_rate_cmd, float * thrust_cmd)
+  float * heading_rate_cmd)
 {
   if (SBusStale())
   {
@@ -407,12 +435,6 @@ static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
   else
     *heading_cmd = HeadingAngle();
   *heading_cmd = WrapToPlusMinusPi(*heading_cmd);
-
-  // Compute the thrust command.
-  const float k_sbus_to_thrust_ = (float)(MAX_THRUST_CMD - MIN_THRUST_CMD)
-    / (2.0 * (float)SBUS_MAX);
-  *thrust_cmd = (float)(SBusThrust() + SBUS_MAX) * k_sbus_to_thrust_
-    + MIN_THRUST_CMD;
 }
 
 // -----------------------------------------------------------------------------
@@ -495,9 +517,80 @@ static void FormAngularCommand(const float quat_cmd[4],
     + k->phi * attitude_error[Y_BODY_AXIS]
     + k->phi_int * attitude_integral[Y_BODY_AXIS];
   angular_cmd[Z_BODY_AXIS] =
-    + k->psi * attitude_error[Z_BODY_AXIS]
     + k->r * (rate_cmd[Z_BODY_AXIS] - AngularRate(Z_BODY_AXIS))
+    + k->psi * attitude_error[Z_BODY_AXIS]
     + k->psi_int * attitude_integral[Z_BODY_AXIS];
+}
+
+// -----------------------------------------------------------------------------
+static float ThrustCommand(const struct FeedbackGains * k,
+  const struct Limits * limits)
+{
+  // TODO: make these inputs
+  static int16_t hover_thrust_stick = 0;
+  static float z_integral = 0.0;
+  static float z_cmd = 0.0;
+  static enum VerticalControlState vertical_control_state_pv = 0;
+
+  // TODO: remove
+  static float thrust_cmd_pv = 0.0;
+
+  float thrust_cmd = 0;
+
+  if (VerticalControlState() == VERTICAL_CONTROL_STATE_MANUAL)
+  {
+    const float k_sbus_to_thrust_ = (float)(MAX_THRUST_CMD - MIN_THRUST_CMD)
+      / (2.0 * (float)SBUS_MAX);
+    thrust_cmd = (float)(SBusThrust() + SBUS_MAX) * k_sbus_to_thrust_
+      + MIN_THRUST_CMD;
+  }
+  else
+  {
+    float w, z;
+
+    // if (VerticalControlState() == VERTICAL_CONTROL_STATE_BARO())
+    // {
+      if (VerticalControlState() != vertical_control_state_pv)
+      {
+        z_cmd = -DeltaPressureAltitude();
+
+        // TODO: compute these
+        hover_thrust_stick = SBusThrust();
+        z_integral = thrust_cmd_to_z_integral * thrust_cmd_pv;
+      }
+      z = -DeltaPressureAltitude();
+      w = -VerticalSpeed();
+    // }
+    // else
+    // {
+    //   if (VerticalControlState() != vertical_control_state_pv)
+    //     z_cmd = PositionVector()[2];
+    //   z = PositionVector()[2];
+    //   w = VelocityVector()[2];
+    // }
+
+    float w_cmd = (float)(hover_thrust_stick - SBusThrust())
+      / (float)(SBUS_MAX);
+    float w_error = FloatLimit(w_cmd - w, -10.0, 10.0);
+    float z_error = FloatLimit(z_cmd - z, -limits->altitude_error,
+      limits->altitude_error);
+
+    // TODO: do this actuation inverse multiplication in a smarter way!
+    thrust_cmd = FloatLimit(actuation_inverse_[0][3] * (
+      + k->w_dot * -(Acceleration(Z_BODY_AXIS) + 1.0)
+      + k->w * w_error
+      + k->z * z_error
+      + k->z_int * z_integral),
+      MIN_THRUST_CMD, MAX_THRUST_CMD);
+
+    // TODO: do this elsewhere
+    z_integral += z_error * DT;
+    z_cmd += w_cmd * DT;
+  }
+
+  thrust_cmd_pv = thrust_cmd;
+
+  return thrust_cmd;
 }
 
 // -----------------------------------------------------------------------------
@@ -538,6 +631,7 @@ static void UpdateIntegrals(const struct AttitudeModel * model,
   float attitude_error[3];
   AttitudeError(model->quat, Quat(), attitude_error);
 
+  // TODO: make a symmetric limiter
   attitude_integral[X_BODY_AXIS] = FloatLimit(attitude_integral[X_BODY_AXIS]
     + attitude_error[X_BODY_AXIS] * DT, -limits->attitude_integral,
     limits->attitude_integral);

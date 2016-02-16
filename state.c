@@ -41,6 +41,18 @@ enum StateBits State(void)
 }
 
 // -----------------------------------------------------------------------------
+enum HorizontalControlState HorizontalControlState(void)
+{
+  return horizontal_control_state_;
+}
+
+// -----------------------------------------------------------------------------
+enum VerticalControlState VerticalControlState(void)
+{
+  return vertical_control_state_;
+}
+
+// -----------------------------------------------------------------------------
 uint8_t MotorsInhibited(void)
 {
   return state_ & STATE_BIT_MOTORS_INHIBITED;
@@ -178,6 +190,7 @@ static void UpdateControlState(void)
     {
       horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_TAKEOFF;
     }
+    REMOVE THIS
     UARTPrintf("H%i", horizontal_control_state_);
   }
 
