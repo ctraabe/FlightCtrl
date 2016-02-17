@@ -207,14 +207,14 @@ void ControlInit(void)
 
   // TODO: remove these temporary initializations and replace computations.
 #ifdef SMALL_QUAD
-  // control proportion: 0.500000
-  feedback_gains_.p_dot = 3.046702738e+00;
-  feedback_gains_.p = 7.144888332e+01;
-  feedback_gains_.phi = 4.844637366e+02;
-  feedback_gains_.phi_int = 1.085035883e+03;
-  feedback_gains_.r = 5.367196113e+00;
-  feedback_gains_.psi = 2.409048597e+01;
-  feedback_gains_.psi_int = 2.270522950e+01;
+  // control proportion: 0.400000
+  feedback_gains_.p_dot = 2.756626048e+00;
+  feedback_gains_.p = 6.157278112e+01;
+  feedback_gains_.phi = 3.875709893e+02;
+  feedback_gains_.phi_int = 8.058248309e+02;
+  feedback_gains_.r = 5.088500555e+00;
+  feedback_gains_.psi = 1.927238878e+01;
+  feedback_gains_.psi_int = 1.644482546e+01;
   feedback_gains_.w_dot = -2.022580993e-01 * 9.8;
   feedback_gains_.w = 2.776627664e+00;
   feedback_gains_.z = 3.711458217e+00;
@@ -231,14 +231,14 @@ void ControlInit(void)
   kalman_coefficients_.K[1][1] = 3.062778776e-01;
   kalman_coefficients_.K[2][0] = 2.359221725e-01;
   kalman_coefficients_.K[2][1] = 1.445698341e+02;
-  attitude_model_coefficients_.p_q[0][0] = 2.744268912e-04;
-  attitude_model_coefficients_.p_q[0][1] = 2.469601072e-04;
-  attitude_model_coefficients_.p_q[1][0] = -1.691698564e+00;
-  attitude_model_coefficients_.p_q[1][1] = 7.289510825e-01;
-  attitude_model_coefficients_.r[0][0] = 1.395671668e-02;
-  attitude_model_coefficients_.r[0][1] = -1.339214299e-02;
-  attitude_model_coefficients_.r[1][0] = -1.851291018e+00;
-  attitude_model_coefficients_.r[1][1] = 8.543211959e-01;
+  attitude_model_coefficients_.p_q[0][0] = 2.765384926e-04;
+  attitude_model_coefficients_.p_q[0][1] = 2.507511644e-04;
+  attitude_model_coefficients_.p_q[1][0] = -1.713192666e+00;
+  attitude_model_coefficients_.p_q[1][1] = 7.456593563e-01;
+  attitude_model_coefficients_.r[0][0] = 1.398494203e-02;
+  attitude_model_coefficients_.r[0][1] = -1.341922658e-02;
+  attitude_model_coefficients_.r[1][0] = -1.854968679e+00;
+  attitude_model_coefficients_.r[1][1] = 8.578473223e-01;
 #else
   // control proportion: 0.400000
   feedback_gains_.p_dot = 6.125465888e-01;

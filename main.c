@@ -142,7 +142,7 @@ int16_t main(void)
 #endif
 /*
   // TODO: Delete these temporary EEPROM settings.
-  SBusSetChannels(1, 3, 0, 2, 17, 5, 4, 6, 7, 4, 5, 16, 13, 8, 9, 10, 11);
+  SBusSetChannels(2, 3, 0, 1, 17, 5, 4, 6, 7, 4, 5, 16, 13, 8, 9, 10, 11);
   SetNMotors(4);
   float b_inv[8][4] = {
     { 1.899006944e+00, 1.899006944e+00, -3.818934998e+01, -3.966096111e+01 },

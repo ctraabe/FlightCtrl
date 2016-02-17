@@ -171,15 +171,12 @@ static void UpdateControlState(void)
     {
       case SBUS_SWITCH_DOWN:
         horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_MANUAL;
-        GreenLEDOff();
         break;
       case SBUS_SWITCH_CENTER:
         horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_HOLD;
-        GreenLEDOn();
         break;
       case SBUS_SWITCH_UP:
         horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_AUTO;
-        GreenLEDOn();
         break;
     }
 
@@ -190,8 +187,6 @@ static void UpdateControlState(void)
     {
       horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_TAKEOFF;
     }
-    REMOVE THIS
-    UARTPrintf("H%i", horizontal_control_state_);
   }
 
   if (SBusVerticalControl() != vc_switch_pv)
@@ -216,7 +211,6 @@ static void UpdateControlState(void)
     {
       state_ |= STATE_BIT_POSITION_CONTROL_INHIBITED;
     }
-    UARTPrintf("V%i", vertical_control_state_);
   }
 
   // Allow thrust_stick movement in takeoff mode.
@@ -246,11 +240,9 @@ static void UpdateControlState(void)
   if (state_ & STATE_BIT_POSITION_CONTROL_INHIBITED)
   {
     horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_MANUAL;
-    GreenLEDOff();
     if (vertical_control_state_ == VERTICAL_CONTROL_STATE_AUTO)
     {
       vertical_control_state_ = VERTICAL_CONTROL_STATE_BARO;
-      UARTPrintf("V%i", vertical_control_state_);
     }
   }
 

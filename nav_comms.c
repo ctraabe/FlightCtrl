@@ -117,7 +117,8 @@ void ExchangeDataWithNav(void)
     float attitude_integral[3];
     float quaternion_model[4];
     float angular_command[3];
-    uint16_t motor_setpoints[8];
+    float kalman_p_dot;
+    float kalman_q_dot;
 #endif
   } __attribute__((packed));
 
@@ -132,12 +133,12 @@ void ExchangeDataWithNav(void)
 
   to_nav_ptr->timestamp = GetTimestamp();
   to_nav_ptr->state = State();
-  to_nav_ptr->accelerometer[0] = AccelerationVector()[X_BODY_AXIS];
-  to_nav_ptr->accelerometer[1] = AccelerationVector()[Y_BODY_AXIS];
-  to_nav_ptr->accelerometer[2] = AccelerationVector()[Z_BODY_AXIS];
-  to_nav_ptr->gyro[0] = AngularRateVector()[X_BODY_AXIS];
-  to_nav_ptr->gyro[1] = AngularRateVector()[Y_BODY_AXIS];
-  to_nav_ptr->gyro[2] = AngularRateVector()[Z_BODY_AXIS];
+  to_nav_ptr->accelerometer[0] = Acceleration(X_BODY_AXIS);
+  to_nav_ptr->accelerometer[1] = Acceleration(Y_BODY_AXIS);
+  to_nav_ptr->accelerometer[2] = Acceleration(Z_BODY_AXIS);
+  to_nav_ptr->gyro[0] = AngularRate(X_BODY_AXIS);
+  to_nav_ptr->gyro[1] = AngularRate(Y_BODY_AXIS);
+  to_nav_ptr->gyro[2] = AngularRate(Z_BODY_AXIS);
   to_nav_ptr->quaternion[0] = Quat()[0];
   to_nav_ptr->quaternion[1] = Quat()[1];
   to_nav_ptr->quaternion[2] = Quat()[2];
@@ -147,8 +148,8 @@ void ExchangeDataWithNav(void)
   to_nav_ptr->sbus_roll = SBusRoll();
   to_nav_ptr->sbus_yaw = SBusYaw();
   to_nav_ptr->sbus_thrust = SBusThrust();
+  to_nav_ptr->biased_pressure = BiasedPressureSum();
   to_nav_ptr->battery_voltage = BatteryVoltage();
-  to_nav_ptr->battery_voltage = BiasedPressureSum();
   to_nav_ptr->heading_command = HeadingCommand();
   to_nav_ptr->attitude_integral[0] = AttitudeIntegralVector()[0];
   to_nav_ptr->attitude_integral[1] = AttitudeIntegralVector()[1];
@@ -160,14 +161,8 @@ void ExchangeDataWithNav(void)
   to_nav_ptr->angular_command[0] = AngularCommand(0);
   to_nav_ptr->angular_command[1] = AngularCommand(1);
   to_nav_ptr->angular_command[2] = AngularCommand(2);
-  to_nav_ptr->motor_setpoints[0] = MotorSetpoint(0);
-  to_nav_ptr->motor_setpoints[1] = MotorSetpoint(1);
-  to_nav_ptr->motor_setpoints[2] = MotorSetpoint(2);
-  to_nav_ptr->motor_setpoints[3] = MotorSetpoint(3);
-  to_nav_ptr->motor_setpoints[4] = MotorSetpoint(4);
-  to_nav_ptr->motor_setpoints[5] = MotorSetpoint(5);
-  to_nav_ptr->motor_setpoints[6] = MotorSetpoint(6);
-  to_nav_ptr->motor_setpoints[7] = MotorSetpoint(7);
+  to_nav_ptr->kalman_p_dot = KalmanPDot();
+  to_nav_ptr->kalman_q_dot = KalmanQDot();
 #endif
 
   // Add a CRC just after the data payload. Note that this is the same CRC that
