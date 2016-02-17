@@ -99,14 +99,14 @@ static struct KalmanState {
 static struct AttitudeModel {
   float quat[4];
   float delays[3][2];
-} attitude_model_ = { 0 };
+} attitude_model_ = { { 1.0, 0.0, 0.0, 0.0 }, { { 0.0, 0.0 }, { 0.0, 0.0 },
+  { 0.0, 0.0} } };
 
 static float attitude_integral_[3] = { 0.0, 0.0, 0.0 };
 
 static float angular_cmd_[3] = { 0 };
 static float heading_cmd_ = 0.0;
 static float quat_cmd_[4];  // Target attitude in quaternion
-static float quat_model_[4] = { 1.0, 0.0, 0.0, 0.0 };
 static uint16_t setpoints_[MAX_MOTORS] = { 0 };
 
 // TODO: remove
@@ -193,7 +193,7 @@ const float * QuatCommandVector(void)
 // -----------------------------------------------------------------------------
 const float * QuatModelVector(void)
 {
-  return quat_model_;
+  return attitude_model_.quat;
 }
 
 
@@ -570,7 +570,7 @@ static float ThrustCommand(const struct FeedbackGains * k,
     // }
 
     float w_cmd = (float)(hover_thrust_stick - SBusThrust())
-      / (float)(SBUS_MAX);
+      / (float)(SBUS_MAX) * 0.25;
     float w_error = FloatLimit(w_cmd - w, -10.0, 10.0);
     float z_error = FloatLimit(z_cmd - z, -limits->altitude_error,
       limits->altitude_error);
@@ -589,6 +589,7 @@ static float ThrustCommand(const struct FeedbackGains * k,
   }
 
   thrust_cmd_pv = thrust_cmd;
+  vertical_control_state_pv = VerticalControlState();
 
   return thrust_cmd;
 }
