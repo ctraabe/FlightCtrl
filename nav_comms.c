@@ -64,6 +64,12 @@ uint8_t NavRecieved(void)
 }
 
 // -----------------------------------------------------------------------------
+uint16_t NavStatus(void)
+{
+  return from_nav_[from_nav_tail_].status;
+}
+
+// -----------------------------------------------------------------------------
 const volatile float * PositionVector(void)
 {
   return from_nav_[from_nav_tail_].position;
@@ -76,7 +82,13 @@ const volatile float * VelocityVector(void)
 }
 
 // -----------------------------------------------------------------------------
-float HeadingCorrection(void)
+float HeadingCorrection0(void)
+{
+  return from_nav_[from_nav_tail_].heading_correction_quat_0;
+}
+
+// -----------------------------------------------------------------------------
+float HeadingCorrectionZ(void)
 {
   return from_nav_[from_nav_tail_].heading_correction_quat_z;
 }

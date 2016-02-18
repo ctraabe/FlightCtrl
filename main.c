@@ -193,7 +193,14 @@ int16_t main(void)
       flag_128hz_ = 0;
     }
 
-    if (NavRecieved()) ProcessDataFromNav();
+    if (NavRecieved())
+    {
+      ProcessDataFromNav();
+      if (NavStatus() == 1)
+      {
+        CorrectHeading();
+      }
+    }
 
     if (flag_64hz_)
     {

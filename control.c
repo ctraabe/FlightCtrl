@@ -114,8 +114,8 @@ static void FormAngularCommand(const float quat_cmd[4],
   float angular_cmd[3]);
 static void QuaternionFromGravityAndHeadingCommand(const float g_b_cmd[2],
   float heading_cmd, float quat_cmd[4]);
-static float FormThrustCommand(const struct FeedbackGains * k,
-  const struct Limits * limits);
+static void FormThrustCommand(const struct FeedbackGains * k,
+  const struct Limits * limits, float * thrust_cmd);
 static void GravityCommandsFromNav(const struct FeedbackGains * k,
   const struct Limits * limits, float g_b_cmd[2]);
 static void UpdateKalmanFilter(const float angular_cmd[3],
@@ -303,7 +303,7 @@ void Control(void)
     &feedback_gains_, &limits_, angular_cmd_);
 
   // Compute a thrust command
-  thrust_cmd_ = FormThrustCommand(&feedback_gains_, &limits_);
+  FormThrustCommand(&feedback_gains_, &limits_, &thrust_cmd_);
 
   int16_t limit = FloatToS16(thrust_cmd_ * 2.0);
   if (limit > MAX_CMD) limit = MAX_CMD;
@@ -495,6 +495,8 @@ static void GravityCommandsFromNav(const struct FeedbackGains * k,
     return;
   }
 
+  if (NavStatus() != 1) return;
+
   // Limit the position error.
   float x_i_error = FloatLimit(-PositionVector()[0], -limits->position_error,
     limits->position_error);
@@ -518,8 +520,8 @@ static void GravityCommandsFromNav(const struct FeedbackGains * k,
 }
 
 // -----------------------------------------------------------------------------
-static float FormThrustCommand(const struct FeedbackGains * k,
-  const struct Limits * limits)
+static void FormThrustCommand(const struct FeedbackGains * k,
+  const struct Limits * limits, float * thrust_cmd)
 {
   // TODO: make these inputs
   static int16_t hover_thrust_stick = 0;
@@ -530,13 +532,11 @@ static float FormThrustCommand(const struct FeedbackGains * k,
   // TODO: remove
   static float thrust_cmd_pv = 0.0;
 
-  float thrust_cmd = 0;
-
   if (VerticalControlState() == VERTICAL_CONTROL_STATE_MANUAL)
   {
     const float k_sbus_to_thrust_ = (float)(MAX_THRUST_CMD - MIN_THRUST_CMD)
       / (2.0 * (float)SBUS_MAX);
-    thrust_cmd = (float)(SBusThrust() + SBUS_MAX) * k_sbus_to_thrust_
+    *thrust_cmd = (float)(SBusThrust() + SBUS_MAX) * k_sbus_to_thrust_
       + MIN_THRUST_CMD;
   }
   else
@@ -552,6 +552,7 @@ static float FormThrustCommand(const struct FeedbackGains * k,
 
     if (VerticalControlState() == VERTICAL_CONTROL_STATE_AUTO)
     {
+      if (NavStatus() != 1) return;
       if (VerticalControlState() != vertical_control_state_pv)
         z_cmd = PositionVector()[2];
       z = PositionVector()[2];
@@ -573,7 +574,7 @@ static float FormThrustCommand(const struct FeedbackGains * k,
       limits->altitude_error);
 
     // TODO: do this actuation inverse multiplication in a smarter way!
-    thrust_cmd = FloatLimit(actuation_inverse_[0][3] * (
+    *thrust_cmd = FloatLimit(actuation_inverse_[0][3] * (
       + k->w_dot * -(-VerticalAcceleration())
       + k->w * w_error
       + k->z * z_error
@@ -585,10 +586,8 @@ static float FormThrustCommand(const struct FeedbackGains * k,
     z_cmd += w_cmd * DT;
   }
 
-  thrust_cmd_pv = thrust_cmd;
+  thrust_cmd_pv = *thrust_cmd;
   vertical_control_state_pv = VerticalControlState();
-
-  return thrust_cmd;
 }
 
 // -----------------------------------------------------------------------------

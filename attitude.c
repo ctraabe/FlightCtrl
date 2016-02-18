@@ -4,6 +4,7 @@
 
 #include "adc.h"
 #include "main.h"
+#include "nav_comms.h"
 #include "quaternion.h"
 #include "vector.h"
 
@@ -64,6 +65,26 @@ void UpdateAttitude(void)
   }
   UpdateGravtiyInBody(quat_, g_b_);
   heading_angle_ = HeadingFromQuaternion(quat_);
+}
+
+// -----------------------------------------------------------------------------
+void CorrectHeading(void)
+{
+  // Disregard bad data
+  if (HeadingCorrection0() > 1.0 || HeadingCorrection0() < 0.95) return;
+  // TODO: find out why fabs() isn't available
+  if (HeadingCorrectionZ() > 0.05 || HeadingCorrectionZ() < -0.05) return;
+
+  float quat_corection[4] = { HeadingCorrection0(), 0.0, 0.0,
+    HeadingCorrectionZ() };
+
+  float result[4];
+  QuaternionMultiply(quat_corection, quat_, result);
+  quat_[0] = result[0];
+  quat_[1] = result[1];
+  quat_[2] = result[2];
+  quat_[3] = result[3];
+  QuaternionNormalizingFilter(quat_);
 }
 
 // -----------------------------------------------------------------------------
