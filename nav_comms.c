@@ -114,8 +114,6 @@ void ExchangeDataWithNav(void)
     uint16_t biased_pressure;
     uint16_t battery_voltage;
     float heading_command;
-    float attitude_integral[3];
-    float quaternion_model[4];
     float angular_command[3];
     float kalman_p_dot;
     float kalman_q_dot;
@@ -151,13 +149,6 @@ void ExchangeDataWithNav(void)
   to_nav_ptr->biased_pressure = BiasedPressureSum();
   to_nav_ptr->battery_voltage = BatteryVoltage();
   to_nav_ptr->heading_command = HeadingCommand();
-  to_nav_ptr->attitude_integral[0] = AttitudeIntegralVector()[0];
-  to_nav_ptr->attitude_integral[1] = AttitudeIntegralVector()[1];
-  to_nav_ptr->attitude_integral[2] = AttitudeIntegralVector()[2];
-  to_nav_ptr->quaternion_model[0] = QuatModelVector()[0];
-  to_nav_ptr->quaternion_model[1] = QuatModelVector()[1];
-  to_nav_ptr->quaternion_model[2] = QuatModelVector()[2];
-  to_nav_ptr->quaternion_model[3] = QuatModelVector()[3];
   to_nav_ptr->angular_command[0] = AngularCommand(0);
   to_nav_ptr->angular_command[1] = AngularCommand(1);
   to_nav_ptr->angular_command[2] = AngularCommand(2);

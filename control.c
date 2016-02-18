@@ -51,10 +51,8 @@ static struct FeedbackGains {
   float p_dot;
   float p;
   float phi;
-  float phi_int;
   float r;
   float psi;
-  float psi_int;
   float w_dot;
   float w;
   float z;
@@ -64,8 +62,6 @@ static struct FeedbackGains {
 static struct Limits {
   float attitude_error;
   float heading_error;
-  float attitude_integral;
-  float heading_integral;
   float altitude_error;
   float altitude_integral;
 } limits_ = { 0 };
@@ -80,11 +76,6 @@ static struct KalmanCoeffiecients {
   float K[3][2];
 } kalman_coefficients_ = { 0 };
 
-static struct AttitudeModelCoefficients {
-  float p_q[2][2];
-  float r[2][2];
-} attitude_model_coefficients_ = { 0 };
-
 static struct KalmanState {
   float p_dot;
   float p;
@@ -95,14 +86,6 @@ static struct KalmanState {
   float p_pv;
   float q_pv;
 } kalman_state_ = { 0 };
-
-static struct AttitudeModel {
-  float quat[4];
-  float delays[3][2];
-} attitude_model_ = { { 1.0, 0.0, 0.0, 0.0 }, { { 0.0, 0.0 }, { 0.0, 0.0 },
-  { 0.0, 0.0} } };
-
-static float attitude_integral_[3] = { 0.0, 0.0, 0.0 };
 
 static float angular_cmd_[3] = { 0 };
 static float heading_cmd_ = 0.0;
@@ -120,17 +103,12 @@ static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
   float * heading_rate_cmd);
 static void FormAngularCommand(const float quat_cmd[4],
   float heading_rate_cmd, const struct KalmanState * kalman,
-  const float attitude_integral[3], const struct FeedbackGains * k,
-  const struct Limits * limits, float angular_cmd[3]);
+  const struct FeedbackGains * k, const struct Limits * limits,
+  float angular_cmd[3]);
 static void QuaternionFromGravityAndHeadingCommand(const float g_b_cmd[2],
   float heading_cmd, float quat_cmd[4]);
 static float ThrustCommand(const struct FeedbackGains * k,
   const struct Limits * limits);
-static void UpdateAttitudeModel(const float quat_cmd[4], float heading_rate_cmd,
-  const struct FeedbackGains * k, const struct AttitudeModelCoefficients * c,
-  struct AttitudeModel * model);
-static void UpdateIntegrals(const struct AttitudeModel * model,
-  const struct Limits * limits, float attitude_integral[3]);
 static void UpdateKalmanFilter(const float angular_cmd[3],
   const struct KalmanCoeffiecients * k, struct KalmanState * x);
 
@@ -140,12 +118,6 @@ static void UpdateKalmanFilter(const float angular_cmd[3],
 float AngularCommand(enum BodyAxes axis)
 {
   return angular_cmd_[axis];
-}
-
-// -----------------------------------------------------------------------------
-const float * AttitudeIntegralVector(void)
-{
-  return attitude_integral_;
 }
 
 // -----------------------------------------------------------------------------
@@ -190,12 +162,6 @@ const float * QuatCommandVector(void)
   return quat_cmd_;
 }
 
-// -----------------------------------------------------------------------------
-const float * QuatModelVector(void)
-{
-  return attitude_model_.quat;
-}
-
 
 // =============================================================================
 // Public functions:
@@ -211,10 +177,8 @@ void ControlInit(void)
   feedback_gains_.p_dot = 2.756626048e+00;
   feedback_gains_.p = 6.157278112e+01;
   feedback_gains_.phi = 3.875709893e+02;
-  feedback_gains_.phi_int = 8.058248309e+02;
   feedback_gains_.r = 5.088500555e+00;
   feedback_gains_.psi = 1.927238878e+01;
-  feedback_gains_.psi_int = 1.644482546e+01;
   feedback_gains_.w_dot = -2.022580993e-01 * 9.8;
   feedback_gains_.w = 2.776627664e+00;
   feedback_gains_.z = 3.711458217e+00;
@@ -231,23 +195,13 @@ void ControlInit(void)
   kalman_coefficients_.K[1][1] = 3.062778776e-01;
   kalman_coefficients_.K[2][0] = 2.359221725e-01;
   kalman_coefficients_.K[2][1] = 1.445698341e+02;
-  attitude_model_coefficients_.p_q[0][0] = 2.765384926e-04;
-  attitude_model_coefficients_.p_q[0][1] = 2.507511644e-04;
-  attitude_model_coefficients_.p_q[1][0] = -1.713192666e+00;
-  attitude_model_coefficients_.p_q[1][1] = 7.456593563e-01;
-  attitude_model_coefficients_.r[0][0] = 1.398494203e-02;
-  attitude_model_coefficients_.r[0][1] = -1.341922658e-02;
-  attitude_model_coefficients_.r[1][0] = -1.854968679e+00;
-  attitude_model_coefficients_.r[1][1] = 8.578473223e-01;
 #else
   // control proportion: 0.400000
   feedback_gains_.p_dot = 6.125465888e-01;
   feedback_gains_.p = 1.620762355e+01;
   feedback_gains_.phi = 6.256019555e+01;
-  feedback_gains_.phi_int = 7.978628452e+01;
   feedback_gains_.r = 2.493839316e+00;
   feedback_gains_.psi = 3.316200008e+00;
-  feedback_gains_.psi_int = 1.453949640e+00;
   kalman_coefficients_.A11 = 8.943955582e-01;
   kalman_coefficients_.A13 = 7.392310928e-03;
   kalman_coefficients_.A21 = 7.392310928e-03;
@@ -260,14 +214,6 @@ void ControlInit(void)
   kalman_coefficients_.K[1][1] = 2.905144232e-01;
   kalman_coefficients_.K[2][0] = 2.225348506e-01;
   kalman_coefficients_.K[2][1] = 1.470361439e+02;
-  attitude_model_coefficients_.p_q[0][0] = 4.104693647e-04;
-  attitude_model_coefficients_.p_q[0][1] = 3.865637733e-04;
-  attitude_model_coefficients_.p_q[1][0] = -1.822375822e+00;
-  attitude_model_coefficients_.p_q[1][1] = 8.352938353e-01;
-  attitude_model_coefficients_.r[0][0] = 1.700238472e-02;
-  attitude_model_coefficients_.r[0][1] = -1.619532952e-02;
-  attitude_model_coefficients_.r[1][0] = -1.853281890e+00;
-  attitude_model_coefficients_.r[1][1] = 8.552945558e-01;
   UPDATE ME
 #endif
 
@@ -299,11 +245,6 @@ void ControlInit(void)
   // k_sbus_to_thrust_ = (max_thrust_cmd_ - min_thrust_cmd_) / (2.0 * SBUS_MAX);
 */
 
-  limits_.attitude_integral = MAX_G_B_CMD * 0.5 * feedback_gains_.phi
-    / feedback_gains_.phi_int;
-  limits_.heading_integral = MAX_HEADING_RATE * 0.5 * feedback_gains_.psi
-    / feedback_gains_.psi_int;
-
   limits_.altitude_error = 1.0;
   limits_.altitude_integral = 8.0;
 
@@ -323,15 +264,12 @@ void Control(void)
   CommandsFromSticks(g_b_cmd, &heading_cmd_, &heading_rate_cmd);
   QuaternionFromGravityAndHeadingCommand(g_b_cmd, heading_cmd_, quat_cmd_);
 
-  // Update the integral paths.
-  UpdateIntegrals(&attitude_model_, &limits_, attitude_integral_);
-
   // Update the pitch and roll Kalman filters before recomputing the command.
   UpdateKalmanFilter(angular_cmd_, &kalman_coefficients_, &kalman_state_);
 
   // Compute a new attitude acceleration command.
   FormAngularCommand(quat_cmd_, heading_rate_cmd, &kalman_state_,
-    attitude_integral_, &feedback_gains_, &limits_, angular_cmd_);
+    &feedback_gains_, &limits_, angular_cmd_);
 
   // Compute a thrust command
   thrust_cmd = ThrustCommand(&feedback_gains_, &limits_);
@@ -350,10 +288,6 @@ void Control(void)
     for (uint8_t i = NMotors(); i--; ) SetMotorSetpoint(i, 0);
 
   TxMotorSetpoints();
-
-  // Update the model for the next time step.
-  UpdateAttitudeModel(quat_cmd_, heading_rate_cmd, &feedback_gains_,
-    &attitude_model_coefficients_, &attitude_model_);
 }
 
 // -----------------------------------------------------------------------------
@@ -487,8 +421,8 @@ static void QuaternionFromGravityAndHeadingCommand(const float g_b_cmd[2],
 // -----------------------------------------------------------------------------
 static void FormAngularCommand(const float quat_cmd[4],
   float heading_rate_cmd, const struct KalmanState * kalman,
-  const float attitude_integral[3], const struct FeedbackGains * k,
-  const struct Limits * limits, float angular_cmd[3])
+  const struct FeedbackGains * k, const struct Limits * limits,
+  float angular_cmd[3])
 {
   float attitude_error[3];
   AttitudeError(quat_cmd, Quat(), attitude_error);
@@ -509,17 +443,14 @@ static void FormAngularCommand(const float quat_cmd[4],
   angular_cmd[X_BODY_AXIS] =
     + k->p_dot * -kalman->p_dot
     + k->p * (rate_cmd[X_BODY_AXIS] - AngularRate(X_BODY_AXIS))
-    + k->phi * attitude_error[X_BODY_AXIS]
-    + k->phi_int * attitude_integral[X_BODY_AXIS];
+    + k->phi * attitude_error[X_BODY_AXIS];
   angular_cmd[Y_BODY_AXIS] =
     + k->p_dot * -kalman->q_dot
     + k->p * (rate_cmd[Y_BODY_AXIS] - AngularRate(Y_BODY_AXIS))
-    + k->phi * attitude_error[Y_BODY_AXIS]
-    + k->phi_int * attitude_integral[Y_BODY_AXIS];
+    + k->phi * attitude_error[Y_BODY_AXIS];
   angular_cmd[Z_BODY_AXIS] =
     + k->r * (rate_cmd[Z_BODY_AXIS] - AngularRate(Z_BODY_AXIS))
-    + k->psi * attitude_error[Z_BODY_AXIS]
-    + k->psi_int * attitude_integral[Z_BODY_AXIS];
+    + k->psi * attitude_error[Z_BODY_AXIS];
 }
 
 // -----------------------------------------------------------------------------
@@ -592,56 +523,6 @@ static float ThrustCommand(const struct FeedbackGains * k,
   vertical_control_state_pv = VerticalControlState();
 
   return thrust_cmd;
-}
-
-// -----------------------------------------------------------------------------
-// This function updates the attitude model that is used for the model-based
-// integral action.
-static void UpdateAttitudeModel(const float quat_cmd[4], float heading_rate_cmd,
-  const struct FeedbackGains * k, const struct AttitudeModelCoefficients * c,
-  struct AttitudeModel * model)
-{
-  // Compute the error between the model's attitude and the command.
-  float attitude_error[3];
-  AttitudeError(quat_cmd, model->quat, attitude_error);
-
-  // Distribute the heading rate command to the axes.
-  float g_b[3], rate_cmd[3];
-  UpdateGravtiyInBody(model->quat, g_b);
-  Vector3Scale(g_b, heading_rate_cmd, rate_cmd);
-
-  float angular_rate[3];
-  angular_rate[X_BODY_AXIS] = DirectForm2ZeroB0(k->p * rate_cmd[X_BODY_AXIS]
-    + k->phi * attitude_error[X_BODY_AXIS], c->p_q, model->delays[X_BODY_AXIS]);
-  angular_rate[Y_BODY_AXIS] = DirectForm2ZeroB0(k->p * rate_cmd[Y_BODY_AXIS]
-    + k->phi * attitude_error[Y_BODY_AXIS], c->p_q, model->delays[Y_BODY_AXIS]);
-
-  angular_rate[Z_BODY_AXIS] = DirectForm2ZeroB0(k->r * rate_cmd[Z_BODY_AXIS]
-    + k->psi * attitude_error[Z_BODY_AXIS], c->r, model->delays[Z_BODY_AXIS]);
-
-  UpdateQuaternion(model->quat, angular_rate, DT);
-  QuaternionNormalizingFilter(model->quat);
-}
-
-// -----------------------------------------------------------------------------
-// This function updates the error integrals.
-static void UpdateIntegrals(const struct AttitudeModel * model,
-  const struct Limits * limits, float attitude_integral[3])
-{
-  // Compute the error between the actual and model attitudes.
-  float attitude_error[3];
-  AttitudeError(model->quat, Quat(), attitude_error);
-
-  // TODO: make a symmetric limiter
-  attitude_integral[X_BODY_AXIS] = FloatLimit(attitude_integral[X_BODY_AXIS]
-    + attitude_error[X_BODY_AXIS] * DT, -limits->attitude_integral,
-    limits->attitude_integral);
-  attitude_integral[Y_BODY_AXIS] = FloatLimit(attitude_integral[Y_BODY_AXIS]
-    + attitude_error[Y_BODY_AXIS] * DT, -limits->attitude_integral,
-    limits->attitude_integral);
-  attitude_integral[Z_BODY_AXIS] = FloatLimit(attitude_integral[Z_BODY_AXIS]
-    + attitude_error[Z_BODY_AXIS] * DT, -limits->heading_integral,
-    limits->heading_integral);
 }
 
 // -----------------------------------------------------------------------------
