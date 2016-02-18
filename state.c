@@ -182,11 +182,11 @@ static void UpdateControlState(void)
 
     if (hc_switch_pv == SBUS_SWITCH_DOWN) thrust_stick_0 = SBusThrust();
 
-    if ((SBusHorizontalControl() != SBUS_SWITCH_DOWN) && SBusThrustStickDown()
-        && (SBusVerticalControl() == SBUS_SWITCH_DOWN))
-    {
-      horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_TAKEOFF;
-    }
+    // if ((SBusHorizontalControl() != SBUS_SWITCH_DOWN) && SBusThrustStickDown()
+    //     && (SBusVerticalControl() == SBUS_SWITCH_DOWN))
+    // {
+    //   horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_TAKEOFF;
+    // }
   }
 
   if (SBusVerticalControl() != vc_switch_pv)
@@ -206,19 +206,19 @@ static void UpdateControlState(void)
     }
 
     // Disable takeoff if engaged without the thrust stick centered.
-    if ((horizontal_control_state_ == HORIZONTAL_CONTROL_STATE_TAKEOFF)
-      && !SBusThrustStickCentered())
-    {
-      state_ |= STATE_BIT_POSITION_CONTROL_INHIBITED;
-    }
+    // if ((horizontal_control_state_ == HORIZONTAL_CONTROL_STATE_TAKEOFF)
+    //   && !SBusThrustStickCentered())
+    // {
+    //   state_ |= STATE_BIT_POSITION_CONTROL_INHIBITED;
+    // }
   }
 
   // Allow thrust_stick movement in takeoff mode.
-  if ((horizontal_control_state_ == HORIZONTAL_CONTROL_STATE_TAKEOFF)
-    && vertical_control_state_ == VERTICAL_CONTROL_STATE_MANUAL)
-  {
-    thrust_stick_0 = SBusThrust();
-  }
+  // if ((horizontal_control_state_ == HORIZONTAL_CONTROL_STATE_TAKEOFF)
+  //   && vertical_control_state_ == VERTICAL_CONTROL_STATE_MANUAL)
+  // {
+  //   thrust_stick_0 = SBusThrust();
+  // }
 
   // Latch the position control inhibit bit if there is any thrust stick
   // movement or any other sticks deviate from center.
@@ -240,10 +240,11 @@ static void UpdateControlState(void)
   if (state_ & STATE_BIT_POSITION_CONTROL_INHIBITED)
   {
     horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_MANUAL;
-    if (vertical_control_state_ == VERTICAL_CONTROL_STATE_AUTO)
-    {
-      vertical_control_state_ = VERTICAL_CONTROL_STATE_BARO;
-    }
+  }
+
+  if (vertical_control_state_ == VERTICAL_CONTROL_STATE_AUTO)
+  {
+    vertical_control_state_ = VERTICAL_CONTROL_STATE_BARO;
   }
 
   // Set the past values.

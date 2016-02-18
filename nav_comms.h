@@ -14,10 +14,10 @@ uint8_t NavDataReady(void);
 uint8_t NavRecieved(void);
 
 // -----------------------------------------------------------------------------
-const volatile float * Position(void);
+const volatile float * PositionVector(void);
 
 // -----------------------------------------------------------------------------
-const volatile float * Velocity(void);
+const volatile float * VelocityVector(void);
 
 // -----------------------------------------------------------------------------
 float HeadingCorrection(void);

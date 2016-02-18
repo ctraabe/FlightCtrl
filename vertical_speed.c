@@ -10,14 +10,20 @@
 // =============================================================================
 // Private data:
 
-#define COMPLIMENTARY_GAIN (0.01)
+#define COMPLIMENTARY_GAIN (0.005)
 
-static float vertical_speed_ = 0.0;
+static float vertical_acceration_ = 0.0, vertical_speed_ = 0.0;
 
 
 // =============================================================================
 // Accessors:
 
+float VerticalAcceleration(void)
+{
+  return vertical_acceration_;
+}
+
+// -----------------------------------------------------------------------------
 float VerticalSpeed(void)
 {
   return vertical_speed_;
@@ -33,7 +39,7 @@ void UpdateVerticalSpeed(void)
 
   // Compute the projection of the acceleration reported by the accelerometer
   // along the inertial vertical axis.
-  float vertical_acceration = (1.0 + Vector3Dot(GravityInBodyVector(),
+  vertical_acceration_ = (1.0 + Vector3Dot(GravityInBodyVector(),
     AccelerationVector())) * -GRAVITY_ACCELERATION;  // positive up
 
   // Compute the derivative of the pressure altitude.
@@ -44,5 +50,5 @@ void UpdateVerticalSpeed(void)
   // Complimentary (Kalman) filter the integral of the vertical acceleration
   // reported by the accelerometer and the derivative of the pressure altitude.
   vertical_speed_ = (1.0 - COMPLIMENTARY_GAIN) * (vertical_speed_
-    + vertical_acceration * DT) + COMPLIMENTARY_GAIN * d_pressure_altitude;
+    + vertical_acceration_ * DT) + COMPLIMENTARY_GAIN * d_pressure_altitude;
 }

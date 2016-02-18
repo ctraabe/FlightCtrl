@@ -8,11 +8,13 @@
 #include "attitude.h"
 #include "control.h"
 #include "main.h"
+#include "pressure_altitude.h"
 #include "state.h"
 #include "sbus.h"
 #include "spi.h"
 #include "timing.h"
 #include "union_types.h"
+#include "vertical_speed.h"
 
 
 // =============================================================================
@@ -35,7 +37,7 @@ static volatile struct FromNav {
     float heading_correction_quat_z;
     uint16_t status;
     uint16_t crc;
-} __attribute__((packed)) from_nav_[2];
+} __attribute__((packed)) from_nav_[2] = { 0 };
 
 static volatile uint8_t nav_data_state_ = NAV_COMMS_IDLE;
 static uint8_t from_nav_head_ = 1, from_nav_tail_ = 0;
@@ -62,13 +64,13 @@ uint8_t NavRecieved(void)
 }
 
 // -----------------------------------------------------------------------------
-const volatile float * Position(void)
+const volatile float * PositionVector(void)
 {
   return from_nav_[from_nav_tail_].position;
 }
 
 // -----------------------------------------------------------------------------
-const volatile float * Velocity(void)
+const volatile float * VelocityVector(void)
 {
   return from_nav_[from_nav_tail_].velocity;
 }
@@ -111,12 +113,15 @@ void ExchangeDataWithNav(void)
     int16_t sbus_roll;
     int16_t sbus_yaw;
     int16_t sbus_thrust;
-    uint16_t biased_pressure;
     uint16_t battery_voltage;
+    float pressure_altitude;
+    float thrust_command;
     float heading_command;
     float angular_command[3];
     float kalman_p_dot;
     float kalman_q_dot;
+    float vertical_speed;
+    float vertical_acceleration;
 #endif
   } __attribute__((packed));
 
@@ -146,14 +151,17 @@ void ExchangeDataWithNav(void)
   to_nav_ptr->sbus_roll = SBusRoll();
   to_nav_ptr->sbus_yaw = SBusYaw();
   to_nav_ptr->sbus_thrust = SBusThrust();
-  to_nav_ptr->biased_pressure = BiasedPressureSum();
   to_nav_ptr->battery_voltage = BatteryVoltage();
+  to_nav_ptr->pressure_altitude = DeltaPressureAltitude();
+  to_nav_ptr->thrust_command = ThrustCommand();
   to_nav_ptr->heading_command = HeadingCommand();
   to_nav_ptr->angular_command[0] = AngularCommand(0);
   to_nav_ptr->angular_command[1] = AngularCommand(1);
   to_nav_ptr->angular_command[2] = AngularCommand(2);
   to_nav_ptr->kalman_p_dot = KalmanPDot();
   to_nav_ptr->kalman_q_dot = KalmanQDot();
+  to_nav_ptr->vertical_speed = VerticalSpeed();
+  to_nav_ptr->vertical_acceleration = VerticalAcceleration();
 #endif
 
   // Add a CRC just after the data payload. Note that this is the same CRC that
