@@ -216,8 +216,8 @@ void ControlInit(void)
   kalman_coefficients_.K[1][1] = 3.062778776e-01;
   kalman_coefficients_.K[2][0] = 2.359221725e-01;
   kalman_coefficients_.K[2][1] = 1.445698341e+02;
-  feedback_gains_.x_dot = 0.22;
-  feedback_gains_.x = 0.2;
+  feedback_gains_.x_dot = 0.16;
+  feedback_gains_.x = 0.1;
 #else
   // control proportion: 0.400000
   feedback_gains_.p_dot = 6.125465888e-01;
@@ -225,6 +225,10 @@ void ControlInit(void)
   feedback_gains_.phi = 6.256019555e+01;
   feedback_gains_.r = 2.493839316e+00;
   feedback_gains_.psi = 3.316200008e+00;
+  feedback_gains_.w_dot = 0.0e00;
+  feedback_gains_.w = 2.021170072e+00;
+  feedback_gains_.z = 2.755011237e+00;
+  feedback_gains_.z_int = 2.642923233e+00;
   kalman_coefficients_.A11 = 8.943955582e-01;
   kalman_coefficients_.A13 = 7.392310928e-03;
   kalman_coefficients_.A21 = 7.392310928e-03;
@@ -237,9 +241,8 @@ void ControlInit(void)
   kalman_coefficients_.K[1][1] = 2.905144232e-01;
   kalman_coefficients_.K[2][0] = 2.225348506e-01;
   kalman_coefficients_.K[2][1] = 1.470361439e+02;
-  UPDATE ME
-  feedback_gains_.x_dot = 0.22;
-  feedback_gains_.x = 0.2;
+  feedback_gains_.x_dot = 0.16;
+  feedback_gains_.x = 0.1;
 #endif
 
   // Compute the limit on the attitude error given the rate limit.
@@ -271,7 +274,7 @@ void ControlInit(void)
 */
 
   limits_.position_error = 0.75;
-  limits_.velocity_error = 2.0;
+  limits_.velocity_error = 2.0 * limits_.position_error;
   limits_.altitude_error = 0.5;
   limits_.vertical_speed_error = 2.5;
   limits_.z_integral = 8.0;
@@ -510,8 +513,8 @@ static void GravityCommandsFromNav(const struct FeedbackGains * k,
     limits->velocity_error);
 
   float a_i_cmd[2];  // acceleration command in inertial x-y plane
-  a_i_cmd[0] = k->x_dot * vx_i_error + k->x * x_i_error;
-  a_i_cmd[1] = k->x_dot * vy_i_error + k->x * y_i_error;
+  a_i_cmd[0] = FloatLimit(k->x_dot * vx_i_error + k->x * x_i_error, -0.4, 0.4);
+  a_i_cmd[1] = FloatLimit(k->x_dot * vy_i_error + k->x * y_i_error, -0.4, 0.4);
 
   // TODO: do not assume that the following does not contribute to heading.
   float cos_heading = cos(HeadingAngle()), sin_heading = sin(HeadingAngle());

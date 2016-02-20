@@ -10,8 +10,9 @@ enum StateBits {
   STATE_BIT_INITIALIZED                = 1<<1,
   STATE_BIT_STARTING                   = 1<<2,
   STATE_BIT_MOTORS_RUNNING             = 1<<3,
-  STATE_BIT_POSITION_CONTROL_INHIBITED = 1<<4,
-  STATE_BIT_TAKEOFF                    = 1<<5,
+  STATE_BIT_HORIZONTAL_POSITION_INHIBITED = 1<<4,
+  STATE_BIT_VERTICAL_POSITION_INHIBITED = 1<<5,
+  STATE_BIT_TAKEOFF                    = 1<<6,
 };
 
 enum HorizontalControlState {

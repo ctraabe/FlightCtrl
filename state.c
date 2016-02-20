@@ -209,7 +209,7 @@ static void UpdateControlState(void)
     // if ((horizontal_control_state_ == HORIZONTAL_CONTROL_STATE_TAKEOFF)
     //   && !SBusThrustStickCentered())
     // {
-    //   state_ |= STATE_BIT_POSITION_CONTROL_INHIBITED;
+    //   state_ |= STATE_BIT_HORIZONTAL_POSITION_INHIBITED;
     // }
   }
 
@@ -222,10 +222,16 @@ static void UpdateControlState(void)
 
   // Latch the position control inhibit bit if there is any thrust stick
   // movement or any other sticks deviate from center.
-  if ((abs(SBusThrust() - thrust_stick_0) > 10) || !SBusPitchStickCentered()
-    || !SBusRollStickCentered() || !SBusYawStickCentered())
+  if ((abs(SBusThrust() - thrust_stick_0) > 10))
   {
-    state_ |= STATE_BIT_POSITION_CONTROL_INHIBITED;
+    state_ |= STATE_BIT_HORIZONTAL_POSITION_INHIBITED
+      | STATE_BIT_VERTICAL_POSITION_INHIBITED;
+  }
+  if ((horizontal_control_state_ != HORIZONTAL_CONTROL_STATE_MANUAL)
+    && (!SBusPitchStickCentered() || !SBusRollStickCentered()
+    || !SBusYawStickCentered()))
+  {
+    state_ |= STATE_BIT_HORIZONTAL_POSITION_INHIBITED;
   }
 
   // Clear the position control inhibit bit only if the horizontal control
@@ -233,16 +239,18 @@ static void UpdateControlState(void)
   if ((SBusHorizontalControl() == SBUS_SWITCH_DOWN) && (SBusVerticalControl()
     != SBUS_SWITCH_UP))
   {
-    state_ &= ~STATE_BIT_POSITION_CONTROL_INHIBITED;
+    state_ &= ~STATE_BIT_HORIZONTAL_POSITION_INHIBITED &
+      ~STATE_BIT_VERTICAL_POSITION_INHIBITED;
   }
 
   // Fall back to safer modes if position control is inhibited.
-  if (state_ & STATE_BIT_POSITION_CONTROL_INHIBITED)
+  if (state_ & STATE_BIT_HORIZONTAL_POSITION_INHIBITED)
   {
     horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_MANUAL;
   }
 
-  if (vertical_control_state_ == VERTICAL_CONTROL_STATE_AUTO)
+  if ((state_ & STATE_BIT_VERTICAL_POSITION_INHIBITED)
+    && (vertical_control_state_ == VERTICAL_CONTROL_STATE_AUTO))
   {
     vertical_control_state_ = VERTICAL_CONTROL_STATE_BARO;
   }

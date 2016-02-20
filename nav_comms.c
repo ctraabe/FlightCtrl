@@ -120,6 +120,7 @@ void ExchangeDataWithNav(void)
     float accelerometer[3];
     float gyro[3];
     float quaternion[4];
+    float nav_g_b_cmd[2];
 #ifdef LOG_FLT_CTRL_DEBUG_TO_SD
     int16_t sbus_pitch;
     int16_t sbus_roll;
@@ -147,7 +148,7 @@ void ExchangeDataWithNav(void)
   struct ToNav * to_nav_ptr = (struct ToNav *)&tx_buffer[2];
 
   to_nav_ptr->timestamp = GetTimestamp();
-  to_nav_ptr->state = State();
+  to_nav_ptr->state = (HorizontalControlState() << 8) + (VerticalControlState() << 4) + NavStatus();
   to_nav_ptr->accelerometer[0] = Acceleration(X_BODY_AXIS);
   to_nav_ptr->accelerometer[1] = Acceleration(Y_BODY_AXIS);
   to_nav_ptr->accelerometer[2] = Acceleration(Z_BODY_AXIS);
@@ -158,6 +159,8 @@ void ExchangeDataWithNav(void)
   to_nav_ptr->quaternion[1] = Quat()[1];
   to_nav_ptr->quaternion[2] = Quat()[2];
   to_nav_ptr->quaternion[3] = Quat()[3];
+  to_nav_ptr->nav_g_b_cmd[0] = NavGBCommand()[0];
+  to_nav_ptr->nav_g_b_cmd[1] = NavGBCommand()[1];
 #ifdef LOG_FLT_CTRL_DEBUG_TO_SD
   to_nav_ptr->sbus_pitch = SBusPitch();
   to_nav_ptr->sbus_roll = SBusRoll();
