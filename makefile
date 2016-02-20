@@ -8,8 +8,8 @@ MCU   := atmega1284p
 F_CPU := 20000000
 
 CCFLAGS   = -std=gnu11 -Wstrict-prototypes
-LDFLAGS   = -Ofast -Wall -Wextra -Wundef -Werror -fshort-enums -ffreestanding \
-            -ffunction-sections -fdata-sections \
+LDFLAGS   = -Ofast -Wall -Wextra -Wundef -Werror \
+            -fdata-sections -ffunction-sections -fshort-enums \
             -Wl,--relax,--gc-sections,-u,vfprintf -lprintf_flt -lm
 LTOFLAGS := -flto -fwhole-program
 ALLFLAGS  = -mmcu=$(MCU) -DF_CPU="$(F_CPU)UL"

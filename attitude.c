@@ -71,9 +71,9 @@ void UpdateAttitude(void)
 void CorrectHeading(void)
 {
   // Disregard bad data
+  // TODO: set some error bit
   if (HeadingCorrection0() > 1.0 || HeadingCorrection0() < 0.95) return;
-  // TODO: find out why fabs() isn't available
-  if (HeadingCorrectionZ() > 0.05 || HeadingCorrectionZ() < -0.05) return;
+  if (fabs(HeadingCorrectionZ()) > 0.05) return;
 
   float quat_corection[4] = { HeadingCorrection0(), 0.0, 0.0,
     HeadingCorrectionZ() };

@@ -35,7 +35,6 @@ static volatile uint16_t main_overrun_count_ = 0;
 // =============================================================================
 // Private function declarations:
 
-int16_t main(void) __attribute__ ((noreturn));
 void ResetOverrun(void);
 
 
