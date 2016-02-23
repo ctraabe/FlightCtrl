@@ -22,24 +22,35 @@
 
 #define NAV_MESSAGE_START_BYTE (0xAA)
 
-enum NavCommsState {
-  NAV_COMMS_IDLE = 0,
-  NAV_COMMS_DATA_READY,
-  NAV_COMMS_DATA_IN_PROGRESS,
-  NAV_COMMS_DATA_RECEVIED,
-};
-
 static volatile struct FromNav {
     uint16_t version;
     float position[3];
     float velocity[3];
     float heading_correction_quat_0;
     float heading_correction_quat_z;
-    uint16_t status;
+    uint8_t nav_mode;
+    uint8_t status;
     uint16_t crc;
 } __attribute__((packed)) from_nav_[2] = { 0 };
 
-static volatile uint8_t nav_data_state_ = NAV_COMMS_IDLE;
+static volatile enum NavCommsState {
+  NAV_COMMS_IDLE = 0,
+  NAV_COMMS_DATA_READY,
+  NAV_COMMS_DATA_IN_PROGRESS,
+  NAV_COMMS_DATA_RECEVIED,
+} nav_data_state_ = NAV_COMMS_IDLE;
+
+static enum NavModeBits {
+  NAV_BIT_MODE_0     = 1<<0,
+  NAV_BIT_MODE_1     = 1<<1,
+  NAV_BIT_HOLD_RESET = 1<<2,
+  NAV_BIT_RESERVED_0 = 1<<3,
+  NAV_BIT_ROUTE_0    = 1<<4,
+  NAV_BIT_ROUTE_1    = 1<<5,
+  NAV_BIT_RESERVED_1 = 1<<6,
+  NAV_BIT_RESERVED_2 = 1<<7,
+} nav_mode_request_;
+
 static uint8_t from_nav_head_ = 1, from_nav_tail_ = 0;
 
 
@@ -64,21 +75,15 @@ uint8_t NavRecieved(void)
 }
 
 // -----------------------------------------------------------------------------
+enum NavMode NavMode(void)
+{
+  return (enum NavMode)(from_nav_[from_nav_tail_].nav_mode & 0x03);
+}
+
+// -----------------------------------------------------------------------------
 uint16_t NavStatus(void)
 {
   return from_nav_[from_nav_tail_].status;
-}
-
-// -----------------------------------------------------------------------------
-const volatile float * PositionVector(void)
-{
-  return from_nav_[from_nav_tail_].position;
-}
-
-// -----------------------------------------------------------------------------
-const volatile float * VelocityVector(void)
-{
-  return from_nav_[from_nav_tail_].velocity;
 }
 
 // -----------------------------------------------------------------------------
@@ -91,6 +96,18 @@ float HeadingCorrection0(void)
 float HeadingCorrectionZ(void)
 {
   return from_nav_[from_nav_tail_].heading_correction_quat_z;
+}
+
+// -----------------------------------------------------------------------------
+const volatile float * PositionVector(void)
+{
+  return from_nav_[from_nav_tail_].position;
+}
+
+// -----------------------------------------------------------------------------
+const volatile float * VelocityVector(void)
+{
+  return from_nav_[from_nav_tail_].velocity;
 }
 
 
@@ -116,11 +133,11 @@ void ExchangeDataWithNav(void)
   // Specify the payload structure.
   struct ToNav {
     uint16_t timestamp;
-    uint16_t state;
+    uint8_t nav_mode_request;
+    uint8_t state;
     float accelerometer[3];
     float gyro[3];
     float quaternion[4];
-    float nav_g_b_cmd[2];
 #ifdef LOG_FLT_CTRL_DEBUG_TO_SD
     int16_t sbus_pitch;
     int16_t sbus_roll;
@@ -148,7 +165,9 @@ void ExchangeDataWithNav(void)
   struct ToNav * to_nav_ptr = (struct ToNav *)&tx_buffer[2];
 
   to_nav_ptr->timestamp = GetTimestamp();
-  to_nav_ptr->state = (HorizontalControlState() << 8) + (VerticalControlState() << 4) + NavStatus();
+  to_nav_ptr->nav_mode_request = nav_mode_request_ | NavModeRequest()
+    | (SBusSwitch(0) << 4);
+  to_nav_ptr->state = State();
   to_nav_ptr->accelerometer[0] = Acceleration(X_BODY_AXIS);
   to_nav_ptr->accelerometer[1] = Acceleration(Y_BODY_AXIS);
   to_nav_ptr->accelerometer[2] = Acceleration(Z_BODY_AXIS);
@@ -159,8 +178,6 @@ void ExchangeDataWithNav(void)
   to_nav_ptr->quaternion[1] = Quat()[1];
   to_nav_ptr->quaternion[2] = Quat()[2];
   to_nav_ptr->quaternion[3] = Quat()[3];
-  to_nav_ptr->nav_g_b_cmd[0] = NavGBCommand()[0];
-  to_nav_ptr->nav_g_b_cmd[1] = NavGBCommand()[1];
 #ifdef LOG_FLT_CTRL_DEBUG_TO_SD
   to_nav_ptr->sbus_pitch = SBusPitch();
   to_nav_ptr->sbus_roll = SBusRoll();
@@ -241,7 +258,25 @@ void ProcessDataFromNav(void)
     from_nav_head_ = !from_nav_tail_;
   }
 
+  // Clear the nav hold reset request if it has been honored.
+  // TODO: maybe this should get handled elsewhere?
+  if (from_nav_[from_nav_tail_].nav_mode & NAV_BIT_HOLD_RESET)
+    nav_mode_request_ &= ~NAV_BIT_HOLD_RESET;
+
   nav_data_state_ = NAV_COMMS_IDLE;
+}
+
+// -----------------------------------------------------------------------------
+void RequestNavRoute(uint8_t nav_route)
+{
+  if (nav_route > 0x03) nav_route = 0x03;
+  nav_mode_request_ |= nav_route << 4;
+}
+
+// -----------------------------------------------------------------------------
+void ResetPositionHold(void)
+{
+  nav_mode_request_ |= NAV_BIT_HOLD_RESET;
 }
 
 // =============================================================================

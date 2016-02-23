@@ -491,7 +491,7 @@ static void FormAngularCommand(const float quat_cmd[4],
 static void GravityCommandsFromNav(const struct FeedbackGains * k,
   const struct Limits * limits, float g_b_cmd[2])
 {
-  if (HorizontalControlState() == HORIZONTAL_CONTROL_STATE_MANUAL)
+  if ((NavModeRequest() == NAV_MODE_OFF) || (NavMode() == NAV_MODE_OFF))
   {
     g_b_cmd[0] = 0.0;
     g_b_cmd[1] = 0.0;
@@ -530,12 +530,14 @@ static void FormThrustCommand(const struct FeedbackGains * k,
   static int16_t hover_thrust_stick = 0;
   static float z_integral = 0.0;
   static float z_cmd = 0.0;
-  static enum VerticalControlState vertical_control_state_pv = 0;
+  static uint8_t altitude_control_pv = 0, pressure_control_pv = 0;
 
   // TODO: remove
   static float thrust_cmd_pv = 0.0;
+  uint8_t nav_active = (NavModeRequest() != NAV_MODE_OFF)
+    && (NavMode() != NAV_MODE_OFF);
 
-  if (VerticalControlState() == VERTICAL_CONTROL_STATE_MANUAL)
+  if (!AltitudeControlActive())
   {
     const float k_sbus_to_thrust_ = (float)(MAX_THRUST_CMD - MIN_THRUST_CMD)
       / (2.0 * (float)SBUS_MAX);
@@ -547,24 +549,22 @@ static void FormThrustCommand(const struct FeedbackGains * k,
     float w, z;
 
     // TODO: compute these
-    if (vertical_control_state_pv == VERTICAL_CONTROL_STATE_MANUAL)
+    if (!altitude_control_pv)
     {
       hover_thrust_stick = SBusThrust();
       z_integral = thrust_cmd_to_z_integral * thrust_cmd_pv;
     }
 
-    if (VerticalControlState() == VERTICAL_CONTROL_STATE_AUTO)
+    if (nav_active)
     {
       if (NavStatus() != 1) return;
-      if (VerticalControlState() != vertical_control_state_pv)
-        z_cmd = PositionVector()[2];
+      z_cmd = 0;
       z = PositionVector()[2];
       w = VelocityVector()[2];
     }
     else
     {
-      if (VerticalControlState() != vertical_control_state_pv)
-        z_cmd = -DeltaPressureAltitude();
+      if (!pressure_control_pv) z_cmd = -DeltaPressureAltitude();
       z = -DeltaPressureAltitude();
       w = -VerticalSpeed();
     }
@@ -589,8 +589,9 @@ static void FormThrustCommand(const struct FeedbackGains * k,
     z_cmd += w_cmd * DT;
   }
 
+  altitude_control_pv = AltitudeControlActive();
+  pressure_control_pv = AltitudeControlActive() && !nav_active;
   thrust_cmd_pv = *thrust_cmd;
-  vertical_control_state_pv = VerticalControlState();
 }
 
 // -----------------------------------------------------------------------------

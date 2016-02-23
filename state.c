@@ -7,22 +7,27 @@
 #include "buzzer.h"
 #include "main.h"
 #include "motors.h"
+#include "nav_comms.h"
 #include "pressure_altitude.h"
 #include "sbus.h"
 #include "timing.h"
 #include "vector.h"
 // TODO: remove
 #include "led.h"
-#include "uart.h"
 
 
 // =============================================================================
 // Private data:
 
 static enum StateBits state_ = STATE_BIT_MOTORS_INHIBITED;
-static enum HorizontalControlState horizontal_control_state_ = 0;
-static enum VerticalControlState vertical_control_state_ = 0;
 
+static enum ControlModeBits {
+  CONTROL_MODE_BIT_NAV_MODE_0            = 1<<0,
+  CONTROL_MODE_BIT_NAV_MODE_1            = 1<<1,
+  CONTROL_MODE_BIT_NAV_CONTROL_INHIBITED = 1<<2,
+  CONTROL_MODE_BIT_ALTITUDE_CONTROL      = 1<<3,
+  CONTROL_MODE_BIT_TAKEOFF               = 1<<4,
+} control_mode_ = 0x00;
 
 
 // =============================================================================
@@ -35,21 +40,9 @@ static void UpdateControlState(void);
 // =============================================================================
 // Accessors
 
-enum StateBits State(void)
+uint8_t AltitudeControlActive(void)
 {
-  return state_;
-}
-
-// -----------------------------------------------------------------------------
-enum HorizontalControlState HorizontalControlState(void)
-{
-  return horizontal_control_state_;
-}
-
-// -----------------------------------------------------------------------------
-enum VerticalControlState VerticalControlState(void)
-{
-  return vertical_control_state_;
+  return control_mode_ & CONTROL_MODE_BIT_ALTITUDE_CONTROL;
 }
 
 // -----------------------------------------------------------------------------
@@ -62,6 +55,24 @@ uint8_t MotorsInhibited(void)
 uint8_t MotorsRunning(void)
 {
   return state_ & STATE_BIT_MOTORS_RUNNING;
+}
+
+// -----------------------------------------------------------------------------
+enum NavMode NavModeRequest(void)
+{
+  return (enum NavMode)(control_mode_ & 0x03);
+}
+
+// -----------------------------------------------------------------------------
+enum StateBits State(void)
+{
+  return state_;
+}
+
+// -----------------------------------------------------------------------------
+uint8_t Takeoff(void)
+{
+  return control_mode_ & CONTROL_MODE_BIT_TAKEOFF;
 }
 
 
@@ -150,11 +161,9 @@ void UpdateState(void)
 
 static uint8_t SafetyCheck(void)
 {
-  // TODO: set some error bit
   if (PressureAltitudeError()) return 0;
   if (BLCErrorBits()) return 0;
   if (Vector3NormSquared(AngularRateVector()) > 0.01) return 0;
-  if (fabs(Vector3NormSquared(AccelerationVector()) - 1.0) > 0.05) return 0;
   if (Vector3NormSquared(AccelerationVector()) > 1.1) return 0;
   if (Vector3NormSquared(AccelerationVector()) < 0.9) return 0;
   if (GravityInBodyVector()[2] < 0.9) return 0;
@@ -162,102 +171,93 @@ static uint8_t SafetyCheck(void)
 }
 
 // -----------------------------------------------------------------------------
+static void SetNavMode(enum NavMode mode)
+{
+  control_mode_ &= ~0x03;  // Clear the nav mode bits
+  control_mode_ |= mode;
+}
+
+// -----------------------------------------------------------------------------
 static void UpdateControlState(void)
 {
   static int16_t thrust_stick_0 = 0;
-  static uint8_t hc_switch_pv = 0, vc_switch_pv = 0;
+  static uint8_t nav_switch_pv = SBUS_SWITCH_CENTER;
+  static uint8_t altitude_switch_pv = SBUS_SWITCH_CENTER;
 
-  if (SBusHorizontalControl() != hc_switch_pv)
+  if (SBusNavControl() != nav_switch_pv)
   {
-    switch (SBusHorizontalControl())
+    switch (SBusNavControl())
     {
       case SBUS_SWITCH_DOWN:
-        horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_MANUAL;
+        SetNavMode(NAV_MODE_OFF);
         break;
       case SBUS_SWITCH_CENTER:
-        horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_HOLD;
+        SetNavMode(NAV_MODE_HOLD);
         break;
       case SBUS_SWITCH_UP:
-        horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_AUTO;
+        SetNavMode(NAV_MODE_AUTO);
         break;
     }
 
-    if (hc_switch_pv == SBUS_SWITCH_DOWN) thrust_stick_0 = SBusThrust();
+    // Clear the inhibit latch and set the reference thrust stick position when
+    // transitioning to position control.
+    if (nav_switch_pv == SBUS_SWITCH_DOWN)
+    {
+      control_mode_ &= ~CONTROL_MODE_BIT_NAV_CONTROL_INHIBITED;
+      thrust_stick_0 = SBusThrust();
+    }
 
-    // if ((SBusHorizontalControl() != SBUS_SWITCH_DOWN) && SBusThrustStickDown()
-    //     && (SBusVerticalControl() == SBUS_SWITCH_DOWN))
+    // Arm takeoff mode by engaging automatic control with manual altitude
+    // control and thrust stick down.
+    // if ((SBusNavControl() != SBUS_SWITCH_DOWN) && SBusThrustStickDown()
+    //     && (SBusAltitudeControl() != SBUS_SWITCH_UP))
     // {
-    //   horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_TAKEOFF;
+    //   control_mode_ |= CONTROL_MODE_BIT_TAKEOFF;
     // }
   }
 
-  if (SBusVerticalControl() != vc_switch_pv)
+  if (SBusAltitudeControl() != altitude_switch_pv)
   {
-    switch (SBusVerticalControl())
+    if (SBusAltitudeControl() == SBUS_SWITCH_UP)
     {
-      case SBUS_SWITCH_DOWN:
-        vertical_control_state_ = VERTICAL_CONTROL_STATE_MANUAL;
-        break;
-      case SBUS_SWITCH_CENTER:
-        vertical_control_state_ = VERTICAL_CONTROL_STATE_BARO;
-        break;
-      case SBUS_SWITCH_UP:
-        vertical_control_state_ = VERTICAL_CONTROL_STATE_AUTO;
-        thrust_stick_0 = SBusThrust();
-        break;
-    }
+      control_mode_ |= CONTROL_MODE_BIT_ALTITUDE_CONTROL;
+      thrust_stick_0 = SBusThrust();
 
-    // Disable takeoff if engaged without the thrust stick centered.
-    // if ((horizontal_control_state_ == HORIZONTAL_CONTROL_STATE_TAKEOFF)
-    //   && !SBusThrustStickCentered())
-    // {
-    //   state_ |= STATE_BIT_HORIZONTAL_POSITION_INHIBITED;
-    // }
+      // Disable takeoff if engaged without the thrust stick centered.
+      // if ((control_mode_ & CONTROL_MODE_BIT_TAKEOFF)
+      //   && !SBusThrustStickCentered())
+      // {
+      //   control_mode_ &= ~CONTROL_MODE_BIT_TAKEOFF;
+      // }
+    }
+    else
+    {
+      control_mode_ &= ~CONTROL_MODE_BIT_ALTITUDE_CONTROL;
+    }
   }
 
   // Allow thrust_stick movement in takeoff mode.
-  // if ((horizontal_control_state_ == HORIZONTAL_CONTROL_STATE_TAKEOFF)
-  //   && vertical_control_state_ == VERTICAL_CONTROL_STATE_MANUAL)
+  // if ((control_mode_ & CONTROL_MODE_BIT_TAKEOFF)
+  //   && !(control_mode_ & CONTROL_MODE_BIT_ALTITUDE_CONTROL))
   // {
   //   thrust_stick_0 = SBusThrust();
   // }
 
-  // Latch the position control inhibit bit if there is any thrust stick
-  // movement or any other sticks deviate from center.
-  if ((abs(SBusThrust() - thrust_stick_0) > 10))
+  // Latch the nav control inhibit bit if there is any thrust stick movement or
+  // any other sticks deviate from center.
+  if ((abs(SBusThrust() - thrust_stick_0) > 10) || !SBusPitchStickCentered()
+    || !SBusRollStickCentered() || !SBusYawStickCentered())
   {
-    state_ |= STATE_BIT_HORIZONTAL_POSITION_INHIBITED
-      | STATE_BIT_VERTICAL_POSITION_INHIBITED;
-  }
-  if ((horizontal_control_state_ != HORIZONTAL_CONTROL_STATE_MANUAL)
-    && (!SBusPitchStickCentered() || !SBusRollStickCentered()
-    || !SBusYawStickCentered()))
-  {
-    state_ |= STATE_BIT_HORIZONTAL_POSITION_INHIBITED;
+    control_mode_ |= CONTROL_MODE_BIT_NAV_CONTROL_INHIBITED;
   }
 
-  // Clear the position control inhibit bit only if the horizontal control
-  // switch is in manual and the vertical control switch is not in auto.
-  if ((SBusHorizontalControl() == SBUS_SWITCH_DOWN) && (SBusVerticalControl()
-    != SBUS_SWITCH_UP))
+  // Disable nav control if the inhibit bit is latched.
+  if (control_mode_ & CONTROL_MODE_BIT_NAV_CONTROL_INHIBITED)
   {
-    state_ &= ~STATE_BIT_HORIZONTAL_POSITION_INHIBITED &
-      ~STATE_BIT_VERTICAL_POSITION_INHIBITED;
-  }
-
-  // Fall back to safer modes if position control is inhibited.
-  if (state_ & STATE_BIT_HORIZONTAL_POSITION_INHIBITED)
-  {
-    horizontal_control_state_ = HORIZONTAL_CONTROL_STATE_MANUAL;
-  }
-
-  if ((state_ & STATE_BIT_VERTICAL_POSITION_INHIBITED)
-    && (vertical_control_state_ == VERTICAL_CONTROL_STATE_AUTO))
-  {
-    vertical_control_state_ = VERTICAL_CONTROL_STATE_BARO;
+    control_mode_ &= ~0x03;  // Clear the nav mode bits
   }
 
   // Set the past values.
-  hc_switch_pv = SBusHorizontalControl();
-  vc_switch_pv = SBusVerticalControl();
+  nav_switch_pv = SBusNavControl();
+  altitude_switch_pv = SBusAltitudeControl();
 }

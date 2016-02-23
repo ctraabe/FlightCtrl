@@ -50,10 +50,10 @@ int16_t SBusThrust(void);
 uint8_t SBusOnOff(void);
 
 // -----------------------------------------------------------------------------
-enum SBusSwitchState SBusHorizontalControl(void);
+enum SBusSwitchState SBusAltitudeControl(void);
 
 // -----------------------------------------------------------------------------
-enum SBusSwitchState SBusVerticalControl(void);
+enum SBusSwitchState SBusNavControl(void);
 
 // -----------------------------------------------------------------------------
 enum SBusSwitchState SBusSwitch(uint8_t i);
@@ -72,7 +72,7 @@ void SBusInit(void);
 
 // -----------------------------------------------------------------------------
 void SBusSetChannels(uint8_t pitch, uint8_t roll, uint8_t yaw, uint8_t thrust,
-  uint8_t on_off, uint8_t horizontal_control, uint8_t vertical_control,
+  uint8_t on_off, uint8_t altitude_control, uint8_t nav_control,
   uint8_t switch0, uint8_t switch1, uint8_t switch2, uint8_t switch3,
   uint8_t switch4, uint8_t switch5, uint8_t trim0, uint8_t trim1, uint8_t trim2,
   uint8_t trim3);
