@@ -225,10 +225,10 @@ void ControlInit(void)
   feedback_gains_.phi = 6.256019555e+01;
   feedback_gains_.r = 2.493839316e+00;
   feedback_gains_.psi = 3.316200008e+00;
-  feedback_gains_.w_dot = 0.0e00;
+  feedback_gains_.w_dot = 0.000000000e+00;
   feedback_gains_.w = 2.021170072e+00;
-  feedback_gains_.z = 2.755011237e+00;
-  feedback_gains_.z_int = 2.642923233e+00;
+  feedback_gains_.z = 1.500000000e+00;
+  feedback_gains_.z_int = 3.500000000e-01;
   kalman_coefficients_.A11 = 8.943955582e-01;
   kalman_coefficients_.A13 = 7.392310928e-03;
   kalman_coefficients_.A21 = 7.392310928e-03;
@@ -277,11 +277,12 @@ void ControlInit(void)
   limits_.velocity_error = 2.0 * limits_.position_error;
   limits_.altitude_error = 0.5;
   limits_.vertical_speed_error = 2.5;
-  limits_.z_integral = 8.0;
 
   // TODO remove:
   thrust_cmd_to_z_integral = 1.0 / feedback_gains_.z_int
     / actuation_inverse_[0][3];
+
+  limits_.z_integral = (7 * MAX_THRUST_CMD / 8) * thrust_cmd_to_z_integral;
 }
 
 // -----------------------------------------------------------------------------
@@ -585,7 +586,7 @@ static void FormThrustCommand(const struct FeedbackGains * k,
       MIN_THRUST_CMD, MAX_THRUST_CMD);
 
     // TODO: do this elsewhere
-    z_integral += z_error * DT;
+    z_integral = FloatLimit(z_integral + z_error * DT, limits->z_integral, 0.0);
     z_cmd += w_cmd * DT;
   }
 

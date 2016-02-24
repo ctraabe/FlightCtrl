@@ -138,6 +138,7 @@ void ExchangeDataWithNav(void)
     float accelerometer[3];
     float gyro[3];
     float quaternion[4];
+    float position_cmd[3];
 #ifdef LOG_FLT_CTRL_DEBUG_TO_SD
     int16_t sbus_pitch;
     int16_t sbus_roll;
@@ -178,6 +179,9 @@ void ExchangeDataWithNav(void)
   to_nav_ptr->quaternion[1] = Quat()[1];
   to_nav_ptr->quaternion[2] = Quat()[2];
   to_nav_ptr->quaternion[3] = Quat()[3];
+  to_nav_ptr->position_cmd[0] = NavGBCommand()[0];
+  to_nav_ptr->position_cmd[1] = NavGBCommand()[1];
+  to_nav_ptr->position_cmd[2] = ThrustCommand();
 #ifdef LOG_FLT_CTRL_DEBUG_TO_SD
   to_nav_ptr->sbus_pitch = SBusPitch();
   to_nav_ptr->sbus_roll = SBusRoll();
