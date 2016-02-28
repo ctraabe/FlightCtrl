@@ -15,9 +15,9 @@
 float * QuaternionInverse(const float quat[4], float result[4])
 {
   result[0] = quat[0];
-  result[0] = -quat[0];
-  result[0] = -quat[0];
-  result[0] = -quat[0];
+  result[1] = -quat[1];
+  result[2] = -quat[2];
+  result[3] = -quat[3];
 
   return result;
 }
