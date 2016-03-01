@@ -138,14 +138,13 @@ void ExchangeDataWithNav(void)
     float accelerometer[3];
     float gyro[3];
     float quaternion[4];
-    float position_cmd[3];
+    float pressure_altitude;
+    uint16_t battery_voltage;
 #ifdef LOG_FLT_CTRL_DEBUG_TO_SD
     int16_t sbus_pitch;
     int16_t sbus_roll;
     int16_t sbus_yaw;
     int16_t sbus_thrust;
-    uint16_t battery_voltage;
-    float pressure_altitude;
     float thrust_command;
     float heading_command;
     float angular_command[3];
@@ -179,16 +178,13 @@ void ExchangeDataWithNav(void)
   to_nav_ptr->quaternion[1] = Quat()[1];
   to_nav_ptr->quaternion[2] = Quat()[2];
   to_nav_ptr->quaternion[3] = Quat()[3];
-  to_nav_ptr->position_cmd[0] = NavGBCommand()[0];
-  to_nav_ptr->position_cmd[1] = NavGBCommand()[1];
-  to_nav_ptr->position_cmd[2] = ThrustCommand();
+  to_nav_ptr->pressure_altitude = DeltaPressureAltitude();
+  to_nav_ptr->battery_voltage = BatteryVoltage();
 #ifdef LOG_FLT_CTRL_DEBUG_TO_SD
   to_nav_ptr->sbus_pitch = SBusPitch();
   to_nav_ptr->sbus_roll = SBusRoll();
   to_nav_ptr->sbus_yaw = SBusYaw();
   to_nav_ptr->sbus_thrust = SBusThrust();
-  to_nav_ptr->battery_voltage = BatteryVoltage();
-  to_nav_ptr->pressure_altitude = DeltaPressureAltitude();
   to_nav_ptr->thrust_command = ThrustCommand();
   to_nav_ptr->heading_command = HeadingCommand();
   to_nav_ptr->angular_command[0] = AngularCommand(0);
