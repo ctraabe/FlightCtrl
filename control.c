@@ -241,8 +241,8 @@ void ControlInit(void)
   kalman_coefficients_.K[1][1] = 2.905144232e-01;
   kalman_coefficients_.K[2][0] = 2.225348506e-01;
   kalman_coefficients_.K[2][1] = 1.470361439e+02;
-  feedback_gains_.x_dot = 0.16;
-  feedback_gains_.x = 0.1;
+  feedback_gains_.x_dot = 0.18;
+  feedback_gains_.x = 0.135;
 #endif
 
   // Compute the limit on the attitude error given the rate limit.
@@ -273,7 +273,9 @@ void ControlInit(void)
   // k_sbus_to_thrust_ = (max_thrust_cmd_ - min_thrust_cmd_) / (2.0 * SBUS_MAX);
 */
 
-  limits_.position_error = 0.75;
+  // NOTE: speed ~ k_x / k_x_dot * positiion_error_limit
+  // SO: positiion_error_limit ~ speed * k_x_dot / k_x
+  limits_.position_error = 1.0 * feedback_gains_.x_dot / feedback_gains_.x;
   limits_.velocity_error = 2.0 * limits_.position_error;
   limits_.altitude_error = 0.5;
   limits_.vertical_speed_error = 2.5;
