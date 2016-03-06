@@ -6,7 +6,7 @@
 
 // The structure of the attitude controller is state-feedback with model-based
 // integral action as described in:
-//   C. Raabe, S. Suzuki. “Model-Based Integral Action for Multicopters.” Asia
+//   C. Raabe, S. Suzuki. "Model-Based Integral Action for Multicopters." Asia
 //   Pacific International Symposium on Aerospace Technology, 2015.
 
 
@@ -34,15 +34,17 @@
 // =============================================================================
 // Private data:
 
-#define CONTROL_MOTORS_IDLE (40)
-#define MAX_G_B_CMD (sin(M_PI / 3.0))
-#define CMD_MARGIN (20)
 #define MIN_CMD (64)
+#define MAX_CMD (1840)
 #define MIN_THRUST_CMD (100)
 #define MAX_THRUST_CMD (1400)
-#define MAX_CMD (1840)
-#define MAX_ATTITUDE_RATE (4.0 * M_PI)
-#define MAX_HEADING_RATE (M_PI / 2.0)
+#define MAX_G_B_CMD (sin(M_PI / 3.0))
+// TODO: unify this with limits_.heading_rate
+#define MAX_HEADING_RATE (M_PI / 4.0)
+#define MAX_VERTICAL_SPEED (1.0)
+#define MIN_TRANSIT_SPEED (0.1)
+#define MAX_TRANSIT_SPEED (2.0)
+#define STARTING_SETPOINT (40)
 
 // Computed constants.
 static float actuation_inverse_[MAX_MOTORS][4];
@@ -58,18 +60,14 @@ static struct FeedbackGains {
   float w;
   float x_dot;
   float x;
+  float x_integral;
   float z;
-  float z_int;
+  float z_integral;
 } feedback_gains_ = { 0 };
 
 static struct Limits {
-  float attitude_error;
+  float heading_rate;
   float heading_error;
-  float position_error;
-  float velocity_error;
-  float vertical_speed_error;
-  float altitude_error;
-  float z_integral;
 } limits_ = { 0 };
 
 static struct KalmanCoeffiecients {
@@ -93,33 +91,43 @@ static struct KalmanState {
   float q_pv;
 } kalman_state_ = { 0 };
 
-static float angular_cmd_[3] = { 0 };
-static float heading_cmd_ = 0.0, thrust_cmd_ = 0.0;
-static float nav_g_b_cmd_[2];
-static float quat_cmd_[4];  // Target attitude in quaternion
-static uint16_t setpoints_[MAX_MOTORS] = { 0 };
+static struct Model {
+  float angular_acceleration[3];
+  float angular_rate[3];
+  float eular_angles[3];
+  float vertical_acceleration;
+  float velocity[3];
+  float position[3];
+} model_ = { 0 };
 
-// TODO: remove
-static float thrust_cmd_to_z_integral = 0.0;
+// TODO: make some of these local to Control()
+static float angular_cmd_[3] = { 0.0 };
+static float heading_cmd_ = 0.0, thrust_cmd_ = 0.0;
+static float nav_g_b_cmd_[2] = { 0.0 }, nav_thrust_cmd_ = 0.0;
+static float quat_cmd_[4];  // Target attitude in quaternion
+static float k_motor_lag_ = 0.0, k_speed_to_position_error_limit_ = 0.0;
+static uint16_t setpoints_[MAX_MOTORS] = { 0 };
 
 
 // =============================================================================
 // Private function declarations:
 
+static void CommandsForPositionControl(const struct FeedbackGains * k,
+  float g_b_cmd[2], float * thrust_cmd, struct Model * model);
 static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
-  float * heading_rate_cmd);
+  float * heading_rate_cmd, float * thrust_cmd);
 static void FormAngularCommand(const float quat_cmd[4],
   float heading_rate_cmd, const struct KalmanState * kalman,
-  const struct FeedbackGains * k, const struct Limits * limits,
-  float angular_cmd[3]);
+  const struct FeedbackGains * k, float angular_cmd[3]);
 static void QuaternionFromGravityAndHeadingCommand(const float g_b_cmd[2],
-  float heading_cmd, float quat_cmd[4]);
-static void FormThrustCommand(const struct FeedbackGains * k,
-  const struct Limits * limits, float * thrust_cmd);
-static void GravityCommandsFromNav(const struct FeedbackGains * k,
-  const struct Limits * limits, float g_b_cmd[2]);
+  const struct Limits * limit, float heading_cmd, float quat_cmd[4]);
+static void ResetModel(const float position[3], const float velocity[3],
+  struct Model * m);
 static void UpdateKalmanFilter(const float angular_cmd[3],
   const struct KalmanCoeffiecients * k, struct KalmanState * x);
+static void UpdateModel(const float position_cmd[3],
+  const float velocity_cmd[3], const struct FeedbackGains * k,
+  float position_error_limit, struct Model * m);
 
 // =============================================================================
 // Accessors:
@@ -172,6 +180,12 @@ const float * NavGBCommand(void)
 }
 
 // -----------------------------------------------------------------------------
+float NavThrustCommand(void)
+{
+  return nav_thrust_cmd_;
+}
+
+// -----------------------------------------------------------------------------
 const float * QuatCommandVector(void)
 {
   return quat_cmd_;
@@ -204,6 +218,8 @@ void ControlInit(void)
   feedback_gains_.w = 4.407621675e+00;
   feedback_gains_.z = 7.422916434e+00;
   feedback_gains_.z_int = 4.854441330e+00;
+  feedback_gains_.x_dot = 0.16;
+  feedback_gains_.x = 0.1;
   kalman_coefficients_.A11 = 9.248488132e-01;
   kalman_coefficients_.A13 = 7.515118678e-03;
   kalman_coefficients_.A21 = 7.515118678e-03;
@@ -216,19 +232,24 @@ void ControlInit(void)
   kalman_coefficients_.K[1][1] = 3.062778776e-01;
   kalman_coefficients_.K[2][0] = 2.359221725e-01;
   kalman_coefficients_.K[2][1] = 1.445698341e+02;
-  feedback_gains_.x_dot = 0.16;
-  feedback_gains_.x = 0.1;
 #else
+  k_motor_lag_ = 1.0 / 0.07;
   // control proportion: 0.400000
   feedback_gains_.p_dot = 6.125465888e-01;
   feedback_gains_.p = 1.620762355e+01;
   feedback_gains_.phi = 6.256019555e+01;
   feedback_gains_.r = 2.493839316e+00;
   feedback_gains_.psi = 3.316200008e+00;
-  feedback_gains_.w_dot = 0.000000000e+00;
-  feedback_gains_.w = 2.021170072e+00;
-  feedback_gains_.z = 1.500000000e+00;
-  feedback_gains_.z_int = 3.500000000e-01;
+
+  feedback_gains_.x_dot = 0.18;
+  feedback_gains_.x = 0.135;
+  feedback_gains_.x_integral = 0.35 * DT;
+
+  feedback_gains_.w_dot = 0.0;
+  feedback_gains_.w = 2.0;
+  feedback_gains_.z = 1.5;
+  feedback_gains_.z_integral = 0.35 * DT / actuation_inverse_[0][3];
+
   kalman_coefficients_.A11 = 8.943955582e-01;
   kalman_coefficients_.A13 = 7.392310928e-03;
   kalman_coefficients_.A21 = 7.392310928e-03;
@@ -241,50 +262,16 @@ void ControlInit(void)
   kalman_coefficients_.K[1][1] = 2.905144232e-01;
   kalman_coefficients_.K[2][0] = 2.225348506e-01;
   kalman_coefficients_.K[2][1] = 1.470361439e+02;
-  feedback_gains_.x_dot = 0.18;
-  feedback_gains_.x = 0.135;
 #endif
 
-  // Compute the limit on the attitude error given the rate limit.
-  limits_.attitude_error = MAX_ATTITUDE_RATE * feedback_gains_.p
-    / feedback_gains_.phi;
+  // TODO: Handle this actuation inverse in a smarter way.
+  // Limit heading and heading rate error to 25% of control authority.
+  limits_.heading_rate = 0.25 * (MAX_CMD - MIN_CMD) / (feedback_gains_.r
+    * fabs(actuation_inverse_[0][2]));
+  limits_.heading_error = 0.25 * (MAX_CMD - MIN_CMD) / (feedback_gains_.psi
+    * fabs(actuation_inverse_[0][2]));
 
-  // Set the heading error limit to half the attitude error so heading error
-  // won't saturate the attitude error.
-  limits_.heading_error = 0.5 * limits_.attitude_error;
-
-/*
-  // Compute the thrust limits that give the margin necessary to guarantee
-  // that the maximum attitude command is achievable.
-  // min_thrust_cmd_ = 0;
-  // max_thrust_cmd_ = FLT_MAX;
-  float max_attitude_cmd = limits_.attitude_error * k_phi_;
-  for (uint8_t i = NMotors(); i--; )
-  {
-    float temp = 1.0 / actuation_inverse_[i][3];
-    float min = (float)MIN_CMD * temp;
-    float max = (float)MAX_CMD * temp;
-    temp *= max_attitude_cmd * sqrt(square(actuation_inverse_[i][0]) +
-      square(actuation_inverse_[i][1]));
-    // min_thrust_cmd_ = FloatMax(min + temp, min_thrust_cmd_);
-    // max_thrust_cmd_ = FloatMin(max - temp, max_thrust_cmd_);
-  }
-
-  // k_sbus_to_thrust_ = (max_thrust_cmd_ - min_thrust_cmd_) / (2.0 * SBUS_MAX);
-*/
-
-  // NOTE: speed ~ k_x / k_x_dot * positiion_error_limit
-  // SO: positiion_error_limit ~ speed * k_x_dot / k_x
-  limits_.position_error = 1.0 * feedback_gains_.x_dot / feedback_gains_.x;
-  limits_.velocity_error = 2.0 * limits_.position_error;
-  limits_.altitude_error = 0.5;
-  limits_.vertical_speed_error = 2.5;
-
-  // TODO remove:
-  thrust_cmd_to_z_integral = 1.0 / feedback_gains_.z_int
-    / actuation_inverse_[0][3];
-
-  limits_.z_integral = (7 * MAX_THRUST_CMD / 8) * thrust_cmd_to_z_integral;
+  k_speed_to_position_error_limit_ = feedback_gains_.x_dot / feedback_gains_.x;
 }
 
 // -----------------------------------------------------------------------------
@@ -295,21 +282,23 @@ void Control(void)
 
   // TODO: add routines to form commands from an external source.
   // Derive a target attitude from the position of the sticks.
-  CommandsFromSticks(g_b_cmd, &heading_cmd_, &heading_rate_cmd);
-  GravityCommandsFromNav(&feedback_gains_, &limits_, nav_g_b_cmd_);
+  CommandsFromSticks(g_b_cmd, &heading_cmd_, &heading_rate_cmd, &thrust_cmd_);
+  CommandsForPositionControl(&feedback_gains_, nav_g_b_cmd_, &nav_thrust_cmd_,
+    &model_);
+
   g_b_cmd[0] += nav_g_b_cmd_[0];
   g_b_cmd[1] += nav_g_b_cmd_[1];
-  QuaternionFromGravityAndHeadingCommand(g_b_cmd, heading_cmd_, quat_cmd_);
+  thrust_cmd_ += nav_thrust_cmd_;
+
+  QuaternionFromGravityAndHeadingCommand(g_b_cmd, &limits_, heading_cmd_,
+    quat_cmd_);
 
   // Update the pitch and roll Kalman filters before recomputing the command.
   UpdateKalmanFilter(angular_cmd_, &kalman_coefficients_, &kalman_state_);
 
   // Compute a new attitude acceleration command.
   FormAngularCommand(quat_cmd_, heading_rate_cmd, &kalman_state_,
-    &feedback_gains_, &limits_, angular_cmd_);
-
-  // Compute a thrust command
-  FormThrustCommand(&feedback_gains_, &limits_, &thrust_cmd_);
+    &feedback_gains_, angular_cmd_);
 
   int16_t limit = FloatToS16(thrust_cmd_ * 2.0);
   if (limit > MAX_CMD) limit = MAX_CMD;
@@ -320,7 +309,7 @@ void Control(void)
   if (MotorsRunning())
     for (uint8_t i = NMotors(); i--; ) SetMotorSetpoint(i, setpoints_[i]);
   else if (MotorsStarting())
-    for (uint8_t i = NMotors(); i--; ) SetMotorSetpoint(i, CONTROL_MOTORS_IDLE);
+    for (uint8_t i = NMotors(); i--; ) SetMotorSetpoint(i, STARTING_SETPOINT);
   else
     for (uint8_t i = NMotors(); i--; ) SetMotorSetpoint(i, 0);
 
@@ -371,6 +360,153 @@ static float * AttitudeError(const float quat_cmd[4], const float quat[4],
 }
 
 // -----------------------------------------------------------------------------
+static void CommandsForPositionControl(const struct FeedbackGains * k,
+  float g_b_cmd[2], float * thrust_cmd, struct Model * model)
+{
+  static float position_integral[3] = { 0.0 };
+  static int16_t hover_thrust_stick = 0;
+  static uint8_t control_mode_pv = 0;
+
+  float position_error[3], velocity_error[3];
+
+  // Set the position error limit according to the transit speed. (Also, make
+  // sure the transit speed is sane.)
+  float position_error_limit = FloatLimit(TransitSpeed(), MIN_TRANSIT_SPEED,
+    MAX_TRANSIT_SPEED) * k_speed_to_position_error_limit_;
+
+  switch (ControlMode())
+  {
+    case CONTROL_MODE_NAV:
+    {
+      if (NavStatus() != 1) return;  // Do not update
+      if (control_mode_pv != CONTROL_MODE_NAV)
+      {
+        position_integral[N_WORLD_AXIS] = 0.0;
+        position_integral[E_WORLD_AXIS] = 0.0;
+        position_integral[D_WORLD_AXIS] = 0.0;
+        ResetModel((const float *)PositionVector(),
+          (const float *)VelocityVector(), model);
+      }
+
+      Vector3Subtract((const float *)TargetPositionVector(),
+        (const float *)PositionVector(), position_error);
+
+      float velocity_cmd[3] = { 0.0 };
+      Vector3Subtract(velocity_cmd, (const float *)VelocityVector(),
+        velocity_error);
+
+      // Integrate the difference with the model.
+      position_integral[N_WORLD_AXIS] = FloatSLimit(
+        position_integral[N_WORLD_AXIS] + (model->position[N_WORLD_AXIS]
+        - PositionVector()[N_WORLD_AXIS]) * k->x_integral, 0.25 * MAX_G_B_CMD);
+      position_integral[E_WORLD_AXIS] = FloatSLimit(
+        position_integral[E_WORLD_AXIS] + (model->position[E_WORLD_AXIS]
+        - PositionVector()[E_WORLD_AXIS]) * k->x_integral, 0.25 * MAX_G_B_CMD);
+      position_integral[D_WORLD_AXIS] = FloatSLimit(
+        position_integral[D_WORLD_AXIS] + (model->position[D_WORLD_AXIS]
+        - PositionVector()[D_WORLD_AXIS]) * k->z_integral, 0.15
+        * (MAX_THRUST_CMD - MIN_THRUST_CMD));
+
+      UpdateModel((const float *)TargetPositionVector(), velocity_cmd, k,
+        position_error_limit, model);
+      break;
+    }
+    case CONTROL_MODE_BARO_ALTITUDE:
+    {
+      static float target_baro_altitude = 0.0;
+      if (control_mode_pv != CONTROL_MODE_BARO_ALTITUDE)
+      {
+        hover_thrust_stick = SBusThrust();
+        target_baro_altitude = DeltaPressureAltitude();
+        position_integral[D_WORLD_AXIS] = 0.0;
+        float position[3] = { 0.0, 0.0, -DeltaPressureAltitude() };
+        float velocity[3] = { 0.0, 0.0, -VerticalSpeed() };
+        ResetModel(position, velocity, model);
+      }
+
+      float vertical_speed_cmd = (SBusThrust() - hover_thrust_stick)
+        * (MAX_VERTICAL_SPEED / (float)SBUS_MAX);
+      velocity_error[N_WORLD_AXIS] = 0.0;
+      velocity_error[E_WORLD_AXIS] = 0.0;
+      velocity_error[D_WORLD_AXIS] = -vertical_speed_cmd - -VerticalSpeed();
+
+      target_baro_altitude += vertical_speed_cmd * DT;
+      position_error[N_WORLD_AXIS] = 0.0;
+      position_error[E_WORLD_AXIS] = 0.0;
+      position_error[D_WORLD_AXIS] = -target_baro_altitude
+        - -DeltaPressureAltitude();
+
+      // Integrate the difference with the model.
+      position_integral[N_WORLD_AXIS] = 0.0;
+      position_integral[E_WORLD_AXIS] = 0.0;
+      position_integral[D_WORLD_AXIS] = FloatSLimit(
+        position_integral[D_WORLD_AXIS] + (model->position[D_WORLD_AXIS]
+        - -DeltaPressureAltitude()) * k->z_integral, 0.15
+        * (MAX_THRUST_CMD - MIN_THRUST_CMD));
+
+      float position_cmd[3] = { 0.0, 0.0, -DeltaPressureAltitude() };
+      float velocity_cmd[3] = { 0.0, 0.0, -VerticalSpeed() };
+      UpdateModel(position_cmd, velocity_cmd, k, position_error_limit, model);
+      break;
+    }
+    case CONTROL_MODE_MANUAL:
+    default:
+    {
+      position_error[N_WORLD_AXIS] = 0.0;
+      position_error[E_WORLD_AXIS] = 0.0;
+      position_error[D_WORLD_AXIS] = 0.0;
+      velocity_error[N_WORLD_AXIS] = 0.0;
+      velocity_error[E_WORLD_AXIS] = 0.0;
+      velocity_error[D_WORLD_AXIS] = 0.0;
+      position_integral[N_WORLD_AXIS] = 0.0;
+      position_integral[E_WORLD_AXIS] = 0.0;
+      position_integral[D_WORLD_AXIS] = 0.0;
+      break;
+    }
+  }
+
+  // TODO: the following assumes that this limit affects horizontal and vertical
+  // motion in the same way, which may not be true with different gains!!!
+  // Limit the position error to give the desired transit speed.
+  float position_error_norm = Vector3Norm(position_error);
+  if (position_error_norm > position_error_limit)
+  {
+    Vector3ScaleSelf(position_error, position_error_limit
+      / position_error_norm);
+  }
+
+  // Limit the navigation command to half the maximum manual command.
+  float a_w_cmd[2];  // acceleration command in world N-E plane
+  a_w_cmd[N_WORLD_AXIS] = FloatSLimit(
+    + k->x_dot * velocity_error[N_WORLD_AXIS]
+    + k->x * position_error[N_WORLD_AXIS],
+    0.5 * MAX_G_B_CMD)
+    + position_integral[N_WORLD_AXIS];
+  a_w_cmd[E_WORLD_AXIS] = FloatSLimit(
+    + k->x_dot * velocity_error[E_WORLD_AXIS]
+    + k->x * position_error[E_WORLD_AXIS],
+    0.5 * MAX_G_B_CMD)
+    + position_integral[E_WORLD_AXIS];
+
+  // Rotate the world commands to the body (assuming small pitch/roll angles).
+  float cos_heading = cos(HeadingAngle()), sin_heading = sin(HeadingAngle());
+  g_b_cmd[X_BODY_AXIS] = cos_heading * a_w_cmd[N_WORLD_AXIS] + sin_heading
+    * a_w_cmd[E_WORLD_AXIS];
+  g_b_cmd[Y_BODY_AXIS] = cos_heading * a_w_cmd[E_WORLD_AXIS] - sin_heading
+    * a_w_cmd[N_WORLD_AXIS];
+
+  // TODO: do this actuation inverse in a smarter way.
+  *thrust_cmd = FloatSLimit(actuation_inverse_[0][3] * (
+    + k->w_dot * -(-VerticalAcceleration())
+    + k->w * velocity_error[D_WORLD_AXIS]
+    + k->z * position_error[D_WORLD_AXIS]),
+    0.25 * (MAX_THRUST_CMD - MIN_THRUST_CMD))
+    + position_integral[Z_BODY_AXIS];
+
+  control_mode_pv = ControlMode();
+}
+
+// -----------------------------------------------------------------------------
 // This function converts the position of the R/C transmitter sticks to a thrust
 // command, heading rate command, and command corresponding to the direction of
 // gravity in the body frame. Note that commanding the direction of gravity is
@@ -378,7 +514,7 @@ static float * AttitudeError(const float quat_cmd[4], const float quat[4],
 // result and has the benefit of a direct correspondence with linear
 // acceleration.
 static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
-  float * heading_rate_cmd)
+  float * heading_rate_cmd, float * thrust_cmd)
 {
   if (SBusStale())
   {
@@ -406,69 +542,21 @@ static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
   else
     *heading_cmd = HeadingAngle();
   *heading_cmd = WrapToPlusMinusPi(*heading_cmd);
-}
 
-// -----------------------------------------------------------------------------
-// This function converts the combination of the x and y components of a unit
-// vector corresponding to the commanded direction of gravity in the body frame
-// and a heading commanded to a target quaternion. Note that, in the interest of
-// computational efficiency, the heading of the resulting quaternion may not
-// exactly match heading command for attitude commands that are far from level.
-// Also note that the heading error is saturated in this step to avoid an overly
-// large yawing command.
-static void QuaternionFromGravityAndHeadingCommand(const float g_b_cmd[2],
-  float heading_cmd, float quat_cmd[4])
-{
-  // Compute the z component of the gravity vector command.
-  float g_b_cmd_z = sqrt(1.0 - g_b_cmd[X_BODY_AXIS] * g_b_cmd[X_BODY_AXIS]
-    - g_b_cmd[Y_BODY_AXIS] * g_b_cmd[Y_BODY_AXIS]);
-
-  // Form a quaternion from these components (z component is 0).
-  float temp1 = 0.5 + 0.5 * g_b_cmd_z;
-  float quat_g_b_cmd_0 = sqrt(temp1);
-  float temp2 = 1.0 / (2.0 * quat_g_b_cmd_0);
-  float quat_g_b_cmd_x = g_b_cmd[Y_BODY_AXIS] * temp2;
-  float quat_g_b_cmd_y = -g_b_cmd[X_BODY_AXIS] * temp2;
-
-  // Determine the (approximate) heading of this command for removal (optional).
-  float heading_from_g_b_cmd = (quat_g_b_cmd_x * quat_g_b_cmd_y) / (temp1
-    + quat_g_b_cmd_x * quat_g_b_cmd_x - 0.5);
-
-  // Limit the heading error.
-  // float heading_err = FloatLimit(WrapToPlusMinusPi(heading_cmd
-  //   - HeadingAngle()), -heading_error_limit_, heading_error_limit_);
-
-  // Make a second quaternion for the commanded heading minus the residual
-  // heading from the gravity vector command (x and y components are zero).
-  temp1 = (heading_cmd - heading_from_g_b_cmd) * 0.5;
-  // temp1 = (HeadingAngle() + heading_err - heading_from_g_b_cmd) * 0.5;
-  float quat_heading_cmd_0 = cos(temp1);
-  float quat_heading_cmd_z = sin(temp1);
-
-  // Combine the quaternions (heading rotation first) to form the final
-  // quaternion command.
-  quat_cmd[0] = quat_heading_cmd_0 * quat_g_b_cmd_0;
-  quat_cmd[1] = quat_heading_cmd_0 * quat_g_b_cmd_x - quat_heading_cmd_z
-    * quat_g_b_cmd_y;
-  quat_cmd[2] = quat_heading_cmd_0 * quat_g_b_cmd_y + quat_heading_cmd_z
-    * quat_g_b_cmd_x;
-  quat_cmd[3] = quat_heading_cmd_z * quat_g_b_cmd_0;
+  // Compute the thrust command.
+  const float k_sbus_to_thrust_ = (float)(MAX_THRUST_CMD - MIN_THRUST_CMD)
+    / (2.0 * (float)SBUS_MAX);
+  *thrust_cmd = (float)(SBusThrust() + SBUS_MAX) * k_sbus_to_thrust_
+    + MIN_THRUST_CMD;
 }
 
 // -----------------------------------------------------------------------------
 static void FormAngularCommand(const float quat_cmd[4],
   float heading_rate_cmd, const struct KalmanState * kalman,
-  const struct FeedbackGains * k, const struct Limits * limits,
-  float angular_cmd[3])
+  const struct FeedbackGains * k, float angular_cmd[3])
 {
   float attitude_error[3];
   AttitudeError(quat_cmd, Quat(), attitude_error);
-
-  // Saturate the error.
-  float attitude_error_norm = Vector3Norm(attitude_error);
-  if (attitude_error_norm > limits->attitude_error)
-    Vector3Scale(attitude_error, limits->attitude_error
-      / attitude_error_norm, attitude_error);
 
   // Transform the yaw rate command into the body axis. Note that yaw rate
   // happens to occur along the gravity vector, so yaw rate command is a simple
@@ -491,110 +579,67 @@ static void FormAngularCommand(const float quat_cmd[4],
 }
 
 // -----------------------------------------------------------------------------
-static void GravityCommandsFromNav(const struct FeedbackGains * k,
-  const struct Limits * limits, float g_b_cmd[2])
+// This function converts the combination of the x and y components of a unit
+// vector corresponding to the commanded direction of gravity in the body frame
+// and a heading commanded to a target quaternion. Note that, in the interest of
+// computational efficiency, the heading of the resulting quaternion may not
+// exactly match heading command for attitude commands that are far from level.
+// Also note that the heading error is saturated in this step to avoid an overly
+// large yawing command.
+static void QuaternionFromGravityAndHeadingCommand(const float g_b_cmd[2],
+  const struct Limits * limit, float heading_cmd, float quat_cmd[4])
 {
-  if ((NavModeRequest() == NAV_MODE_OFF) || (NavMode() == NAV_MODE_OFF))
-  {
-    g_b_cmd[0] = 0.0;
-    g_b_cmd[1] = 0.0;
-    return;
-  }
+  // Compute the z component of the gravity vector command.
+  float g_b_cmd_z = sqrt(1.0 - g_b_cmd[X_BODY_AXIS] * g_b_cmd[X_BODY_AXIS]
+    - g_b_cmd[Y_BODY_AXIS] * g_b_cmd[Y_BODY_AXIS]);
 
-  if (NavStatus() != 1) return;
+  // Form a quaternion from these components (z component is 0).
+  float temp1 = 0.5 + 0.5 * g_b_cmd_z;
+  float quat_g_b_cmd_0 = sqrt(temp1);
+  float temp2 = 1.0 / (2.0 * quat_g_b_cmd_0);
+  float quat_g_b_cmd_x = g_b_cmd[Y_BODY_AXIS] * temp2;
+  float quat_g_b_cmd_y = -g_b_cmd[X_BODY_AXIS] * temp2;
 
-  // Limit the position error.
-  float x_i_error = FloatLimit(-PositionVector()[0], -limits->position_error,
-    limits->position_error);
-  float y_i_error = FloatLimit(-PositionVector()[1], -limits->position_error,
-    limits->position_error);
+  // Determine the (approximate) heading of this command for removal (optional).
+  float heading_from_g_b_cmd = (quat_g_b_cmd_x * quat_g_b_cmd_y) / (temp1
+    + quat_g_b_cmd_x * quat_g_b_cmd_x - 0.5);
 
-  // Limit the velocity error.
-  float vx_i_error = FloatLimit(-VelocityVector()[0], -limits->velocity_error,
-    limits->velocity_error);
-  float vy_i_error = FloatLimit(-VelocityVector()[1], -limits->velocity_error,
-    limits->velocity_error);
+  // Limit the heading error.
+  float heading_error = FloatSLimit(WrapToPlusMinusPi(heading_cmd
+    - HeadingAngle()), limit->heading_error);
 
-  float a_i_cmd[2];  // acceleration command in inertial x-y plane
-  a_i_cmd[0] = FloatLimit(k->x_dot * vx_i_error + k->x * x_i_error, -0.4, 0.4);
-  a_i_cmd[1] = FloatLimit(k->x_dot * vy_i_error + k->x * y_i_error, -0.4, 0.4);
+  // Make a second quaternion for the commanded heading minus the residual
+  // heading from the gravity vector command (x and y components are zero).
+  float temp = (HeadingAngle() + heading_error - heading_from_g_b_cmd) * 0.5;
+  float quat_heading_cmd_0 = cos(temp);
+  float quat_heading_cmd_z = sin(temp);
 
-  // TODO: do not assume that the following does not contribute to heading.
-  float cos_heading = cos(HeadingAngle()), sin_heading = sin(HeadingAngle());
-  g_b_cmd[X_BODY_AXIS] = cos_heading * a_i_cmd[0] + sin_heading * a_i_cmd[1];
-  g_b_cmd[Y_BODY_AXIS] = cos_heading * a_i_cmd[1] - sin_heading * a_i_cmd[0];
+  // Combine the quaternions (heading rotation first) to form the final
+  // quaternion command.
+  quat_cmd[0] = quat_heading_cmd_0 * quat_g_b_cmd_0;
+  quat_cmd[1] = quat_heading_cmd_0 * quat_g_b_cmd_x - quat_heading_cmd_z
+    * quat_g_b_cmd_y;
+  quat_cmd[2] = quat_heading_cmd_0 * quat_g_b_cmd_y + quat_heading_cmd_z
+    * quat_g_b_cmd_x;
+  quat_cmd[3] = quat_heading_cmd_z * quat_g_b_cmd_0;
 }
 
 // -----------------------------------------------------------------------------
-static void FormThrustCommand(const struct FeedbackGains * k,
-  const struct Limits * limits, float * thrust_cmd)
+static void ResetModel(const float position[3], const float velocity[3],
+  struct Model * m)
 {
-  // TODO: make these inputs
-  static int16_t hover_thrust_stick = 0;
-  static float z_integral = 0.0;
-  static float z_cmd = 0.0;
-  static uint8_t altitude_control_pv = 0, pressure_control_pv = 0;
-
-  // TODO: remove
-  static float thrust_cmd_pv = 0.0;
-  uint8_t nav_active = (NavModeRequest() != NAV_MODE_OFF)
-    && (NavMode() != NAV_MODE_OFF);
-
-  if (!AltitudeControlActive())
-  {
-    const float k_sbus_to_thrust_ = (float)(MAX_THRUST_CMD - MIN_THRUST_CMD)
-      / (2.0 * (float)SBUS_MAX);
-    *thrust_cmd = (float)(SBusThrust() + SBUS_MAX) * k_sbus_to_thrust_
-      + MIN_THRUST_CMD;
-  }
-  else
-  {
-    float w, z;
-
-    // TODO: compute these
-    if (!altitude_control_pv)
-    {
-      hover_thrust_stick = SBusThrust();
-      z_integral = thrust_cmd_to_z_integral * thrust_cmd_pv;
-    }
-
-    if (nav_active)
-    {
-      if (NavStatus() != 1) return;
-      z_cmd = 0;
-      z = PositionVector()[2];
-      w = VelocityVector()[2];
-    }
-    else
-    {
-      if (!pressure_control_pv) z_cmd = -DeltaPressureAltitude();
-      z = -DeltaPressureAltitude();
-      w = -VerticalSpeed();
-    }
-
-    float w_cmd = (float)(hover_thrust_stick - SBusThrust())
-      / (float)(SBUS_MAX) * 0.25;
-    float w_error = FloatLimit(w_cmd - w, -limits->vertical_speed_error,
-      limits->vertical_speed_error);
-    float z_error = FloatLimit(z_cmd - z, -limits->altitude_error,
-      limits->altitude_error);
-
-    // TODO: do this actuation inverse multiplication in a smarter way!
-    *thrust_cmd = FloatLimit(actuation_inverse_[0][3] * (
-      + k->w_dot * -(-VerticalAcceleration())
-      + k->w * w_error
-      + k->z * z_error
-      + k->z_int * z_integral),
-      MIN_THRUST_CMD, MAX_THRUST_CMD);
-
-    // TODO: do this elsewhere
-    z_integral = FloatLimit(z_integral + z_error * DT, limits->z_integral, 0.0);
-    z_cmd += w_cmd * DT;
-  }
-
-  altitude_control_pv = AltitudeControlActive();
-  pressure_control_pv = AltitudeControlActive() && !nav_active;
-  thrust_cmd_pv = *thrust_cmd;
+  m->angular_acceleration[0] = 0.0;
+  m->angular_acceleration[1] = 0.0;
+  m->angular_acceleration[2] = 0.0;
+  m->angular_rate[0] = 0.0;
+  m->angular_rate[1] = 0.0;
+  m->angular_rate[2] = 0.0;
+  m->eular_angles[0] = 0.0;
+  m->eular_angles[1] = 0.0;
+  m->eular_angles[2] = 0.0;
+  m->vertical_acceleration = 0.0;
+  Vector3Copy(velocity, m->velocity);
+  Vector3Copy(position, m->position);
 }
 
 // -----------------------------------------------------------------------------
@@ -634,4 +679,75 @@ static void UpdateKalmanFilter(const float angular_cmd[3],
   // Save past values
   x->p_pv = AngularRate(X_BODY_AXIS);
   x->q_pv = AngularRate(Y_BODY_AXIS);
+}
+
+// -----------------------------------------------------------------------------
+// Simple linear decoupled model of position in NED frame with zero heading.
+static void UpdateModel(const float position_cmd[3],
+  const float velocity_cmd[3], const struct FeedbackGains * k,
+  float position_error_limit, struct Model * m)
+{
+  float position_error[3], velocity_error[3];
+  Vector3Subtract(position_cmd, m->position, position_error);
+  Vector3Subtract(velocity_cmd, m->velocity, velocity_error);
+
+  // TODO: the following assumes that this limit affects horizontal and vertical
+  // motion in the same way, which may not be true with different gains!!!
+  // Limit the position error to give the desired transit speed.
+  float position_error_norm = Vector3Norm(position_error);
+  if (position_error_norm > position_error_limit)
+  {
+    Vector3ScaleSelf(position_error, position_error_limit
+      / position_error_norm);
+  }
+
+  // Form horizontal acceleration commands.
+  float a_w_cmd[3];  // acceleration command in world NED frame
+  a_w_cmd[N_WORLD_AXIS] =
+    + k->x_dot * velocity_error[N_WORLD_AXIS]
+    + k->x * position_error[N_WORLD_AXIS];
+  a_w_cmd[E_WORLD_AXIS] =
+    + k->x_dot * velocity_error[E_WORLD_AXIS]
+    + k->x * position_error[E_WORLD_AXIS];
+  a_w_cmd[D_WORLD_AXIS] =
+    + k->w_dot * -m->vertical_acceleration
+    + k->w * velocity_error[D_WORLD_AXIS]
+    + k->z * position_error[D_WORLD_AXIS];
+
+  // Apply the control gains.
+  float angular_cmd[2];
+  angular_cmd[X_BODY_AXIS] =
+    + k->p_dot * -m->angular_acceleration[X_BODY_AXIS]
+    + k->p * -m->angular_rate[X_BODY_AXIS]
+    + k->phi * (a_w_cmd[E_WORLD_AXIS] - m->eular_angles[X_BODY_AXIS]);
+  angular_cmd[Y_BODY_AXIS] =
+    + k->p_dot * -m->angular_acceleration[Y_BODY_AXIS]
+    + k->p * -m->angular_rate[Y_BODY_AXIS]
+    + k->phi * (-a_w_cmd[N_WORLD_AXIS] - m->eular_angles[Y_BODY_AXIS]);
+
+  float p_dot_dot = k_motor_lag_ * (angular_cmd[X_BODY_AXIS]
+    - m->angular_acceleration[X_BODY_AXIS]);
+  m->angular_acceleration[X_BODY_AXIS] += p_dot_dot * DT;
+  m->angular_rate[X_BODY_AXIS] += m->angular_acceleration[X_BODY_AXIS] * DT;
+  m->eular_angles[X_BODY_AXIS] += m->angular_rate[X_BODY_AXIS] * DT;
+  m->velocity[E_WORLD_AXIS] += m->eular_angles[X_BODY_AXIS]
+    * GRAVITY_ACCELERATION * DT;
+  m->position[E_WORLD_AXIS] += m->velocity[E_WORLD_AXIS] * DT;
+
+  float q_dot_dot = k_motor_lag_ * (angular_cmd[Y_BODY_AXIS]
+    - m->angular_acceleration[Y_BODY_AXIS]);
+  m->angular_acceleration[Y_BODY_AXIS] += q_dot_dot * DT;
+  m->angular_rate[Y_BODY_AXIS] += m->angular_acceleration[Y_BODY_AXIS] * DT;
+  m->eular_angles[Y_BODY_AXIS] += m->angular_rate[Y_BODY_AXIS] * DT;
+  m->velocity[N_WORLD_AXIS] -= m->eular_angles[Y_BODY_AXIS]
+    * GRAVITY_ACCELERATION * DT;
+  m->position[N_WORLD_AXIS] += m->velocity[N_WORLD_AXIS] * DT;
+
+  // TODO: make the direction of vertical_acceleration consistent with
+  // vertical_speed (from pressure altitude)
+  float w_dot_dot = k_motor_lag_ * (a_w_cmd[D_WORLD_AXIS]
+    - m->vertical_acceleration);
+  m->vertical_acceleration += w_dot_dot * DT;
+  m->velocity[D_WORLD_AXIS] += m->vertical_acceleration * DT;
+  m->position[D_WORLD_AXIS] += m->velocity[D_WORLD_AXIS] * DT;
 }

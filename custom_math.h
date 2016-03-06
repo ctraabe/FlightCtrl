@@ -24,6 +24,9 @@ uint16_t FloatToU16(float input);
 float FloatLimit(float input, float lower_limit, float upper_limit);
 
 // -----------------------------------------------------------------------------
+float FloatSLimit(float input, float limit);
+
+// -----------------------------------------------------------------------------
 float FloatMax(float input1, float input2);
 
 // -----------------------------------------------------------------------------

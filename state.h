@@ -12,11 +12,21 @@ enum StateBits {
   STATE_BIT_MOTORS_RUNNING        = 1<<3,
 };
 
+enum ControlMode {
+  CONTROL_MODE_MANUAL = 0,
+  CONTROL_MODE_BARO_ALTITUDE,
+  CONTROL_MODE_NAV,
+  CONTROL_MODE_TAKEOFF,
+};
+
 
 // =============================================================================
 // Accessors:
 
 uint8_t AltitudeControlActive(void);
+
+// -----------------------------------------------------------------------------
+enum ControlMode ControlMode(void);
 
 // -----------------------------------------------------------------------------
 uint8_t MotorsInhibited(void);

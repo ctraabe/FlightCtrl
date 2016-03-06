@@ -28,6 +28,10 @@ static volatile struct FromNav {
     float velocity[3];
     float heading_correction_quat_0;
     float heading_correction_quat_z;
+    float target_position[3];
+    float transit_speed;
+    float target_heading;
+    float heading_rate;
     uint8_t nav_mode;
     uint8_t status;
     uint16_t crc;
@@ -108,6 +112,30 @@ const volatile float * PositionVector(void)
 const volatile float * VelocityVector(void)
 {
   return from_nav_[from_nav_tail_].velocity;
+}
+
+// -----------------------------------------------------------------------------
+const volatile float * TargetPositionVector(void)
+{
+  return from_nav_[from_nav_tail_].target_position;
+}
+
+// -----------------------------------------------------------------------------
+float TransitSpeed(void)
+{
+  return from_nav_[from_nav_tail_].transit_speed;
+}
+
+// -----------------------------------------------------------------------------
+float TargetHeading(void)
+{
+  return from_nav_[from_nav_tail_].target_heading;
+}
+
+// -----------------------------------------------------------------------------
+float HeadingRate(void)
+{
+  return from_nav_[from_nav_tail_].heading_rate;
 }
 
 

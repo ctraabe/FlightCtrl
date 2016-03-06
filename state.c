@@ -20,21 +20,22 @@
 // Private data:
 
 static enum StateBits state_ = STATE_BIT_MOTORS_INHIBITED;
+static enum ControlMode control_mode_ = CONTROL_MODE_MANUAL;
 
-static enum ControlModeBits {
-  CONTROL_MODE_BIT_NAV_MODE_0            = 1<<0,
-  CONTROL_MODE_BIT_NAV_MODE_1            = 1<<1,
-  CONTROL_MODE_BIT_NAV_CONTROL_INHIBITED = 1<<2,
-  CONTROL_MODE_BIT_ALTITUDE_CONTROL      = 1<<3,
-  CONTROL_MODE_BIT_TAKEOFF               = 1<<4,
-} control_mode_ = 0x00;
+static enum ControlStateBits {
+  CONTROL_STATE_BIT_NAV_MODE_0            = 1<<0,
+  CONTROL_STATE_BIT_NAV_MODE_1            = 1<<1,
+  CONTROL_STATE_BIT_NAV_CONTROL_INHIBITED = 1<<2,
+  CONTROL_STATE_BIT_ALTITUDE_CONTROL      = 1<<3,
+  CONTROL_STATE_BIT_TAKEOFF               = 1<<4,
+} control_state_ = 0x00;
 
 
 // =============================================================================
 // Private function declarations:
 
 static uint8_t SafetyCheck(void);
-static void UpdateControlState(void);
+static void UpdateControlMode(void);
 
 
 // =============================================================================
@@ -42,7 +43,13 @@ static void UpdateControlState(void);
 
 uint8_t AltitudeControlActive(void)
 {
-  return control_mode_ & CONTROL_MODE_BIT_ALTITUDE_CONTROL;
+  return control_state_ & CONTROL_STATE_BIT_ALTITUDE_CONTROL;
+}
+
+// -----------------------------------------------------------------------------
+enum ControlMode ControlMode(void)
+{
+  return control_mode_;
 }
 
 // -----------------------------------------------------------------------------
@@ -60,7 +67,7 @@ uint8_t MotorsRunning(void)
 // -----------------------------------------------------------------------------
 enum NavMode NavModeRequest(void)
 {
-  return (enum NavMode)(control_mode_ & 0x03);
+  return (enum NavMode)(control_state_ & 0x03);
 }
 
 // -----------------------------------------------------------------------------
@@ -72,7 +79,7 @@ enum StateBits State(void)
 // -----------------------------------------------------------------------------
 uint8_t Takeoff(void)
 {
-  return control_mode_ & CONTROL_MODE_BIT_TAKEOFF;
+  return control_state_ & CONTROL_STATE_BIT_TAKEOFF;
 }
 
 
@@ -152,7 +159,7 @@ void UpdateState(void)
 
   if (sbus_on_off_latch && !SBusOnOff()) sbus_on_off_latch = 0;
 
-  UpdateControlState();
+  UpdateControlMode();
 }
 
 
@@ -173,12 +180,18 @@ static uint8_t SafetyCheck(void)
 // -----------------------------------------------------------------------------
 static void SetNavMode(enum NavMode mode)
 {
-  control_mode_ &= ~0x03;  // Clear the nav mode bits
-  control_mode_ |= mode;
+  control_state_ &= ~0x03;  // Clear the nav mode bits
+  control_state_ |= mode;
 }
 
 // -----------------------------------------------------------------------------
-static void UpdateControlState(void)
+// This function manages the control mode, including the following modes:
+// manual, barometric vertical speed, position hold, waypoint, takeoff, and come
+// home. Note that position hold, waypoint, and takeoff ignore the status of
+// barometric vertical speed control in favor of position estimates/commands
+// from the nav. Also note that position hold and waypoint control are inhibited
+// when manual intervention is detected.
+static void UpdateControlMode(void)
 {
   static int16_t thrust_stick_0 = 0;
   static uint8_t nav_switch_pv = SBUS_SWITCH_CENTER;
@@ -203,7 +216,7 @@ static void UpdateControlState(void)
     // transitioning to position control.
     if (nav_switch_pv == SBUS_SWITCH_DOWN)
     {
-      control_mode_ &= ~CONTROL_MODE_BIT_NAV_CONTROL_INHIBITED;
+      control_state_ &= ~CONTROL_STATE_BIT_NAV_CONTROL_INHIBITED;
       thrust_stick_0 = SBusThrust();
     }
 
@@ -212,7 +225,7 @@ static void UpdateControlState(void)
     // if ((SBusNavControl() != SBUS_SWITCH_DOWN) && SBusThrustStickDown()
     //     && (SBusAltitudeControl() != SBUS_SWITCH_UP))
     // {
-    //   control_mode_ |= CONTROL_MODE_BIT_TAKEOFF;
+    //   control_state_ |= CONTROL_STATE_BIT_TAKEOFF;
     // }
   }
 
@@ -220,25 +233,24 @@ static void UpdateControlState(void)
   {
     if (SBusAltitudeControl() == SBUS_SWITCH_UP)
     {
-      control_mode_ |= CONTROL_MODE_BIT_ALTITUDE_CONTROL;
-      thrust_stick_0 = SBusThrust();
+      control_state_ |= CONTROL_STATE_BIT_ALTITUDE_CONTROL;
 
       // Disable takeoff if engaged without the thrust stick centered.
-      // if ((control_mode_ & CONTROL_MODE_BIT_TAKEOFF)
+      // if ((control_state_ & CONTROL_STATE_BIT_TAKEOFF)
       //   && !SBusThrustStickCentered())
       // {
-      //   control_mode_ &= ~CONTROL_MODE_BIT_TAKEOFF;
+      //   control_state_ &= ~CONTROL_STATE_BIT_TAKEOFF;
       // }
     }
     else
     {
-      control_mode_ &= ~CONTROL_MODE_BIT_ALTITUDE_CONTROL;
+      control_state_ &= ~CONTROL_STATE_BIT_ALTITUDE_CONTROL;
     }
   }
 
   // Allow thrust_stick movement in takeoff mode.
-  // if ((control_mode_ & CONTROL_MODE_BIT_TAKEOFF)
-  //   && !(control_mode_ & CONTROL_MODE_BIT_ALTITUDE_CONTROL))
+  // if ((control_state_ & CONTROL_STATE_BIT_TAKEOFF)
+  //   && !(control_state_ & CONTROL_STATE_BIT_ALTITUDE_CONTROL))
   // {
   //   thrust_stick_0 = SBusThrust();
   // }
@@ -248,13 +260,27 @@ static void UpdateControlState(void)
   if ((abs(SBusThrust() - thrust_stick_0) > 10) || !SBusPitchStickCentered()
     || !SBusRollStickCentered() || !SBusYawStickCentered())
   {
-    control_mode_ |= CONTROL_MODE_BIT_NAV_CONTROL_INHIBITED;
+    control_state_ |= CONTROL_STATE_BIT_NAV_CONTROL_INHIBITED;
   }
 
   // Disable nav control if the inhibit bit is latched.
-  if (control_mode_ & CONTROL_MODE_BIT_NAV_CONTROL_INHIBITED)
+  if (control_state_ & CONTROL_STATE_BIT_NAV_CONTROL_INHIBITED)
   {
-    control_mode_ &= ~0x03;  // Clear the nav mode bits
+    control_state_ &= ~0x03;  // Clear the nav mode bits
+  }
+
+  // TODO: add stale data check to the following
+  if ((NavModeRequest() != NAV_MODE_OFF) && (NavMode() != NAV_MODE_OFF))
+  {
+    control_mode_ = CONTROL_MODE_NAV;
+  }
+  else if (control_state_ |= CONTROL_STATE_BIT_ALTITUDE_CONTROL)
+  {
+    control_mode_ = CONTROL_MODE_BARO_ALTITUDE;
+  }
+  else
+  {
+    control_mode_ = CONTROL_MODE_MANUAL;
   }
 
   // Set the past values.

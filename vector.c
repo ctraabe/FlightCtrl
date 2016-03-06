@@ -55,6 +55,16 @@ float Vector3NormSquared(const float v[3])
 }
 
 // -----------------------------------------------------------------------------
+float * Vector3ScaleSelf(float v[3], float scalar)
+{
+  v[0] *= scalar;
+  v[1] *= scalar;
+  v[2] *= scalar;
+
+  return v;
+}
+
+// -----------------------------------------------------------------------------
 float * Vector3Scale(const float v[3], float scalar, float result[3])
 {
   result[0] = v[0] * scalar;
@@ -71,6 +81,16 @@ float * Vector3ScaleAndAccumulate(const float v[3], float scalar,
   result[0] += v[0] * scalar;
   result[1] += v[1] * scalar;
   result[2] += v[2] * scalar;
+
+  return result;
+}
+
+// -----------------------------------------------------------------------------
+float * Vector3Subtract(const float v1[3], const float v2[3], float result[3])
+{
+  result[0] = v1[0] - v2[0];
+  result[1] = v1[1] - v2[1];
+  result[2] = v1[2] - v2[2];
 
   return result;
 }

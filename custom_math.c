@@ -44,6 +44,14 @@ float FloatLimit(float input, float lower_limit, float upper_limit)
 }
 
 // -----------------------------------------------------------------------------
+float FloatSLimit(float input, float limit)
+{
+  if (input < -limit) return -limit;
+  else if (input > limit) return limit;
+  else return input;
+}
+
+// -----------------------------------------------------------------------------
 float FloatMax(float input1, float input2)
 {
   return input1 > input2 ? input1 : input2;

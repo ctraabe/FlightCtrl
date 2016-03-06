@@ -34,6 +34,12 @@ float * Vector3ScaleAndAccumulate(const float v[3], float scalar,
   float result[3]);
 
 // -----------------------------------------------------------------------------
+float * Vector3ScaleSelf(float v[3], float scalar);
+
+// -----------------------------------------------------------------------------
+float * Vector3Subtract(const float v1[3], const float v2[3], float result[3]);
+
+// -----------------------------------------------------------------------------
 float * VectorAdd(const float *v1, const float *v2, uint8_t length,
   float * result);
 
