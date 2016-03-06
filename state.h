@@ -4,6 +4,8 @@
 
 #include <inttypes.h>
 
+#include "nav_comms.h"
+
 
 enum StateBits {
   STATE_BIT_MOTORS_INHIBITED      = 1<<0,

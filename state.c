@@ -7,7 +7,6 @@
 #include "buzzer.h"
 #include "main.h"
 #include "motors.h"
-#include "nav_comms.h"
 #include "pressure_altitude.h"
 #include "sbus.h"
 #include "timing.h"
@@ -274,7 +273,7 @@ static void UpdateControlMode(void)
   {
     control_mode_ = CONTROL_MODE_NAV;
   }
-  else if (control_state_ |= CONTROL_STATE_BIT_ALTITUDE_CONTROL)
+  else if (control_state_ & CONTROL_STATE_BIT_ALTITUDE_CONTROL)
   {
     control_mode_ = CONTROL_MODE_BARO_ALTITUDE;
   }
