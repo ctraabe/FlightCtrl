@@ -214,12 +214,16 @@ void ControlInit(void)
   feedback_gains_.phi = 3.875709893e+02;
   feedback_gains_.r = 5.088500555e+00;
   feedback_gains_.psi = 1.927238878e+01;
+
+  feedback_gains_.x_dot = 0.16;
+  feedback_gains_.x = 0.1;
+  feedback_gains_.x_integral = 0.35 * DT;
+
   feedback_gains_.w_dot = 5.091813030e-03;
   feedback_gains_.w = 4.407621675e+00;
   feedback_gains_.z = 7.422916434e+00;
-  feedback_gains_.z_int = 4.854441330e+00;
-  feedback_gains_.x_dot = 0.16;
-  feedback_gains_.x = 0.1;
+  feedback_gains_.z_integral = 4.854441330e+00 * DT / actuation_inverse_[0][3];
+
   kalman_coefficients_.A11 = 9.248488132e-01;
   kalman_coefficients_.A13 = 7.515118678e-03;
   kalman_coefficients_.A21 = 7.515118678e-03;
@@ -232,8 +236,9 @@ void ControlInit(void)
   kalman_coefficients_.K[1][1] = 3.062778776e-01;
   kalman_coefficients_.K[2][0] = 2.359221725e-01;
   kalman_coefficients_.K[2][1] = 1.445698341e+02;
+
+  k_motor_lag_ = 1.0 / 0.1;
 #else
-  k_motor_lag_ = 1.0 / 0.07;
   // control proportion: 0.400000
   feedback_gains_.p_dot = 6.125465888e-01;
   feedback_gains_.p = 1.620762355e+01;
@@ -262,6 +267,8 @@ void ControlInit(void)
   kalman_coefficients_.K[1][1] = 2.905144232e-01;
   kalman_coefficients_.K[2][0] = 2.225348506e-01;
   kalman_coefficients_.K[2][1] = 1.470361439e+02;
+
+  k_motor_lag_ = 1.0 / 0.07;
 #endif
 
   // TODO: Handle this actuation inverse in a smarter way.
@@ -368,6 +375,7 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
   static uint8_t control_mode_pv = 0;
 
   float position_error[3], velocity_error[3];
+  int16_t thrust_offset = 0;
 
   // Set the position error limit according to the transit speed. (Also, make
   // sure the transit speed is sane.)
@@ -447,6 +455,8 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
       float position_cmd[3] = { 0.0, 0.0, -DeltaPressureAltitude() };
       float velocity_cmd[3] = { 0.0, 0.0, -VerticalSpeed() };
       UpdateModel(position_cmd, velocity_cmd, k, position_error_limit, model);
+
+      thrust_offset = hover_thrust_stick - SBusThrust();
       break;
     }
     case CONTROL_MODE_MANUAL:
@@ -501,7 +511,7 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
     + k->w * velocity_error[D_WORLD_AXIS]
     + k->z * position_error[D_WORLD_AXIS]),
     0.25 * (MAX_THRUST_CMD - MIN_THRUST_CMD))
-    + position_integral[Z_BODY_AXIS];
+    + position_integral[Z_BODY_AXIS] + thrust_offset;
 
   control_mode_pv = ControlMode();
 }
