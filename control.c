@@ -113,7 +113,8 @@ static uint16_t setpoints_[MAX_MOTORS] = { 0 };
 // Private function declarations:
 
 static void CommandsForPositionControl(const struct FeedbackGains * k,
-  float g_b_cmd[2], float * thrust_cmd, struct Model * model);
+  const struct Limits * limit, float g_b_cmd[2], float * heading_cmd,
+  float * thrust_cmd, struct Model * model);
 static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
   float * heading_rate_cmd, float * thrust_cmd);
 static void FormAngularCommand(const float quat_cmd[4],
@@ -215,9 +216,9 @@ void ControlInit(void)
   feedback_gains_.r = 5.088500555e+00;
   feedback_gains_.psi = 1.927238878e+01;
 
-  feedback_gains_.x_dot = 0.16;
-  feedback_gains_.x = 0.1;
-  feedback_gains_.x_integral = 0.35 * DT;
+  feedback_gains_.x_dot = 0.18;
+  feedback_gains_.x = 0.135;
+  feedback_gains_.x_integral = 0.045 * DT;
 
   feedback_gains_.w_dot = 5.091813030e-03;
   feedback_gains_.w = 4.407621675e+00;
@@ -248,12 +249,12 @@ void ControlInit(void)
 
   feedback_gains_.x_dot = 0.18;
   feedback_gains_.x = 0.135;
-  feedback_gains_.x_integral = 0.35 * DT;
+  feedback_gains_.x_integral = 0.045 * DT;
 
   feedback_gains_.w_dot = 0.0;
   feedback_gains_.w = 2.0;
   feedback_gains_.z = 1.5;
-  feedback_gains_.z_integral = 0.35 * DT / actuation_inverse_[0][3];
+  feedback_gains_.z_integral = 0.45 * DT / actuation_inverse_[0][3];
 
   kalman_coefficients_.A11 = 8.943955582e-01;
   kalman_coefficients_.A13 = 7.392310928e-03;
@@ -290,8 +291,8 @@ void Control(void)
   // TODO: add routines to form commands from an external source.
   // Derive a target attitude from the position of the sticks.
   CommandsFromSticks(g_b_cmd, &heading_cmd_, &heading_rate_cmd, &thrust_cmd_);
-  CommandsForPositionControl(&feedback_gains_, nav_g_b_cmd_, &nav_thrust_cmd_,
-    &model_);
+  CommandsForPositionControl(&feedback_gains_, &limits_, nav_g_b_cmd_,
+    &heading_cmd_, &nav_thrust_cmd_, &model_);
 
   g_b_cmd[0] += nav_g_b_cmd_[0];
   g_b_cmd[1] += nav_g_b_cmd_[1];
@@ -368,7 +369,8 @@ static float * AttitudeError(const float quat_cmd[4], const float quat[4],
 
 // -----------------------------------------------------------------------------
 static void CommandsForPositionControl(const struct FeedbackGains * k,
-  float g_b_cmd[2], float * thrust_cmd, struct Model * model)
+  const struct Limits * limit, float g_b_cmd[2], float * heading_cmd,
+  float * thrust_cmd, struct Model * model)
 {
   static float position_integral[3] = { 0.0 };
   static int16_t hover_thrust_stick = 0;
@@ -417,6 +419,10 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
 
       UpdateModel((const float *)TargetPositionVector(), velocity_cmd, k,
         position_error_limit, model);
+
+      float heading_rate = FloatLimit(HeadingRate(), 0.02, limit->heading_rate);
+      *heading_cmd += FloatSLimit(WrapToPlusMinusPi(TargetHeading()
+        - HeadingAngle()) / DT, heading_rate * DT);
       break;
     }
     case CONTROL_MODE_BARO_ALTITUDE:
