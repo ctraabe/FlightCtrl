@@ -50,6 +50,13 @@ void PreflightInit(void)
   ResetAttitude();
   BeepDuration(500);
   WaitForBuzzerToComplete();
+  // Warn if any automatic flight modes are armed.
+  if (SBusAltitudeControl() != SBUS_SWITCH_DOWN
+    || SBusNavControl() != SBUS_SWITCH_DOWN)
+  {
+    BeepPattern(0x2AA);
+    WaitForBuzzerToComplete();
+  }
   ResetOverrun();
 }
 

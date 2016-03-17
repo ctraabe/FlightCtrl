@@ -170,9 +170,8 @@ static uint8_t SafetyCheck(void)
   if (PressureAltitudeError()) return 0;
   if (BLCErrorBits()) return 0;
   if (Vector3NormSquared(AngularRateVector()) > 0.01) return 0;
-  if (Vector3NormSquared(AccelerationVector()) > 1.1) return 0;
-  if (Vector3NormSquared(AccelerationVector()) < 0.9) return 0;
-  if (GravityInBodyVector()[2] < 0.9) return 0;
+  if (fabs(Vector3NormSquared(AccelerationVector()) - 1.0) > 0.1) return 0;
+  if (fabs(GravityInBodyVector()[2] - 1.0) > 0.05) return 0;
   return 1;
 }
 
