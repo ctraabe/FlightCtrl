@@ -192,6 +192,8 @@ int16_t main(void)
 
       ErrorCheck();
 
+      ExchangeDataWithNav();
+
       ProcessIncomingUART();
       SendPendingUART();
 
@@ -212,7 +214,6 @@ int16_t main(void)
     if (flag_64hz_)
     {
       flag_64hz_ = 0;
-      ExchangeDataWithNav();
     }
 
     if (flag_2hz_)
