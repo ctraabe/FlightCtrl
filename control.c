@@ -37,6 +37,8 @@
 #define MAX_CMD (1840)
 #define MIN_THRUST_CMD (100)
 #define MAX_THRUST_CMD (1400)
+#define SBUS_TO_THRUST_CMD ((float)(MAX_THRUST_CMD - MIN_THRUST_CMD) \
+    / (2.0 * (float)SBUS_MAX))
 #define MAX_G_B_CMD (sin(M_PI / 3.0))
 // TODO: unify this with limits_.heading_rate
 #define MAX_HEADING_RATE (M_PI / 4.0)
@@ -101,6 +103,7 @@ static struct Model {
 static struct PositionControlState {
   float position_integral[3];
   float target_baro_altitude;
+  float takeoff_thrust_residual;
   int16_t hover_thrust_stick;
   uint8_t control_mode_pv;
 } position_control_state_ = { 0 };
@@ -393,13 +396,13 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
   float position[3] = { 0.0 }, velocity[3] = { 0.0 };
   float position_cmd[3] = { 0.0 }, velocity_cmd[3] = { 0.0 };
   float position_error_limit = MIN_TRANSIT_SPEED;
-  int16_t thrust_offset = 0;
+  float baro_altitude_thrust_offset = 0;
 
   switch (ControlMode())
   {
     case CONTROL_MODE_NAV:
     {
-      if (NavStatus() != 1) return;  // Do not update
+      if ((NavStatus() != 1) || NavStale()) return;  // Do not update
 
       Vector3Copy((const float *)PositionVector(), position);
       Vector3Copy((const float *)VelocityVector(), velocity);
@@ -440,10 +443,37 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
 
       // Offset the thrust command so that vertical speed commands don't affect
       // the raw thrust command.
-      thrust_offset = state->hover_thrust_stick - SBusThrust();
+      baro_altitude_thrust_offset = (float)(state->hover_thrust_stick
+        - SBusThrust()) * SBUS_TO_THRUST_CMD;
+      break;
+    }
+    case CONTROL_MODE_TAKEOFF:
+    {
+      if (VerticalSpeed() > 0.25)
+      {
+        ClearTakeoffMode();
+      }
+      else if (state->takeoff_thrust_residual < (0.15 * (MAX_THRUST_CMD
+        - MIN_THRUST_CMD)))
+      {
+        state->takeoff_thrust_residual += 2.0;
+      }
+      break;
+    }
+    case CONTROL_MODE_PRE_TAKEOFF:
+    {
+      state->takeoff_thrust_residual = (float)(-SBusThrust() - SBUS_MAX)
+        * SBUS_TO_THRUST_CMD;
       break;
     }
     default:
+      // TODO: saturate on the low end.
+      if (state->takeoff_thrust_residual > 0.25)
+        state->takeoff_thrust_residual -= 0.25;
+      else if (state->takeoff_thrust_residual < 0.25)
+        state->takeoff_thrust_residual += 0.25;
+      else
+        state->takeoff_thrust_residual = 0.0;
       break;
   }
 
@@ -520,7 +550,9 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
     + k->w * velocity_error[D_WORLD_AXIS]
     + k->z * position_error[D_WORLD_AXIS]),
     0.25 * (MAX_THRUST_CMD - MIN_THRUST_CMD))
-    + state->position_integral[Z_BODY_AXIS] + thrust_offset;
+    + state->position_integral[Z_BODY_AXIS]
+    + baro_altitude_thrust_offset
+    + state->takeoff_thrust_residual;
 
   state->control_mode_pv = ControlMode();
 }
@@ -563,10 +595,8 @@ static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
   *heading_cmd = WrapToPlusMinusPi(*heading_cmd);
 
   // Compute the thrust command.
-  const float k_sbus_to_thrust_ = (float)(MAX_THRUST_CMD - MIN_THRUST_CMD)
-    / (2.0 * (float)SBUS_MAX);
-  *thrust_cmd = (float)(SBusThrust() + SBUS_MAX) * k_sbus_to_thrust_
-    + MIN_THRUST_CMD;
+  *thrust_cmd = (float)(SBusThrust() + SBUS_MAX) * SBUS_TO_THRUST_CMD
+    + (float)MIN_THRUST_CMD;
 }
 
 // -----------------------------------------------------------------------------

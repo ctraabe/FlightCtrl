@@ -85,6 +85,12 @@ uint8_t Takeoff(void)
 // =============================================================================
 // Public functions:
 
+void ClearTakeoffMode(void)
+{
+  control_state_ &= ~CONTROL_STATE_BIT_TAKEOFF;
+}
+
+// -----------------------------------------------------------------------------
 void UpdateState(void)
 {
   static uint8_t sbus_on_off_latch = 0;
@@ -192,8 +198,9 @@ static void SetNavMode(enum NavMode mode)
 static void UpdateControlMode(void)
 {
   static int16_t thrust_stick_0 = 0;
-  static uint8_t nav_switch_pv = SBUS_SWITCH_CENTER;
   static uint8_t altitude_switch_pv = SBUS_SWITCH_CENTER;
+  static uint8_t nav_switch_pv = SBUS_SWITCH_CENTER;
+  static uint8_t takeoff_switch_pv = SBUS_SWITCH_CENTER;
 
   if (SBusNavControl() != nav_switch_pv)
   {
@@ -217,14 +224,6 @@ static void UpdateControlMode(void)
       control_state_ &= ~CONTROL_STATE_BIT_NAV_CONTROL_INHIBITED;
       thrust_stick_0 = SBusThrust();
     }
-
-    // Arm takeoff mode by engaging automatic control with manual altitude
-    // control and thrust stick down.
-    // if ((SBusNavControl() != SBUS_SWITCH_DOWN) && SBusThrustStickDown()
-    //     && (SBusAltitudeControl() != SBUS_SWITCH_UP))
-    // {
-    //   control_state_ |= CONTROL_STATE_BIT_TAKEOFF;
-    // }
   }
 
   if (SBusAltitudeControl() != altitude_switch_pv)
@@ -232,13 +231,7 @@ static void UpdateControlMode(void)
     if (SBusAltitudeControl() == SBUS_SWITCH_UP)
     {
       control_state_ |= CONTROL_STATE_BIT_ALTITUDE_CONTROL;
-
-      // Disable takeoff if engaged without the thrust stick centered.
-      // if ((control_state_ & CONTROL_STATE_BIT_TAKEOFF)
-      //   && !SBusThrustStickCentered())
-      // {
-      //   control_state_ &= ~CONTROL_STATE_BIT_TAKEOFF;
-      // }
+      thrust_stick_0 = SBusThrust();
     }
     else
     {
@@ -246,12 +239,20 @@ static void UpdateControlMode(void)
     }
   }
 
-  // Allow thrust_stick movement in takeoff mode.
-  // if ((control_state_ & CONTROL_STATE_BIT_TAKEOFF)
-  //   && !(control_state_ & CONTROL_STATE_BIT_ALTITUDE_CONTROL))
-  // {
-  //   thrust_stick_0 = SBusThrust();
-  // }
+  if (SBusTakeoff() != takeoff_switch_pv)
+  {
+    if (SBusTakeoff() == SBUS_SWITCH_UP && SBusThrustStickDown())
+    {
+      control_state_ |= CONTROL_STATE_BIT_TAKEOFF
+        | CONTROL_STATE_BIT_NAV_CONTROL_INHIBITED;
+      control_state_ &= ~CONTROL_STATE_BIT_ALTITUDE_CONTROL;
+    }
+    if (SBusTakeoff() != SBUS_SWITCH_UP)
+    {
+      control_state_ &= ~CONTROL_STATE_BIT_TAKEOFF;
+    }
+  }
+  // TODO: Disable takeoff engagement if thrust stick is not centered.
 
   // Latch the nav control inhibit bit if there is any thrust stick movement or
   // any other sticks deviate from center.
@@ -259,6 +260,11 @@ static void UpdateControlMode(void)
     || !SBusRollStickCentered() || !SBusYawStickCentered())
   {
     control_state_ |= CONTROL_STATE_BIT_NAV_CONTROL_INHIBITED;
+    if (control_mode_ == CONTROL_MODE_TAKEOFF)
+    {
+      control_state_ &= ~CONTROL_STATE_BIT_TAKEOFF
+       & ~CONTROL_STATE_BIT_ALTITUDE_CONTROL;
+    }
   }
 
   // Disable nav control if the inhibit bit is latched.
@@ -267,14 +273,31 @@ static void UpdateControlMode(void)
     control_state_ &= ~0x03;  // Clear the nav mode bits
   }
 
-  // TODO: add stale data check to the following
   if ((NavModeRequest() != NAV_MODE_OFF) && (NavMode() != NAV_MODE_OFF))
   {
-    control_mode_ = CONTROL_MODE_NAV;
+    if (control_state_ & CONTROL_STATE_BIT_TAKEOFF)
+    {
+      control_mode_ = CONTROL_MODE_TAKEOFF;
+    }
+    else
+    {
+      control_mode_ = CONTROL_MODE_NAV;
+    }
   }
   else if (control_state_ & CONTROL_STATE_BIT_ALTITUDE_CONTROL)
   {
-    control_mode_ = CONTROL_MODE_BARO_ALTITUDE;
+    if (control_state_ & CONTROL_STATE_BIT_TAKEOFF)
+    {
+      control_mode_ = CONTROL_MODE_TAKEOFF;
+    }
+    else
+    {
+      control_mode_ = CONTROL_MODE_BARO_ALTITUDE;
+    }
+  }
+  else if (control_state_ & CONTROL_STATE_BIT_TAKEOFF)
+  {
+    control_mode_ = CONTROL_MODE_PRE_TAKEOFF;
   }
   else
   {
@@ -282,6 +305,7 @@ static void UpdateControlMode(void)
   }
 
   // Set the past values.
-  nav_switch_pv = SBusNavControl();
   altitude_switch_pv = SBusAltitudeControl();
+  nav_switch_pv = SBusNavControl();
+  takeoff_switch_pv = SBusTakeoff();
 }
