@@ -21,6 +21,7 @@
 // Private data:
 
 #define NAV_MESSAGE_START_BYTE (0xAA)
+#define NAV_FRESHNESS_LIMIT (500)  // millisends
 
 static volatile struct FromNav {
     uint16_t version;
@@ -56,6 +57,8 @@ static enum NavModeBits {
 } nav_mode_request_;
 
 static uint8_t from_nav_head_ = 1, from_nav_tail_ = 0;
+static uint16_t last_reception_timestamp = 0;
+static enum NavErrorBits nav_error_bits_ = NAV_ERROR_BIT_STALE;
 
 
 // =============================================================================
@@ -154,6 +157,14 @@ void NavCommsInit(void)
 // -----------------------------------------------------------------------------
 void ExchangeDataWithNav(void)
 {
+  // Only check freshness if the data is not yet stale because the timestamp
+  // might rollover, giving a false freshness.
+  if ((~nav_error_bits_ & NAV_ERROR_BIT_STALE) &&
+    (MillisSinceTimestamp(last_reception_timestamp) > NAV_FRESHNESS_LIMIT))
+  {
+    nav_error_bits_ |= NAV_ERROR_BIT_STALE;
+  }
+
   // Request the SPI transmit buffer. Return if not available.
   uint8_t * tx_buffer = RequestSPITxBuffer();
   if (tx_buffer == 0) return;
@@ -284,6 +295,8 @@ void ProcessDataFromNav(void)
     // Swap buffers.
     from_nav_tail_ = from_nav_head_;
     from_nav_head_ = !from_nav_tail_;
+    // Clear the stale data bit.
+    nav_error_bits_ &= ~NAV_ERROR_BIT_STALE;
   }
 
   // Clear the nav hold reset request if it has been honored.

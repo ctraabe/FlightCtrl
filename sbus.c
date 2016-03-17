@@ -342,7 +342,7 @@ void UpdateSBus(void)
     sbus_data_.channels[i] = 1024 - sbus_data_.channels[i];
   }
 
-  // ake sure the stale bit is cleared.
+  // Make sure the stale bit is cleared.
   sbus_error_bits_ &= ~SBUS_ERROR_BIT_STALE;
 }
 

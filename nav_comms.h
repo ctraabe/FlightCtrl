@@ -5,6 +5,10 @@
 #include <inttypes.h>
 
 
+enum NavErrorBits {
+  NAV_ERROR_BIT_STALE = 1<<0,
+};
+
 enum NavMode {
   NAV_MODE_OFF = 0,
   NAV_MODE_HOLD = 0x01,
