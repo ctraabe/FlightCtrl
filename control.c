@@ -399,7 +399,7 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
   {
     case CONTROL_MODE_NAV:
     {
-      if (NavStatus() != 1) return;  // Do not update
+      if ((NavStatus() != 1) || NavStale()) return;  // Do not update
 
       Vector3Copy((const float *)PositionVector(), position);
       Vector3Copy((const float *)VelocityVector(), velocity);

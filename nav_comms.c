@@ -141,6 +141,12 @@ float HeadingRate(void)
   return from_nav_[from_nav_tail_].heading_rate;
 }
 
+// -----------------------------------------------------------------------------
+uint8_t NavStale(void)
+{
+  return nav_error_bits_ & NAV_ERROR_BIT_STALE;
+}
+
 
 // =============================================================================
 // Public functions:
