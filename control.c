@@ -55,6 +55,7 @@ static struct FeedbackGains {
   float phi;
   float r;
   float psi;
+  float psi_integral;
   float w_dot;
   float w;
   float x_dot;
@@ -246,6 +247,8 @@ void ControlInit(void)
   feedback_gains_.r = 2.664374986e+00;
   feedback_gains_.psi = 3.731358603e+00;
 
+  feedback_gains_.psi_integral = 1.742256838e+00 * DT / feedback_gains_.psi;
+
   feedback_gains_.x_dot = 0.18;
   feedback_gains_.x = 0.135;
   feedback_gains_.x_integral = 0.045 * DT;
@@ -371,7 +374,7 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
   const struct Limits * limit, float g_b_cmd[2], float * heading_cmd,
   float * heading_rate_cmd, float * thrust_cmd, struct Model * model)
 {
-  static float position_integral[3] = { 0.0 };
+  static float position_integral[3] = { 0.0 }, heading_integral = 0.0;
   static int16_t hover_thrust_stick = 0;
   static uint8_t control_mode_pv = 0;
 
@@ -422,8 +425,10 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
       float heading_rate_limit = FloatLimit(HeadingRate(), 0.02,
         limit->heading_rate);
       *heading_rate_cmd += FloatSLimit(WrapToPlusMinusPi(TargetHeading()
-        - *heading_cmd) / DT, heading_rate_limit);
+        - *heading_cmd + heading_integral) / DT, heading_rate_limit);
       *heading_cmd += *heading_rate_cmd * DT;
+      heading_integral += FloatSLimit(WrapToPlusMinusPi(TargetHeading()
+        - HeadingAngle()) * k->psi_integral, M_PI / 12);  // Limited to 15-deg
       break;
     }
     case CONTROL_MODE_BARO_ALTITUDE:
