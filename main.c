@@ -199,10 +199,6 @@ int16_t main(void)
       ProcessIncomingUART();
       SendPendingUART();
 
-      // TODO: handle this wait in a smarter way.
-      I2CWaitUntilCompletion();
-      UpdateIndicator();
-
       if (main_overrun_count_) RedLEDOn();
 
       flag_128hz_ = 0;

@@ -28,6 +28,9 @@
 #include "state.h"
 #include "vector.h"
 #include "vertical_speed.h"
+// TODO: remove
+#include "i2c.h"
+#include "indicator.h"
 
 
 // =============================================================================
@@ -323,6 +326,8 @@ void Control(void)
   else
     for (uint8_t i = NMotors(); i--; ) SetMotorSetpoint(i, 0);
 
+  UpdateIndicator();
+  I2CWaitUntilCompletion();
   TxMotorSetpoints();
 }
 
