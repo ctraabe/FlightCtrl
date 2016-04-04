@@ -13,7 +13,9 @@ LDFLAGS   = -Ofast -Wall -Wextra -Wundef -Werror \
             -Wl,--relax,--gc-sections,-u,vfprintf -lprintf_flt -lm
 LTOFLAGS := -flto -fwhole-program
 ALLFLAGS  = -mmcu=$(MCU) -DF_CPU="$(F_CPU)UL"
-DUDEFLAGS = -c avrisp2 -p $(MCU)
+# PROGRAMMER := avrisp2
+PROGRAMMER := atmelice_isp
+DUDEFLAGS = -c $(PROGRAMMER) -p $(MCU)
 
 PROGRAM_START := 0x0000
 EEPROM_START := 0x0000
