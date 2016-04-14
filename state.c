@@ -10,6 +10,7 @@
 #include "pressure_altitude.h"
 #include "sbus.h"
 #include "timing.h"
+#include "uart.h"
 #include "vector.h"
 // TODO: remove
 #include "led.h"
@@ -90,7 +91,7 @@ void UpdateState(void)
   static uint8_t sbus_on_off_latch = 0;
   static uint16_t stick_timer;
 
-  if (state_ & STATE_BIT_MOTORS_INHIBITED)
+  if (MotorsInhibited())
   {
     if (SBusThrustStickUp() && SBusYawStickLeft())
     {
@@ -105,6 +106,7 @@ void UpdateState(void)
         }
         else
         {
+          state_ &= ~STATE_BIT_INITIALIZED;
           RedLEDOn();
           BeepPattern(0x0000AAAA);
         }
@@ -167,11 +169,33 @@ void UpdateState(void)
 
 static uint8_t SafetyCheck(void)
 {
-  if (PressureAltitudeError()) return 0;
-  if (BLCErrorBits()) return 0;
-  if (Vector3NormSquared(AngularRateVector()) > 0.01) return 0;
-  if (fabs(Vector3NormSquared(AccelerationVector()) - 1.0) > 0.1) return 0;
-  if (fabs(GravityInBodyVector()[2] - 1.0) > 0.05) return 0;
+  if (MotorsRunning()) return 1;
+
+  if (PressureAltitudeError())
+  {
+    UARTPrintf("state: failed pressure altitude safety check");
+    return 0;
+  }
+  if (BLCErrorBits())
+  {
+    UARTPrintf("state: failed motor controller safety check");
+    return 0;
+  }
+  if (Vector3NormSquared(AngularRateVector()) > 0.01)
+  {
+    UARTPrintf("state: failed gyro safety check");
+    return 0;
+  }
+  if (fabs(Vector3NormSquared(AccelerationVector()) - 1.0) > 0.1)
+  {
+    UARTPrintf("state: failed accelerometer safety check");
+    return 0;
+  }
+  if (fabs(GravityInBodyVector()[2] - 1.0) > 0.05)
+  {
+    UARTPrintf("state: failed level surface safety check");
+    return 0;
+  }
   return 1;
 }
 
