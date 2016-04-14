@@ -208,7 +208,40 @@ void ControlInit(void)
     (const void*)&eeprom.actuation_inverse[0][0], sizeof(actuation_inverse_));
 
   // TODO: remove these temporary initializations and replace computations.
-#ifdef SMALL_QUAD
+#if defined BI_OCTO
+  // control proportion: 0.400000
+  feedback_gains_.p_dot = 5.532231665e-01;
+  feedback_gains_.p = 1.503704565e+01;
+  feedback_gains_.phi = 5.590657197e+01;
+  feedback_gains_.r = 2.664374986e+00;
+  feedback_gains_.psi = 3.731358603e+00;
+
+  feedback_gains_.psi_integral = 1.742256838e+00 * DT / feedback_gains_.psi;
+
+  feedback_gains_.x_dot = 0.18;
+  feedback_gains_.x = 0.135;
+  feedback_gains_.x_integral = 0.045 * DT;
+
+  feedback_gains_.w_dot = 0.0;
+  feedback_gains_.w = 2.0;
+  feedback_gains_.z = 1.5;
+  feedback_gains_.z_integral = 0.45 * DT * actuation_inverse_[0][3];
+
+  kalman_coefficients_.A11 = 8.943955582e-01;
+  kalman_coefficients_.A13 = 7.392310928e-03;
+  kalman_coefficients_.A21 = 7.392310928e-03;
+  kalman_coefficients_.A23 = 2.941323505e-05;
+  kalman_coefficients_.B11 = 1.056044418e-01;
+  kalman_coefficients_.B21 = 4.201890722e-04;
+  kalman_coefficients_.K[0][0] = 7.736180483e-03;
+  kalman_coefficients_.K[0][1] = 6.465227478e+00;
+  kalman_coefficients_.K[1][0] = 1.973030846e-04;
+  kalman_coefficients_.K[1][1] = 2.905144232e-01;
+  kalman_coefficients_.K[2][0] = 2.225348506e-01;
+  kalman_coefficients_.K[2][1] = 1.470361439e+02;
+
+  k_motor_lag_ = 1.0 / 0.07;
+#elif defined SMALL_QUAD
   // control proportion: 0.400000
   feedback_gains_.p_dot = 2.756626048e+00;
   feedback_gains_.p = 6.157278112e+01;
@@ -240,14 +273,14 @@ void ControlInit(void)
 
   k_motor_lag_ = 1.0 / 0.1;
 #else
-  // control proportion: 0.400000
-  feedback_gains_.p_dot = 5.532231665e-01;
-  feedback_gains_.p = 1.503704565e+01;
-  feedback_gains_.phi = 5.590657197e+01;
-  feedback_gains_.r = 2.664374986e+00;
-  feedback_gains_.psi = 3.731358603e+00;
+  // control proportion: 0.500000
+  feedback_gains_.p_dot = 1.147582995e+00;
+  feedback_gains_.p = 2.874714450e+01;
+  feedback_gains_.phi = 1.477784660e+02;
+  feedback_gains_.r = 5.019351450e+00;
+  feedback_gains_.psi = 1.493714521e+01;
 
-  feedback_gains_.psi_integral = 1.742256838e+00 * DT / feedback_gains_.psi;
+  feedback_gains_.psi_integral = 1.195915077e+01 * DT / feedback_gains_.psi;
 
   feedback_gains_.x_dot = 0.18;
   feedback_gains_.x = 0.135;
