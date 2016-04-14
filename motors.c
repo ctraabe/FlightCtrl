@@ -63,7 +63,7 @@ struct BLCStatus
   uint8_t current;  // x 0.1 A
   enum BLCStatusCode status_code;  // Also command limit when running?
   uint8_t temperature;  // °C (for V2 or greater, 0xFF otherwise)
-  uint8_t rpm;  // TODO: verify units
+  uint8_t speed;  // rad/s / 5.79
   uint8_t extra;  // V3: Voltage, V2: mAh, V1: N/A
   uint8_t voltage;  // x 0.1V (V3 is limited to 255, V2 is only low-byte)
   uint8_t i2c_errors;  // V2 or greater
@@ -93,6 +93,12 @@ static void TxMotorSetpoint(uint8_t address);
 uint8_t BLCErrorBits(void)
 {
   return blc_error_bits_;
+}
+
+// -----------------------------------------------------------------------------
+uint8_t MotorSpeed(uint8_t i)
+{
+  return blc_status_[i].speed;
 }
 
 // -----------------------------------------------------------------------------
