@@ -497,8 +497,8 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
         - -DeltaPressureAltitude()) * k->z_integral, 0.15
         * (MAX_THRUST_CMD - MIN_THRUST_CMD));
 
-      float position_cmd[3] = { 0.0, 0.0, -DeltaPressureAltitude() };
-      float velocity_cmd[3] = { 0.0, 0.0, -VerticalSpeed() };
+      float position_cmd[3] = { 0.0, 0.0, -target_baro_altitude };
+      float velocity_cmd[3] = { 0.0, 0.0, -vertical_speed_cmd };
       UpdateModel(position_cmd, velocity_cmd, k, position_error_limit, model);
 
       thrust_offset = hover_thrust_stick - SBusThrust();
