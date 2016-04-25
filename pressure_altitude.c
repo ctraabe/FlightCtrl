@@ -1,17 +1,31 @@
-// MikroKopter uses a pressure sensor to determine altitude by assuming the
-// following relation between change in barometric pressure and change in
-// altitude: pressure(kPa) = 100 - 0.012 * altitude (m). The voltage output from
-// the pressure sensor follows the following relation: V_sensor = 0.045 *
-// pressure (kPa) - 0.48. This leads to the relation: V_sensor = 4.5 - 0.00054 *
-// altitude (m). So, for a change in altitude of 1 m, the voltage output from
+// The following 2nd order approximation of pressure altitude has been adopted:
+//   h = 13305 - 182.09 pressure + 0.50192 pressure ^ 2
+
+// Note that this expression is relative to standard-day sea-level pressure, so
+// the results will vary depending on the weather conditions.
+
+// The voltage output from the pressure sensor follows the following relation:
+//   Version <= 2.1:
+//     V_sensor = 0.045 * pressure (kPa) - 0.48
+//   Version >= 2.5:
+//     V_sensor = 0.027 * pressure (kPa) - 0.285
+
+// Near sea level, pressure (kPa) is approximately -0.012 * altitude (m) + 100
+// This leads to the relation:
+//   Version <= 2.1:
+//     V_sensor = 4.0 - 0.00054 * altitude (m)
+//   Version >= 2.5:
+//     V_sensor = 2.4 - 0.00032 * altitude (m)
+// So, for a change in altitude of 1 m, the voltage output from
 // the sensor only changes by 0.00054V.
 
 // However, the microprocessor's A/D converter has a measurement range of 3
-// Volts in steps of ~0.00293V (1024 bis). This implies a resolution worse than
-// 5 meters per A/D converter step. To increase the resolution, a non-inverting
+// Volts in steps of ~0.00293V (1024 bits). This implies a resolution worse than
+// 5 meters per A/D converter LSB. To increase the resolution, a non-inverting
 // operational amplifier is inserted between the pressure sensor and the A/D
-// converter. This op-amp is wired to have a gain of 37.63, which leads to a
-// resolution of 0.14 meters per step.
+// converter. This op-amp is wired to have a gain of 37.63 (Version <= 2.1) or
+// 59.99 (version >= 2.5), which leads to a resolution of 0.14 meters per LSB
+// (version <= 2.1) or 0.15 meters per LSB (version >= 2.5).
 
 // By increasing the resolution, the measurable range becomes much smaller. At
 // 0.14 m resolution, the 10-bit A/D converter can only capture a range of 140
@@ -23,33 +37,32 @@
 
 // To accomplish this shift, the op-amp is wired such that the output can be
 // biased by a pair of input voltages according to the following relation:
-
-// V_amplifier = 37.63 V_sensor - 5.2 V_fine - 10.4 V_coarse - 95.59V
+//   Version <= 2.1:
+//     V_amplifier = 37.63 V_sensor - 5.2 V_fine - 10.4 V_coarse - 95.59V
+//   Version >= 2.5:
+//     V_amplifier = 60 V_sensor - 11.0 x (V_fine + V_course) - 66.0V
 
 // Combined the above with the expression for V_sensor gives the relation for
 // pressure from the voltage output from the amplifier and the bias voltages.
-
-// Pressure(kPa) = 0.59 V_amplifier + 3.1 V_fine + 6.1 V_coarse + 67
+//   Version <= 2.1:
+//     Pressure(kPa) = 0.59 V_amplifier + 3.1 V_fine + 6.1 V_coarse + 67
+//   Version >= 2.5:
+//     Pressure(kPa) = 0.62 V_amplifier + 6.8 (V_fine + V_coarse) + 41
 
 // The biasing voltages, V_coarse and V_fine, are driven by the output pins of
 // TIMER0, OC0B and OC0A respectively. TIMER0 should be configured to drive
 // these pins with a fast PWM. The PWMs are passed through a physical low-pass
 // filter. The rise-time for this low-pass filter is on the order of 80 ms.
 
-// Considering the 10-bit, 3 V ADC that reads V_amp and the 8-bit, 5 V PWMs that
+// Considering the 10-bit, 3V ADC that reads V_amp and the 8-bit, 5V PWMs that
 // produce the bias voltages gives the following relation:
-
-// Pressure(kPa) = ADC / 578 + 0.06 * V_fine + 0.12 * V_coarse + 67
+//   Version <= 2.1:
+//     Pressure(kPa) = ADC / 578 + 0.06 * OCR0A + 0.12 * OCR0B + 67
+//   Version >= 2.5:
+//     Pressure(kPa) = 0.0018 * ADC + 0.06 * V_fine + 0.12 * V_coarse + 67
 
 // Note: Given the structure of the amplifier, the measurable pressure altitude
-// range is limited to between -1,100 m and 3,400 m approximately.
-
-// The following 2nd order approximation of pressure altitude has been adopted:
-
-// h = 13305 - 182.09 pressure + 0.50192 pressure ^ 2
-
-// Note that this expression is relative to standard-day sea-level pressure, so
-// the results will vary depending on the weather conditions.
+// range for version <= 2.1 is limited to approximately -1,100 m to 3,400 m.
 
 #include "pressure_altitude.h"
 
