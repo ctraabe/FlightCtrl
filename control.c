@@ -242,12 +242,12 @@ void ControlInit(void)
 
   k_motor_lag_ = 1.0 / 0.07;
 #elif defined SMALL_QUAD
-  // control proportion: 0.400000
-  feedback_gains_.p_dot = 2.756626048e+00;
-  feedback_gains_.p = 6.157278112e+01;
-  feedback_gains_.phi = 3.875709893e+02;
-  feedback_gains_.r = 5.088500555e+00;
-  feedback_gains_.psi = 1.927238878e+01;
+  // control proportion: 0.500000
+  feedback_gains_.p_dot = +2.690295082e+00;
+  feedback_gains_.p = +5.941758937e+01;
+  feedback_gains_.phi = +3.674012659e+02;
+  feedback_gains_.r = +4.921024667e+00;
+  feedback_gains_.psi = +1.786057092e+01;
 
   feedback_gains_.x_dot = 0.18;
   feedback_gains_.x = 0.135;
