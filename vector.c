@@ -16,6 +16,16 @@ float * Vector3Add(const float v1[3], const float v2[3], float result[3])
 }
 
 // -----------------------------------------------------------------------------
+float * Vector3AddToSelf(float v1[3], const float v2[3])
+{
+  v1[0] += v2[0];
+  v1[1] += v2[1];
+  v1[2] += v2[2];
+
+  return v1;
+}
+
+// -----------------------------------------------------------------------------
 float * Vector3Copy(const float source[3], float destination[3])
 {
   destination[0] = source[0];
@@ -93,6 +103,16 @@ float * Vector3Subtract(const float v1[3], const float v2[3], float result[3])
   result[2] = v1[2] - v2[2];
 
   return result;
+}
+
+// -----------------------------------------------------------------------------
+float * Vector3SubtractFromSelf(float v1[3], const float v2[3])
+{
+  v1[0] -= v2[0];
+  v1[1] -= v2[1];
+  v1[2] -= v2[2];
+
+  return v1;
 }
 
 // -----------------------------------------------------------------------------

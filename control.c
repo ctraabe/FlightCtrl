@@ -47,7 +47,6 @@
 
 // Computed constants.
 static float actuation_inverse_[MAX_MOTORS][4];
-// static float k_sbus_to_thrust_, min_thrust_cmd_, max_thrust_cmd_;
 
 static struct FeedbackGains {
   float p_dot;
@@ -100,12 +99,25 @@ static struct Model {
   float position[3];
 } model_ = { 0 };
 
+static struct PositionControlState {
+  float position_integral[3];
+  float heading_integral;
+  float target_baro_altitude;
+  int16_t hover_thrust_stick;
+  uint8_t control_mode_pv;
+} position_control_state_ = { 0 };
+
 // TODO: make some of these local to Control()
 static float angular_cmd_[3] = { 0.0 };
 static float heading_cmd_ = 0.0, thrust_cmd_ = 0.0;
 static float nav_g_b_cmd_[2] = { 0.0 }, nav_thrust_cmd_ = 0.0;
 static float quat_cmd_[4];  // Target attitude in quaternion
-static float k_motor_lag_ = 0.0, k_speed_to_position_error_limit_ = 0.0;
+
+
+static float k_motor_lag_ = 0.0;
+static float k_speed_to_position_error_ = 0.0, k_position_error_to_speed_ = 0.0,
+  k_horiszontal_limit_to_vertical_limit = 0.0,
+  k_vertical_limit_to_horizontal_limit = 0.0;
 static uint16_t setpoints_[MAX_MOTORS] = { 0 };
 
 
@@ -114,7 +126,8 @@ static uint16_t setpoints_[MAX_MOTORS] = { 0 };
 
 static void CommandsForPositionControl(const struct FeedbackGains * k,
   const struct Limits * limit, float g_b_cmd[2], float * heading_cmd,
-  float * heading_rate_cmd, float * thrust_cmd, struct Model * model);
+  float * heading_rate_cmd, float * thrust_cmd, struct Model * model,
+  struct PositionControlState * state);
 static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
   float * heading_rate_cmd, float * thrust_cmd);
 static void FormAngularCommand(const float quat_cmd[4],
@@ -314,7 +327,12 @@ void ControlInit(void)
   limits_.heading_error = 0.25 * (MAX_CMD - MIN_CMD) / (feedback_gains_.psi
     * fabs(actuation_inverse_[0][2]));
 
-  k_speed_to_position_error_limit_ = feedback_gains_.x_dot / feedback_gains_.x;
+  k_speed_to_position_error_ = feedback_gains_.x_dot / feedback_gains_.x;
+  k_position_error_to_speed_ = 1.0 / k_speed_to_position_error_;
+  k_horiszontal_limit_to_vertical_limit = feedback_gains_.w / feedback_gains_.z
+    / k_speed_to_position_error_;
+  k_vertical_limit_to_horizontal_limit = 1.0
+    / k_horiszontal_limit_to_vertical_limit;
 }
 
 // -----------------------------------------------------------------------------
@@ -327,7 +345,8 @@ void Control(void)
   // Derive a target attitude from the position of the sticks.
   CommandsFromSticks(g_b_cmd, &heading_cmd_, &heading_rate_cmd, &thrust_cmd_);
   CommandsForPositionControl(&feedback_gains_, &limits_, nav_g_b_cmd_,
-    &heading_cmd_, &heading_rate_cmd, &nav_thrust_cmd_, &model_);
+    &heading_cmd_, &heading_rate_cmd, &nav_thrust_cmd_, &model_,
+    &position_control_state_);
 
   g_b_cmd[0] += nav_g_b_cmd_[0];
   g_b_cmd[1] += nav_g_b_cmd_[1];
@@ -405,129 +424,110 @@ static float * AttitudeError(const float quat_cmd[4], const float quat[4],
 // -----------------------------------------------------------------------------
 static void CommandsForPositionControl(const struct FeedbackGains * k,
   const struct Limits * limit, float g_b_cmd[2], float * heading_cmd,
-  float * heading_rate_cmd, float * thrust_cmd, struct Model * model)
+  float * heading_rate_cmd, float * thrust_cmd, struct Model * model,
+  struct PositionControlState * state)
 {
-  static float position_integral[3] = { 0.0 }, heading_integral = 0.0;
-  static int16_t hover_thrust_stick = 0;
-  static uint8_t control_mode_pv = 0;
-
-  float position_error[3], velocity_error[3];
+  float position[3] = { 0.0 }, velocity[3] = { 0.0 };
+  float position_cmd[3] = { 0.0 }, velocity_cmd[3] = { 0.0 };
+  float position_error_limit = MIN_TRANSIT_SPEED;
   int16_t thrust_offset = 0;
-
-  // Set the position error limit according to the transit speed. (Also, make
-  // sure the transit speed is sane.)
-  float position_error_limit = FloatLimit(TransitSpeed(), MIN_TRANSIT_SPEED,
-    MAX_TRANSIT_SPEED) * k_speed_to_position_error_limit_;
 
   switch (ControlMode())
   {
     case CONTROL_MODE_NAV:
     {
-      if (NavStatus() != 1) return;  // Do not update
-      if (control_mode_pv != CONTROL_MODE_NAV)
-      {
-        position_integral[N_WORLD_AXIS] = 0.0;
-        position_integral[E_WORLD_AXIS] = 0.0;
-        position_integral[D_WORLD_AXIS] = 0.0;
-        ResetModel((const float *)PositionVector(),
-          (const float *)VelocityVector(), model);
-      }
+      if ((NavStatus() != 1) || NavStale()) return;  // Do not update
 
-      Vector3Subtract((const float *)TargetPositionVector(),
-        (const float *)PositionVector(), position_error);
+      // Copy volatile data to local memory.
+      Vector3Copy((const float *)PositionVector(), position);
+      Vector3Copy((const float *)VelocityVector(), velocity);
+      Vector3Copy((const float *)TargetPositionVector(), position_cmd);
 
-      float velocity_cmd[3] = { 0.0 };
-      Vector3Subtract(velocity_cmd, (const float *)VelocityVector(),
-        velocity_error);
+      // Set the position error limit according to the transit speed. (Also,
+      // make sure the transit speed is sane.)
+      position_error_limit = FloatLimit(TransitSpeed(), MIN_TRANSIT_SPEED,
+        MAX_TRANSIT_SPEED) * k_speed_to_position_error_;
 
-      // Integrate the difference with the model.
-      position_integral[N_WORLD_AXIS] = FloatSLimit(
-        position_integral[N_WORLD_AXIS] + (model->position[N_WORLD_AXIS]
-        - PositionVector()[N_WORLD_AXIS]) * k->x_integral, 0.25 * MAX_G_B_CMD);
-      position_integral[E_WORLD_AXIS] = FloatSLimit(
-        position_integral[E_WORLD_AXIS] + (model->position[E_WORLD_AXIS]
-        - PositionVector()[E_WORLD_AXIS]) * k->x_integral, 0.25 * MAX_G_B_CMD);
-      position_integral[D_WORLD_AXIS] = FloatSLimit(
-        position_integral[D_WORLD_AXIS] + (model->position[D_WORLD_AXIS]
-        - PositionVector()[D_WORLD_AXIS]) * k->z_integral, 0.15
-        * (MAX_THRUST_CMD - MIN_THRUST_CMD));
-
-      UpdateModel((const float *)TargetPositionVector(), velocity_cmd, k,
-        position_error_limit, model);
-
+      // Form a heading rate command depending on the heading error.
       float heading_rate_limit = FloatLimit(HeadingRate(), 0.02,
         limit->heading_rate);
       *heading_rate_cmd += FloatSLimit(WrapToPlusMinusPi(TargetHeading()
-        - *heading_cmd + heading_integral) / DT, heading_rate_limit);
+        - *heading_cmd + state->heading_integral) / DT, heading_rate_limit);
       *heading_cmd += *heading_rate_cmd * DT;
-      heading_integral += FloatSLimit(WrapToPlusMinusPi(TargetHeading()
+      state->heading_integral += FloatSLimit(WrapToPlusMinusPi(TargetHeading()
         - HeadingAngle()) * k->psi_integral, M_PI / 12);  // Limited to 15-deg
       break;
     }
     case CONTROL_MODE_BARO_ALTITUDE:
     {
-      static float target_baro_altitude = 0.0;
-      if (control_mode_pv != CONTROL_MODE_BARO_ALTITUDE)
+      if (state->control_mode_pv != CONTROL_MODE_BARO_ALTITUDE)
       {
-        hover_thrust_stick = SBusThrust();
-        target_baro_altitude = DeltaPressureAltitude();
-        position_integral[D_WORLD_AXIS] = 0.0;
-        float position[3] = { 0.0, 0.0, -DeltaPressureAltitude() };
-        float velocity[3] = { 0.0, 0.0, -VerticalSpeed() };
-        ResetModel(position, velocity, model);
+        state->hover_thrust_stick = SBusThrust();
+        state->target_baro_altitude = DeltaPressureAltitude();
       }
 
-      float vertical_speed_cmd = (SBusThrust() - hover_thrust_stick)
+      position[D_WORLD_AXIS] = -DeltaPressureAltitude();
+      velocity[D_WORLD_AXIS] = -VerticalSpeed();
+
+      velocity_cmd[D_WORLD_AXIS] = -(SBusThrust() - state->hover_thrust_stick)
         * (MAX_VERTICAL_SPEED / (float)SBUS_MAX);
-      velocity_error[N_WORLD_AXIS] = 0.0;
-      velocity_error[E_WORLD_AXIS] = 0.0;
-      velocity_error[D_WORLD_AXIS] = -vertical_speed_cmd - -VerticalSpeed();
 
-      target_baro_altitude += vertical_speed_cmd * DT;
-      position_error[N_WORLD_AXIS] = 0.0;
-      position_error[E_WORLD_AXIS] = 0.0;
-      position_error[D_WORLD_AXIS] = -target_baro_altitude
-        - -DeltaPressureAltitude();
+      state->target_baro_altitude += -velocity_cmd[D_WORLD_AXIS] * DT;
+      position_cmd[D_WORLD_AXIS] = -state->target_baro_altitude;
 
-      // Integrate the difference with the model.
-      position_integral[N_WORLD_AXIS] = 0.0;
-      position_integral[E_WORLD_AXIS] = 0.0;
-      position_integral[D_WORLD_AXIS] = FloatSLimit(
-        position_integral[D_WORLD_AXIS] + (model->position[D_WORLD_AXIS]
-        - -DeltaPressureAltitude()) * k->z_integral, 0.15
-        * (MAX_THRUST_CMD - MIN_THRUST_CMD));
+      position_error_limit = 1.5 * MAX_VERTICAL_SPEED
+        * k_speed_to_position_error_;  // 50% margin
 
-      float position_cmd[3] = { 0.0, 0.0, -target_baro_altitude };
-      float velocity_cmd[3] = { 0.0, 0.0, -vertical_speed_cmd };
-      UpdateModel(position_cmd, velocity_cmd, k, position_error_limit, model);
-
-      thrust_offset = hover_thrust_stick - SBusThrust();
+      // Offset the thrust command so that vertical speed commands don't affect
+      // the raw thrust command.
+      thrust_offset = state->hover_thrust_stick - SBusThrust();
       break;
     }
     case CONTROL_MODE_MANUAL:
     default:
-    {
-      position_error[N_WORLD_AXIS] = 0.0;
-      position_error[E_WORLD_AXIS] = 0.0;
-      position_error[D_WORLD_AXIS] = 0.0;
-      velocity_error[N_WORLD_AXIS] = 0.0;
-      velocity_error[E_WORLD_AXIS] = 0.0;
-      velocity_error[D_WORLD_AXIS] = 0.0;
-      position_integral[N_WORLD_AXIS] = 0.0;
-      position_integral[E_WORLD_AXIS] = 0.0;
-      position_integral[D_WORLD_AXIS] = 0.0;
       break;
-    }
   }
 
-  // TODO: the following assumes that this limit affects horizontal and vertical
-  // motion in the same way, which may not be true with different gains!!!
-  // Limit the position error to give the desired transit speed.
+  // Reset the integrator when the mode changes.
+  if (ControlMode() != state->control_mode_pv)
+  {
+    state->position_integral[N_WORLD_AXIS] = 0.0;
+    state->position_integral[E_WORLD_AXIS] = 0.0;
+    state->position_integral[D_WORLD_AXIS] = 0.0;
+    ResetModel(position, velocity, model);
+  }
+
+  // Integrate the difference with the model.
+  UpdateModel(position_cmd, velocity_cmd, k, position_error_limit, model);
+  state->position_integral[N_WORLD_AXIS] = FloatSLimit(
+    state->position_integral[N_WORLD_AXIS] + (model->position[N_WORLD_AXIS]
+    - position[N_WORLD_AXIS]) * k->x_integral, 0.25 * MAX_G_B_CMD);
+  state->position_integral[E_WORLD_AXIS] = FloatSLimit(
+    state->position_integral[E_WORLD_AXIS] + (model->position[E_WORLD_AXIS]
+    - position[E_WORLD_AXIS]) * k->x_integral, 0.25 * MAX_G_B_CMD);
+  state->position_integral[D_WORLD_AXIS] = FloatSLimit(
+    state->position_integral[D_WORLD_AXIS] + (model->position[D_WORLD_AXIS]
+    - position[D_WORLD_AXIS]) * k->z_integral, 0.15
+    * (MAX_THRUST_CMD - MIN_THRUST_CMD));
+
+  float position_error[3], velocity_error[3];
+  Vector3Subtract(position_cmd, position, position_error);
+  Vector3Subtract(velocity_cmd, velocity, velocity_error);
+
+  // If the position error limit is exceeded, then switch to velocity control.
+  position_error[D_WORLD_AXIS] *= k_vertical_limit_to_horizontal_limit;
   float position_error_norm = Vector3Norm(position_error);
   if (position_error_norm > position_error_limit)
   {
     Vector3ScaleSelf(position_error, position_error_limit
       / position_error_norm);
+    position_error[D_WORLD_AXIS] *= k_horiszontal_limit_to_vertical_limit;
+    Vector3AddToSelf(position_error, model->position);
+    Vector3SubtractFromSelf(position_error, position);
+  }
+  else
+  {
+    position_error[D_WORLD_AXIS] *= k_horiszontal_limit_to_vertical_limit;
   }
 
   // Limit the navigation command to half the maximum manual command.
@@ -536,12 +536,12 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
     + k->x_dot * velocity_error[N_WORLD_AXIS]
     + k->x * position_error[N_WORLD_AXIS],
     0.5 * MAX_G_B_CMD)
-    + position_integral[N_WORLD_AXIS];
+    + state->position_integral[N_WORLD_AXIS];
   a_w_cmd[E_WORLD_AXIS] = FloatSLimit(
     + k->x_dot * velocity_error[E_WORLD_AXIS]
     + k->x * position_error[E_WORLD_AXIS],
     0.5 * MAX_G_B_CMD)
-    + position_integral[E_WORLD_AXIS];
+    + state->position_integral[E_WORLD_AXIS];
 
   // Rotate the world commands to the body (assuming small pitch/roll angles).
   float cos_heading = cos(HeadingAngle()), sin_heading = sin(HeadingAngle());
@@ -556,9 +556,9 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
     + k->w * velocity_error[D_WORLD_AXIS]
     + k->z * position_error[D_WORLD_AXIS]),
     0.25 * (MAX_THRUST_CMD - MIN_THRUST_CMD))
-    + position_integral[Z_BODY_AXIS] + thrust_offset;
+    + state->position_integral[Z_BODY_AXIS] + thrust_offset;
 
-  control_mode_pv = ControlMode();
+  state->control_mode_pv = ControlMode();
 }
 
 // -----------------------------------------------------------------------------
@@ -749,12 +749,14 @@ static void UpdateModel(const float position_cmd[3],
   // TODO: the following assumes that this limit affects horizontal and vertical
   // motion in the same way, which may not be true with different gains!!!
   // Limit the position error to give the desired transit speed.
+  position_error[D_WORLD_AXIS] *= k_vertical_limit_to_horizontal_limit;
   float position_error_norm = Vector3Norm(position_error);
   if (position_error_norm > position_error_limit)
   {
     Vector3ScaleSelf(position_error, position_error_limit
       / position_error_norm);
   }
+  position_error[D_WORLD_AXIS] *= k_horiszontal_limit_to_vertical_limit;
 
   // Form horizontal acceleration commands.
   float a_w_cmd[3];  // acceleration command in world NED frame
