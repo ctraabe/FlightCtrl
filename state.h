@@ -19,6 +19,7 @@ enum ControlMode {
   CONTROL_MODE_BARO_ALTITUDE,
   CONTROL_MODE_NAV,
   CONTROL_MODE_TAKEOFF,
+  CONTROL_MODE_PRE_TAKEOFF,
 };
 
 
@@ -49,6 +50,9 @@ uint8_t Takeoff(void);
 // =============================================================================
 // Public functions:
 
+void ClearTakeoffMode(void);
+
+// -----------------------------------------------------------------------------
 void UpdateState(void);
 
 

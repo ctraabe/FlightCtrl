@@ -10,6 +10,7 @@ struct EEPROM EEMEM eeprom = {
   .sbus_channel_on_off = 17,
   .sbus_channel_altitude_control = 4,
   .sbus_channel_nav_control = 5,
+  .sbus_channel_takeoff = 6,
   .sbus_channel_switch = { 6, 7, 4, 5, 16, 13 },
   .sbus_channel_trim = { 8, 9, 10, 11 },
 };
