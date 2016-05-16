@@ -149,8 +149,7 @@ int16_t main(void)
 /*
   // TODO: Delete these temporary EEPROM settings.
   SBusSetChannels(2, 3, 0, 1, 17, 16, 5, 7, 4, 6, 6, 6, 6, 6, 8, 9, 10, 11);
-
-  // BI Octo
+#if defined BI_OCTO
   SetNMotors(8);
   float b_inv[8][4] = {
     { +0.000000000e+00, +9.675320382e+00, +1.972471902e+02, -6.033975571e+01 },
@@ -163,8 +162,7 @@ int16_t main(void)
     { -9.308934042e+00, +6.841484653e+00, -1.972471902e+02, -6.033975571e+01 },
   };
   SetActuationInverse(b_inv);
-
-  // Small quad
+#elif defined SMALL_QUAD
   SetNMotors(4);
   float b_inv[8][4] = {
     { +2.416975886e+00, +2.416975886e+00, -4.971845548e+01, -5.047879731e+01 },
@@ -173,8 +171,7 @@ int16_t main(void)
     { +2.416975886e+00, -2.416975886e+00, +4.971845548e+01, -5.047879731e+01 },
   };
   SetActuationInverse(b_inv);
-
-  // Large Quad
+#else  // Large quad
   SetNMotors(4);
   float b_inv[8][4] = {
     { +0.000000000e+00, +5.981504630e+00, -5.944911074e+01, -5.730839172e+01 },
@@ -183,6 +180,7 @@ int16_t main(void)
     { +6.008994571e+00, +0.000000000e+00, +5.944911074e+01, -5.730839172e+01 },
   };
   SetActuationInverse(b_inv);
+#endif
 */
   // Main loop
   for (;;)  // Preferred over while(1)

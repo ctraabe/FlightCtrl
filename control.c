@@ -288,7 +288,7 @@ void ControlInit(void)
   kalman_coefficients_.K[2][1] = 1.445698341e+02;
 
   k_motor_lag_ = 1.0 / 0.1;
-#else
+#else  // Large quad
   // control proportion: 0.500000
   feedback_gains_.p_dot = 1.147582995e+00;
   feedback_gains_.p = 2.874714450e+01;
