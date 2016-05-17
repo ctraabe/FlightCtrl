@@ -303,6 +303,7 @@ void ProcessDataFromNav(void)
     from_nav_head_ = !from_nav_tail_;
     // Clear the stale data bit.
     nav_error_bits_ &= ~NAV_ERROR_BIT_STALE;
+    last_reception_timestamp = GetTimestamp();
   }
 
   // Clear the nav hold reset request if it has been honored.
