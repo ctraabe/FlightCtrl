@@ -6,6 +6,7 @@
 #include "buzzer.h"
 #include "control.h"
 #include "i2c.h"
+#include "indicator.h"
 #include "led.h"
 #include "mcu_pins.h"
 #include "mk_serial_protocol.h"
@@ -107,6 +108,7 @@ static void Init(void)
   ControlInit();  // Must be run after DetectMotors() to get NMotors()
 
   NavCommsInit();
+  IndicatorInit();
 
   ResetOverrun();
   GreenLEDOn();
