@@ -66,7 +66,6 @@ void SensorCalibration(void)
   if (!MotorsInhibited()) return;
   BeepDuration(100);
   ZeroAccelerometers();
-  // PressureSensorBiasCalibration();  // Not accurate
   ResetAttitude();
   BeepDuration(500);
   WaitForBuzzerToComplete();
