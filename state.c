@@ -284,7 +284,8 @@ static void UpdateControlMode(void)
     || !SBusRollStickCentered() || !SBusYawStickCentered())
   {
     control_state_ |= CONTROL_STATE_BIT_NAV_CONTROL_INHIBITED;
-    if (control_mode_ == CONTROL_MODE_TAKEOFF)
+    if ((control_mode_ == CONTROL_MODE_TAKEOFF_TO_NAV)
+      || (control_mode_ == CONTROL_MODE_TAKEOFF_TO_BARO))
     {
       control_state_ &= ~CONTROL_STATE_BIT_TAKEOFF
        & ~CONTROL_STATE_BIT_ALTITUDE_CONTROL;
@@ -301,7 +302,7 @@ static void UpdateControlMode(void)
   {
     if (control_state_ & CONTROL_STATE_BIT_TAKEOFF)
     {
-      control_mode_ = CONTROL_MODE_TAKEOFF;
+      control_mode_ = CONTROL_MODE_TAKEOFF_TO_NAV;
     }
     else
     {
@@ -312,7 +313,7 @@ static void UpdateControlMode(void)
   {
     if (control_state_ & CONTROL_STATE_BIT_TAKEOFF)
     {
-      control_mode_ = CONTROL_MODE_TAKEOFF;
+      control_mode_ = CONTROL_MODE_TAKEOFF_TO_BARO;
     }
     else
     {

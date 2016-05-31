@@ -492,16 +492,17 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
         - SBusThrust()) * SBUS_TO_THRUST_CMD;
       break;
     }
-    case CONTROL_MODE_TAKEOFF:
+    // TODO: add case CONTROL_MODE_TAKEOFF_TO_BARO:
+    case CONTROL_MODE_TAKEOFF_TO_NAV:
     {
-      if (VerticalSpeed() > 0.25)
+      if (VelocityVector()[D_WORLD_AXIS] < -0.25)
       {
         ClearTakeoffMode();
       }
       else if (state->takeoff_thrust_residual < (0.15 * (MAX_THRUST_CMD
         - MIN_THRUST_CMD)))
       {
-        state->takeoff_thrust_residual += 2.0;
+        state->takeoff_thrust_residual += 1.5;
       }
       break;
     }
