@@ -40,14 +40,14 @@
 //   Version <= 2.1:
 //     V_amplifier = 37.63 V_sensor - 5.2 V_fine - 10.4 V_coarse - 95.59V
 //   Version >= 2.5:
-//     V_amplifier = 60 V_sensor - 11.0 (V_fine + V_course) - 66.0V
+//     V_amplifier = 63 V_sensor - 18 (V_fine + V_course) - 66V
 
 // Combined the above with the expression for V_sensor gives the relation for
 // pressure from the voltage output from the amplifier and the bias voltages.
 //   Version <= 2.1:
 //     Pressure(kPa) = 0.59 V_amplifier + 3.1 V_fine + 6.1 V_coarse + 67
 //   Version >= 2.5:
-//     Pressure(kPa) = 0.62 V_amplifier + 6.8 (V_fine + V_coarse) + 41
+//     Pressure(kPa) = 0.59 V_amplifier + 6.5 (V_fine + V_coarse) + 49
 
 // The biasing voltages, V_coarse and V_fine, are 0V to 5V biases driven by the
 // output pins of TIMER0, OC0B and OC0A respectively. TIMER0 should be
@@ -59,9 +59,9 @@
 // Considering the 10-bit, 3V ADC that reads V_amp and the 8-bit, 5V PWMs that
 // produce the bias voltages gives the following relation:
 //   Version <= 2.1:
-//     Pressure(kPa) = ADC / 578 + 0.06 * (OCR0A + 1 + 2 * (255 - OCR0B)) + 67
+//     Pressure(kPa) = 0.0017 ADC + 0.060 (OCR0A + 1 + 2 * (255 - OCR0B)) + 67
 //   Version >= 2.5:
-//     Pressure(kPa) = 0.0018 * ADC + 0.13 * (OCR0A + 1 + 255 - OCR0B) + 41
+//     Pressure(kPa) = 0.0017 ADC + 0.13 (OCR0A + 1 + 255 - OCR0B) + 49
 
 // Note: Given the structure of the amplifier, the measurable pressure altitude
 // range for version <= 2.1 is limited to approximately -1,100 m to 3,400 m.
@@ -89,7 +89,7 @@
 #define PRESSURE_TO_ALTITUDE_C1 (-182.09)
 #define PRESSURE_TO_ALTITUDE_C0 (13305.0)
 
-#define V_2_5_ADC_SUM_TO_PRESSURE (0.0018 / (float)ADC_N_SAMPLES)
+#define V_2_5_ADC_SUM_TO_PRESSURE (0.0017250169 / (float)ADC_N_SAMPLES)
 #define V_2_5_COARSE_BIAS_STEPS_TO_PRESSURE_STEPS (-73 * ADC_N_SAMPLES)
 #define V_2_5_FINE_BIAS_STEPS_TO_PRESSURE_STEPS (-73 * ADC_N_SAMPLES)
 
@@ -261,10 +261,11 @@ void ResetPressureSensorRange(void)
 
   // Compute the actual pressure corresponding to biased_pressure_sum_0_ given
   // the current bias settings.
+  // TODO: make these magic numbers #defines
   if (BoardVersion() > 22)
   {
     pressure_0_ = (float)biased_pressure_sum_0_ * adc_sum_to_pressure
-      + (float)(OCR0A + 1 + 255 - OCR0B) * 0.13 + 41.;
+      + (float)(OCR0A + 1 + 255 - OCR0B) * 0.1265012382 + 49.4167359379;
   }
   else
   {
