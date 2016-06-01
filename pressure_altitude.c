@@ -40,7 +40,7 @@
 //   Version <= 2.1:
 //     V_amplifier = 37.63 V_sensor - 5.2 V_fine - 10.4 V_coarse - 95.59V
 //   Version >= 2.5:
-//     V_amplifier = 60 V_sensor - 11.0 x (V_fine + V_course) - 66.0V
+//     V_amplifier = 60 V_sensor - 11.0 (V_fine + V_course) - 66.0V
 
 // Combined the above with the expression for V_sensor gives the relation for
 // pressure from the voltage output from the amplifier and the bias voltages.
@@ -49,17 +49,19 @@
 //   Version >= 2.5:
 //     Pressure(kPa) = 0.62 V_amplifier + 6.8 (V_fine + V_coarse) + 41
 
-// The biasing voltages, V_coarse and V_fine, are driven by the output pins of
-// TIMER0, OC0B and OC0A respectively. TIMER0 should be configured to drive
-// these pins with a fast PWM. The PWMs are passed through a physical low-pass
-// filter. The rise-time for this low-pass filter is on the order of 80 ms.
+// The biasing voltages, V_coarse and V_fine, are 0V to 5V biases driven by the
+// output pins of TIMER0, OC0B and OC0A respectively. TIMER0 should be
+// configured to drive these pins with a fast PWM. The PWMs are passed through a
+// physical low-pass filter. The rise-time for this low-pass filter is on the
+// order of 80 ms. OC0A and OC0B have 8-bit resolution. OC0B is set to inverting
+// so the output is proportional to 255 - OCR0B.
 
 // Considering the 10-bit, 3V ADC that reads V_amp and the 8-bit, 5V PWMs that
 // produce the bias voltages gives the following relation:
 //   Version <= 2.1:
-//     Pressure(kPa) = ADC / 578 + 0.06 * OCR0A + 0.12 * OCR0B + 67
+//     Pressure(kPa) = ADC / 578 + 0.06 * (OCR0A + 1 + 2 * (255 - OCR0B)) + 67
 //   Version >= 2.5:
-//     Pressure(kPa) = 0.0018 * ADC + 0.06 * V_fine + 0.12 * V_coarse + 67
+//     Pressure(kPa) = 0.0018 * ADC + 0.13 * (OCR0A + 1 + 255 - OCR0B) + 41
 
 // Note: Given the structure of the amplifier, the measurable pressure altitude
 // range for version <= 2.1 is limited to approximately -1,100 m to 3,400 m.
@@ -71,7 +73,9 @@
 #include "adc.h"
 #include "custom_math.h"
 #include "eeprom.h"
+#include "main.h"
 #include "mcu_pins.h"
+#include "state.h"
 #include "timing.h"
 #include "uart.h"
 
@@ -79,26 +83,25 @@
 // =============================================================================
 // Private data:
 
-#define ADC_SUM_TO_PRESSURE (1.0 / 578.0 / (float)ADC_N_SAMPLES)
+#define TIMER0_DIVIDER (1)
+
 #define PRESSURE_TO_ALTITUDE_C2 (0.50192)
 #define PRESSURE_TO_ALTITUDE_C1 (-182.09)
 #define PRESSURE_TO_ALTITUDE_C0 (13305.0)
-#define TIMER0_DIVIDER (1)
+
+#define V_2_5_ADC_SUM_TO_PRESSURE (0.0018 / (float)ADC_N_SAMPLES)
+#define V_2_5_COARSE_BIAS_STEPS_TO_PRESSURE_STEPS (-73 * ADC_N_SAMPLES)
+#define V_2_5_FINE_BIAS_STEPS_TO_PRESSURE_STEPS (-73 * ADC_N_SAMPLES)
+
+#define V_2_2_ADC_SUM_TO_PRESSURE (1.0 / 578.0 / (float)ADC_N_SAMPLES)
+#define V_2_2_COARSE_BIAS_STEPS_TO_PRESSURE_STEPS (-69 * ADC_N_SAMPLES)
+#define V_2_2_FINE_BIAS_STEPS_TO_PRESSURE_STEPS (-35 * ADC_N_SAMPLES)
 
 static uint8_t pressure_altitude_error_bits_ = 0x00;
-static int16_t coarse_bias_steps_to_pressure_steps_ = 0;
-static int16_t fine_bias_steps_to_pressure_steps_ = 0;
 static float delta_pressure_altitude_ = 0.0;
 static float pressure_sum_to_altitude_ = -0.2;
 static float pressure_0_ = 0.0, pressure_altitude_0_ = 0.0;
 static int16_t biased_pressure_sum_0_ = 0;
-
-
-// =============================================================================
-// Private function declarations:
-
-static void LoadPressureSensorBiasCalibration(void);
-static void CheckPressureSensorBiasCalibration(void);
 
 
 // =============================================================================
@@ -133,9 +136,9 @@ void PressureSensorInit(void)
   // Compare match output A mode bits: Set OC0A at BOTTOM clear on match
          | (1 << COM0A1)
          | (0 << COM0A0)
-  // Compare match output B mode bits: Set OC0B at BOTTOM clear on match
+  // Compare match output B mode bits: Clear OC0B at BOTTOM set on match
          | (1 << COM0B1)
-         | (0 << COM0B0);
+         | (1 << COM0B0);
   // Clock select bits:
   switch (TIMER0_DIVIDER)
   {
@@ -159,9 +162,8 @@ void PressureSensorInit(void)
       TCCR0B |= (0 << CS02) | (0 << CS01) | (0 << CS00);
       break;
   }
-  OCR0B = eeprom_read_byte(&eeprom.pressure_coarse_bias);
-
-  LoadPressureSensorBiasCalibration();
+  OCR0A = eeprom_read_byte(&eeprom.pressure_bias);
+  OCR0B = 255 - OCR0A;
 }
 
 // -----------------------------------------------------------------------------
@@ -173,22 +175,38 @@ void ResetPressureSensorRange(void)
 {
   const int16_t kBaroAltThreeQuarterValue = 3 * 1024 / 4 * ADC_N_SAMPLES;
 
-  // TODO: Never block communication to motors when running.
-  // if (MotorsOn()) return;
+  // Never block communication to motors when running.
+  if (MotorsRunning()) return;
 
   // Return if the ADC is not running.
   if (ADCState() != ADC_ACTIVE) return;
 
+  float adc_sum_to_pressure;
+  int16_t coarse_bias_to_pressure;
+  int16_t fine_bias_to_pressure;
+  if (BoardVersion() > 22)
+  {
+    adc_sum_to_pressure = V_2_5_ADC_SUM_TO_PRESSURE;
+    coarse_bias_to_pressure = V_2_5_COARSE_BIAS_STEPS_TO_PRESSURE_STEPS;
+    fine_bias_to_pressure = V_2_5_FINE_BIAS_STEPS_TO_PRESSURE_STEPS;
+  }
+  else
+  {
+    adc_sum_to_pressure = V_2_2_ADC_SUM_TO_PRESSURE;
+    coarse_bias_to_pressure = V_2_2_COARSE_BIAS_STEPS_TO_PRESSURE_STEPS;
+    fine_bias_to_pressure = V_2_2_FINE_BIAS_STEPS_TO_PRESSURE_STEPS;
+  }
+
   UARTPrintf("pressure_altitude: setting measurement range:");
   UARTTxByte('|');
 
-  // Initialize the fine adjustment to a middle value.
-  int16_t bias_fine = 127;
-  OCR0A = bias_fine;
-
   // Search for the optimal coarse bias.
-  int16_t bias_coarse = OCR0B;
+  int16_t bias_coarse = 255 - OCR0B;
+  OCR0A = bias_coarse;
 
+  // TODO: do a faster search when measurement is out of range
+
+  // Do a coarse search for the target pressure bias.
   for (uint8_t i = 0; i < 30; i++)
   {
     Wait(300);
@@ -196,35 +214,36 @@ void ResetPressureSensorRange(void)
 
     int16_t adjustment;
     adjustment = (kBaroAltThreeQuarterValue - (int16_t)BiasedPressureSum())
-      / coarse_bias_steps_to_pressure_steps_;
+      / (coarse_bias_to_pressure + fine_bias_to_pressure);
     if (adjustment == 0) break;
-    bias_coarse += adjustment;
+    bias_coarse = S16Limit(bias_coarse + adjustment, 0, 255);
 
     UARTTxByte('*');
-    OCR0B = (uint8_t)S16Limit(bias_coarse, 0, 255);
+    OCR0A = (uint8_t)bias_coarse;
+    OCR0B = 255 - (uint8_t)bias_coarse;
   }
 
   // Save the found bias_coarse to EEPROM.
-  eeprom_update_byte(&eeprom.pressure_coarse_bias, bias_coarse);
+  eeprom_update_byte(&eeprom.pressure_bias, bias_coarse);
 
-  // Search for the optimal fine bias
-  for (uint8_t i = 0; i < 30; i++)
+  // Search for the optimal fine bias.
+  int16_t bias_fine = bias_coarse;
+  for (uint8_t i = 0; i < 4; i++)
   {
     int16_t adjustment;
     adjustment = (kBaroAltThreeQuarterValue - (int16_t)BiasedPressureSum())
-      / fine_bias_steps_to_pressure_steps_;
+      / fine_bias_to_pressure;
     if (adjustment == 0) break;
-    bias_fine += adjustment;
+    bias_fine = S16Limit(bias_fine + adjustment, 0, 255);
 
     UARTTxByte('.');
-    OCR0A = (uint8_t)S16Limit(bias_fine, 0, 255);
+    OCR0A = (uint8_t)bias_fine;
     Wait(300);
     ProcessSensorReadings();
   }
   UARTPrintf("|");  // New line
 
-  // TODO: Perhaps make this more restrictive
-  if ((bias_fine > 10) || (bias_fine < 245))
+  if ((bias_fine > 1) && (bias_fine < 254))
   {
     UARTPrintf("  coarse bias set to %u", bias_coarse);
     UARTPrintf("  fine bias set to %u", bias_fine);
@@ -242,8 +261,17 @@ void ResetPressureSensorRange(void)
 
   // Compute the actual pressure corresponding to biased_pressure_sum_0_ given
   // the current bias settings.
-  pressure_0_ = (float)biased_pressure_sum_0_ * ADC_SUM_TO_PRESSURE
-    + (float)(2 * (OCR0B + 1) + OCR0A + 1) * 0.060 + 67.1;
+  if (BoardVersion() > 22)
+  {
+    pressure_0_ = (float)biased_pressure_sum_0_ * adc_sum_to_pressure
+      + (float)(OCR0A + 1 + 255 - OCR0B) * 0.13 + 41.;
+  }
+  else
+  {
+    pressure_0_ = (float)biased_pressure_sum_0_ * adc_sum_to_pressure
+      + (float)(OCR0A + 1 + 2 * (255 - OCR0B)) * 0.060 + 67.1;
+  }
+
 
   // Compute the pressure altitude corresponding to pressure_0_.
   pressure_altitude_0_ = PRESSURE_TO_ALTITUDE_C2 * pressure_0_ * pressure_0_
@@ -251,61 +279,12 @@ void ResetPressureSensorRange(void)
 
   // Compute the conversion factor from ADC pressure sum to pressure altitude.
   pressure_sum_to_altitude_ = (2.0 * PRESSURE_TO_ALTITUDE_C2 * pressure_0_
-    + PRESSURE_TO_ALTITUDE_C1) * ADC_SUM_TO_PRESSURE;
+    + PRESSURE_TO_ALTITUDE_C1) * adc_sum_to_pressure;
 
-  UARTPrintf("  current pressure = %f kPa", pressure_0_);
-  UARTPrintf("  current pressure altitude = %f m", pressure_altitude_0_);
-  UARTPrintf("  base reading = %i", biased_pressure_sum_0_);
-  UARTPrintf("  conversion factor = %f", pressure_sum_to_altitude_);
-}
-
-// -----------------------------------------------------------------------------
-// This function attempts to calibrate the bias for more accurate shifts in
-// the pressure altitude measurement range. Deviation from the theoretical
-// relationship is possible due to imprecise resistor values.
-void PressureSensorBiasCalibration(void)
-{
-  // TODO: Never block communication to motors when running.
-  // if (MotorsOn()) return;
-
-  // Return if the ADC is not running.
-  if (ADCState() != ADC_ACTIVE) return;
-
-  // Make sure that the pressure sensor is reporting a value that is near three
-  // quarters of its range.
-  ResetPressureSensorRange();
-
-  int16_t initial_reading;
-
-  initial_reading = BiasedPressureSum();
-  OCR0B += 1 << 3;  // 2^3 = 8. Subtracts approximately 1.6V to pressure sensor.
-  Wait(300);
-  ProcessSensorReadings();
-  coarse_bias_steps_to_pressure_steps_ = S16RoundRShiftS16(BiasedPressureSum()
-    - initial_reading, 3);
-
-  OCR0B -= 1 << 3;
-  Wait(300);
-  ProcessSensorReadings();
-
-  initial_reading = BiasedPressureSum();
-  OCR0A += 1 << 4;  // 2^4 = 16. Subtracts approximately 1.6V to pressure sensor.
-  Wait(300);
-  ProcessSensorReadings();
-  fine_bias_steps_to_pressure_steps_ = S16RoundRShiftS16(BiasedPressureSum()
-    - initial_reading, 4);
-
-  OCR0A -= 1 << 4;
-
-  CheckPressureSensorBiasCalibration();
-
-  if (~pressure_altitude_error_bits_ & PRESSURE_ERROR_BIT_COARSE_CALIBRATION)
-    eeprom_update_word(&eeprom.coarse_bias_steps_to_pressure_steps,
-      (uint16_t)coarse_bias_steps_to_pressure_steps_);
-
-  if (~pressure_altitude_error_bits_ & PRESSURE_ERROR_BIT_FINE_CALIBRATION)
-    eeprom_update_word(&eeprom.fine_bias_steps_to_pressure_steps,
-      (uint16_t)fine_bias_steps_to_pressure_steps_);
+  UARTPrintf("  current pressure = %.2f kPa", pressure_0_);
+  UARTPrintf("  current pressure altitude = %.2f m", pressure_altitude_0_);
+  // UARTPrintf("  base reading = %i", biased_pressure_sum_0_);
+  // UARTPrintf("  conversion factor = %f", pressure_sum_to_altitude_);
 }
 
 // -----------------------------------------------------------------------------
@@ -313,66 +292,4 @@ void UpdatePressureAltitude(void)
 {
   delta_pressure_altitude_ = ((int16_t)BiasedPressureSum()
     - biased_pressure_sum_0_) * pressure_sum_to_altitude_;
-}
-
-
-// =============================================================================
-// Private functions:
-
-// This function loads the pressure sensor bias calibration from EEPROM so that
-// it doesn't have to be re-calibrated every flight.
-static void LoadPressureSensorBiasCalibration(void)
-{
-  coarse_bias_steps_to_pressure_steps_ = (int16_t)eeprom_read_word(
-    &eeprom.coarse_bias_steps_to_pressure_steps);
-  fine_bias_steps_to_pressure_steps_ = (int16_t)eeprom_read_word(
-    &eeprom.fine_bias_steps_to_pressure_steps);
-
-  CheckPressureSensorBiasCalibration();
-
-  if (pressure_altitude_error_bits_ & PRESSURE_ERROR_BIT_COARSE_CALIBRATION)
-    eeprom_update_word(&eeprom.coarse_bias_steps_to_pressure_steps,
-      (uint16_t)(-69 * ADC_N_SAMPLES));
-
-  if (pressure_altitude_error_bits_ & PRESSURE_ERROR_BIT_FINE_CALIBRATION)
-    eeprom_update_word(&eeprom.fine_bias_steps_to_pressure_steps,
-      (uint16_t)(-35 * ADC_N_SAMPLES));
-}
-
-// -----------------------------------------------------------------------------
-static void CheckPressureSensorBiasCalibration(void)
-{
-  const int16_t kExpectedCoarseStepsToPressureSteps = -69 * ADC_N_SAMPLES;
-  const int16_t kExpectedFineStepsToPressureSteps = -35 * ADC_N_SAMPLES;
-  const int16_t kAcceptableDeviationPercent = 10;
-
-  int16_t coarse_bias_deviation = abs(coarse_bias_steps_to_pressure_steps_
-    - kExpectedCoarseStepsToPressureSteps);
-
-  if (coarse_bias_deviation < (abs(kExpectedCoarseStepsToPressureSteps)
-    * kAcceptableDeviationPercent) / 100)
-  {
-    pressure_altitude_error_bits_ &= ~PRESSURE_ERROR_BIT_COARSE_CALIBRATION;
-  }
-  else
-  {
-    pressure_altitude_error_bits_ |= PRESSURE_ERROR_BIT_COARSE_CALIBRATION;
-    coarse_bias_steps_to_pressure_steps_ = kExpectedCoarseStepsToPressureSteps;
-    UARTPrintf("pressure_altitude: ERROR: coarse bias calibration");
-  }
-
-  int16_t fine_bias_deviation = abs(fine_bias_steps_to_pressure_steps_
-    - kExpectedFineStepsToPressureSteps);
-
-  if (fine_bias_deviation < (abs(kExpectedFineStepsToPressureSteps)
-    * kAcceptableDeviationPercent) / 100)
-  {
-    pressure_altitude_error_bits_ &= ~PRESSURE_ERROR_BIT_FINE_CALIBRATION;
-  }
-  else
-  {
-    pressure_altitude_error_bits_ |= PRESSURE_ERROR_BIT_FINE_CALIBRATION;
-    fine_bias_steps_to_pressure_steps_ = kExpectedFineStepsToPressureSteps;
-    UARTPrintf("pressure_altitude: ERROR: fine bias calibration");
-  }
 }

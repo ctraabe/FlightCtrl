@@ -36,12 +36,6 @@ void PressureSensorInit(void);
 void ResetPressureSensorRange(void);
 
 // -----------------------------------------------------------------------------
-// This function attempts to calibrate the bias for more accurate shifts in
-// the pressure altitude measurement range. Deviation from the theoretical
-// relationship is possible due to imprecise resistor values.
-void PressureSensorBiasCalibration(void);
-
-// -----------------------------------------------------------------------------
 void UpdatePressureAltitude(void);
 
 

@@ -20,7 +20,7 @@ extern struct EEPROM {
   int16_t acc_offset[3];
   int16_t gyro_offset[3];
   uint8_t n_motors;
-  uint8_t pressure_coarse_bias;
+  uint8_t pressure_bias;
   uint16_t coarse_bias_steps_to_pressure_steps;
   uint16_t fine_bias_steps_to_pressure_steps;
   uint8_t sbus_channel_pitch;

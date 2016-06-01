@@ -31,12 +31,22 @@
 
 static volatile uint8_t flag_128hz_ = 0, flag_64hz_ = 0, flag_2hz_ = 0;
 static volatile uint16_t main_overrun_count_ = 0;
+static uint8_t board_version = 0;
 
 
 // =============================================================================
 // Private function declarations:
 
 void ResetOverrun(void);
+
+
+// =============================================================================
+// Accessors:
+
+uint8_t BoardVersion(void)
+{
+  return board_version;
+}
 
 
 // =============================================================================
@@ -52,8 +62,8 @@ void PreflightInit(void)
   BeepDuration(500);
   WaitForBuzzerToComplete();
   // Warn if any automatic flight modes are armed.
-  if (SBusAltitudeControl() != SBUS_SWITCH_DOWN
-    || SBusNavControl() != SBUS_SWITCH_DOWN)
+  if ((SBusAltitudeControl() != SBUS_SWITCH_DOWN)
+    || (SBusNavControl() != SBUS_SWITCH_DOWN))
   {
     BeepPattern(0x2AA);
     WaitForBuzzerToComplete();
@@ -67,7 +77,6 @@ void SensorCalibration(void)
   if (!MotorsInhibited()) return;
   BeepDuration(100);
   ZeroAccelerometers();
-  // PressureSensorBiasCalibration();  // Not accurate
   ResetAttitude();
   BeepDuration(500);
   WaitForBuzzerToComplete();
@@ -80,22 +89,36 @@ void SensorCalibration(void)
 
 static void Init(void)
 {
-  RedLEDOn();
-  TimingInit();
+  // Check the board version.
+  if (PINB & 0x02)
+  {
+    // Pull up the version pin (FlightCtrl V2.2 will be grounded).
+    VERSION_2_2_PORT |= VERSION_2_2_PIN;
+    if (VERSION_2_2)
+      board_version = 22;
+    else
+      board_version = 21;
+  }
+  else
+  {
+    board_version = 25;
+  }
+
   LEDInit();
+  RedLEDOn();
+
+  TimingInit();
   BuzzerInit();
+  PressureSensorInit();
   I2CInit();
   UARTInit();
   SPIInit();
   SBusInit();
-  PressureSensorInit();
-
-  // Pull up the version pin (FlightCtrl V2.2 will be grounded).
-  VERSION_2_2_PORT |= VERSION_2_2_PIN;
 
   sei();  // Enable interrupts
 
   UARTPrintf("\n\rUniversity of Tokyo FlightCtrl firmware V2\n\r");
+  UARTPrintf("MikroKopter FlightCtrl version %i detected", board_version);
 
   LoadGyroOffsets();
   LoadAccelerometerOffsets();
