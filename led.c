@@ -1,5 +1,8 @@
 #include "led.h"
 
+#include <inttypes.h>
+
+#include "main.h"
 #include "mcu_pins.h"
 
 
@@ -20,13 +23,19 @@ void LEDInit(void)
 // -----------------------------------------------------------------------------
 void GreenLEDOff(void)
 {
-  LED_PORT |= GREEN_LED_PIN;
+  if (BoardVersion() > 22)
+    LED_PORT &= ~GREEN_LED_PIN;
+  else
+    LED_PORT |= GREEN_LED_PIN;
 }
 
 // -----------------------------------------------------------------------------
 void GreenLEDOn(void)
 {
-  LED_PORT &= ~GREEN_LED_PIN;
+  if (BoardVersion() > 22)
+    LED_PORT |= GREEN_LED_PIN;
+  else
+    LED_PORT &= ~GREEN_LED_PIN;
 }
 
 // -----------------------------------------------------------------------------

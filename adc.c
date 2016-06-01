@@ -6,6 +6,7 @@
 
 #include "custom_math.h"
 #include "eeprom.h"
+#include "main.h"
 #include "mcu_pins.h"
 
 
@@ -226,7 +227,7 @@ void ProcessSensorReadings(void)
     / ACCELEROMETER_SCALE / ADC_N_SAMPLES;
   acceleration_[Y_BODY_AXIS] = (float)accelerometer_sum_[Y_BODY_AXIS]
     / ACCELEROMETER_SCALE / ADC_N_SAMPLES;
-  if (VERSION_2_2)
+  if (BoardVersion() > 21)
     acceleration_[Z_BODY_AXIS] = (float)accelerometer_sum_[Z_BODY_AXIS]
       / ACCELEROMETER_2_2_SCALE / ADC_N_SAMPLES;
   else
@@ -300,7 +301,7 @@ void ZeroAccelerometers(void)
     kNSamplesPowOf2);
   acc_offset_[Y_BODY_AXIS] = S16RoundRShiftS32(sample_sum[Y_BODY_AXIS],
     kNSamplesPowOf2);
-  if (VERSION_2_2)
+  if (BoardVersion() > 21)
     acc_offset_[Z_BODY_AXIS] = S16RoundRShiftS32(sample_sum[Z_BODY_AXIS],
       kNSamplesPowOf2) + ADC_N_SAMPLES * ACCELEROMETER_2_2_SCALE;
   else
