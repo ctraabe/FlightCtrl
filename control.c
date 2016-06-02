@@ -107,6 +107,7 @@ static struct Model {
 static struct PositionControlState {
   float position_integral[3];
   float heading_integral;
+  float heading_rabbit;
   float target_baro_altitude;
   float takeoff_thrust_residual;
   int16_t hover_thrust_stick;
@@ -236,7 +237,7 @@ void ControlInit(void)
   feedback_gains_.r = 2.664374986e+00;
   feedback_gains_.psi = 3.731358603e+00;
 
-  feedback_gains_.psi_integral = 1.742256838e+00 * DT / feedback_gains_.psi;
+  feedback_gains_.psi_integral = 1.742256838e+00 / feedback_gains_.psi;
 
   feedback_gains_.x_dot = 0.18;
   feedback_gains_.x = 0.135;
@@ -300,7 +301,7 @@ void ControlInit(void)
   feedback_gains_.r = 5.019351450e+00;
   feedback_gains_.psi = 1.493714521e+01;
 
-  feedback_gains_.psi_integral = 1.195915077e+01 * DT / feedback_gains_.psi;
+  feedback_gains_.psi_integral = 1.195915077e+01 / feedback_gains_.psi;
 
   feedback_gains_.x_dot = 0.18;
   feedback_gains_.x = 0.135;
@@ -366,6 +367,7 @@ void Control(void)
   UpdateKalmanFilter(angular_cmd_, &kalman_coefficients_, &kalman_state_);
 
   // Compute a new attitude acceleration command.
+  // TODO: separate proportional and integral commands
   FormAngularCommand(quat_cmd_, heading_rate_cmd, &kalman_state_,
     &feedback_gains_, angular_cmd_);
 
@@ -457,14 +459,23 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
       position_error_limit = FloatLimit(TransitSpeed(), MIN_TRANSIT_SPEED,
         MAX_TRANSIT_SPEED) * k_speed_to_position_error_;
 
-      // Form a heading rate command depending on the heading error.
+      // Form an integral command based on the difference between the current
+      // heading and the rabbit.
+      state->heading_integral += FloatSLimit(WrapToPlusMinusPi(
+        state->heading_rabbit - HeadingAngle()) * k->psi_integral, M_PI / 12);
+
+      // Compute a rate command (at the specified rate) that will move the
+      // rabbit toward the target.
       float heading_rate_limit = FloatLimit(HeadingRate(), 0.02,
         limit->heading_rate);
       *heading_rate_cmd += FloatSLimit(WrapToPlusMinusPi(TargetHeading()
-        - *heading_cmd + state->heading_integral) / DT, heading_rate_limit);
-      *heading_cmd += *heading_rate_cmd * DT;
-      state->heading_integral += FloatSLimit(WrapToPlusMinusPi(TargetHeading()
-        - HeadingAngle()) * k->psi_integral, M_PI / 12);  // Limited to 15-deg
+        - state->heading_rabbit) / DT, heading_rate_limit);
+
+      // Move the rabbit toward the target at the computed rate.
+      state->heading_rabbit += *heading_rate_cmd * DT;
+
+      // Final heading command is the position of the rabbit plus the integral. 
+      *heading_cmd = state->heading_rabbit + state->heading_integral;
       break;
     }
     case CONTROL_MODE_BARO_ALTITUDE:
@@ -523,6 +534,13 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
       else
         state->takeoff_thrust_residual = 0.0;
       break;
+  }
+
+  // TODO: rethink this:
+  if (ControlMode() != CONTROL_MODE_NAV)
+  {
+    state->heading_integral = 0.0;
+    state->heading_rabbit = *heading_cmd;
   }
 
   // Reset the integrator when the mode changes.
