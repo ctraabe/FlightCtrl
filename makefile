@@ -12,7 +12,7 @@ LDFLAGS   = -Ofast -Wall -Wextra -Wundef -Werror \
             -fdata-sections -ffunction-sections -fshort-enums \
             -Wl,--relax,--gc-sections,-u,vfprintf -lprintf_flt -lm
 LTOFLAGS := -flto -fwhole-program
-ALLFLAGS  = -mmcu=$(MCU) -DF_CPU="$(F_CPU)UL"
+ALLFLAGS  = -mmcu=$(MCU) -DF_CPU="$(F_CPU)UL" -DBI_OCTO
 # PROGRAMMER := avrisp2
 PROGRAMMER := atmelice_isp
 DUDEFLAGS = -c $(PROGRAMMER) -p $(MCU)

@@ -52,12 +52,12 @@ static enum NavModeBits {
   NAV_BIT_RESERVED_0 = 1<<3,
   NAV_BIT_ROUTE_0    = 1<<4,
   NAV_BIT_ROUTE_1    = 1<<5,
-  NAV_BIT_RESERVED_1 = 1<<6,
-  NAV_BIT_RESERVED_2 = 1<<7,
+  NAV_BIT_SWITCH_0   = 1<<6,
+  NAV_BIT_SWITCH_1   = 1<<7,
 } nav_mode_request_;
 
 static uint8_t from_nav_head_ = 1, from_nav_tail_ = 0;
-static uint16_t last_reception_timestamp = 0;
+static uint16_t last_reception_timestamp_ = 0;
 static enum NavErrorBits nav_error_bits_ = NAV_ERROR_BIT_STALE;
 
 
@@ -166,7 +166,7 @@ void ExchangeDataWithNav(void)
   // Only check freshness if the data is not yet stale because the timestamp
   // might rollover, giving a false freshness.
   if ((~nav_error_bits_ & NAV_ERROR_BIT_STALE) &&
-    (MillisSinceTimestamp(last_reception_timestamp) > NAV_FRESHNESS_LIMIT))
+    (MillisSinceTimestamp(last_reception_timestamp_) > NAV_FRESHNESS_LIMIT))
   {
     nav_error_bits_ |= NAV_ERROR_BIT_STALE;
   }
@@ -211,7 +211,7 @@ void ExchangeDataWithNav(void)
 
   to_nav_ptr->timestamp = GetTimestamp();
   to_nav_ptr->nav_mode_request = nav_mode_request_ | NavModeRequest()
-    | (SBusSwitch(0) << 4);
+    | (SBusSwitch(0) << 4) | (SBusSwitch(1) << 6);
   to_nav_ptr->state = State();
   to_nav_ptr->accelerometer[0] = Acceleration(X_BODY_AXIS);
   to_nav_ptr->accelerometer[1] = Acceleration(Y_BODY_AXIS);
@@ -303,7 +303,7 @@ void ProcessDataFromNav(void)
     from_nav_head_ = !from_nav_tail_;
     // Clear the stale data bit.
     nav_error_bits_ &= ~NAV_ERROR_BIT_STALE;
-    last_reception_timestamp = GetTimestamp();
+    last_reception_timestamp_ = GetTimestamp();
   }
 
   // Clear the nav hold reset request if it has been honored.

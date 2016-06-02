@@ -149,6 +149,7 @@ static void UpdateModel(const float position_cmd[3],
   const float velocity_cmd[3], const struct FeedbackGains * k,
   float position_error_limit, struct Model * m);
 
+
 // =============================================================================
 // Accessors:
 
