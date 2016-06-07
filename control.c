@@ -509,6 +509,7 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
     {
       if (VelocityVector()[D_WORLD_AXIS] < -0.25)
       {
+        state->takeoff_thrust_residual -= 90;
         ClearTakeoffMode();
       }
       else if (state->takeoff_thrust_residual < (0.15 * (MAX_THRUST_CMD
