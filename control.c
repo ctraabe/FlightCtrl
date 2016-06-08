@@ -50,6 +50,9 @@
 #define MAX_TRANSIT_SPEED (2.0)
 #define STARTING_SETPOINT (40)
 
+#define TAKEOFF_TRANSITION_SPEED (0.25)
+#define POST_TAKEOFF_THRUST_ADJUSTMENT (-60)
+
 // Computed constants.
 static float actuation_inverse_[MAX_MOTORS][4];
 
@@ -507,9 +510,10 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
     // TODO: add case CONTROL_MODE_TAKEOFF_TO_BARO:
     case CONTROL_MODE_TAKEOFF_TO_NAV:
     {
-      if (VelocityVector()[D_WORLD_AXIS] < -0.25)
+      if (VelocityVector()[D_WORLD_AXIS] < -TAKEOFF_TRANSITION_SPEED)
       {
-        state->takeoff_thrust_residual -= 90;
+        // Relax the thrust a bit to avoid overshoot.
+        state->takeoff_thrust_residual += POST_TAKEOFF_THRUST_ADJUSTMENT;
         ClearTakeoffMode();
       }
       else if (state->takeoff_thrust_residual < (0.15 * (MAX_THRUST_CMD
