@@ -42,7 +42,7 @@
 #define MAX_THRUST_CMD (1400)
 #define SBUS_TO_THRUST_CMD ((float)(MAX_THRUST_CMD - MIN_THRUST_CMD) \
     / (2.0 * (float)SBUS_MAX))
-#define MAX_G_B_CMD (sin(M_PI / 3.0))
+#define MAX_G_B_CMD (sin(M_PI / 6.0))
 // TODO: unify this with limits_.heading_rate
 #define MAX_HEADING_RATE (M_PI / 4.0)
 #define MAX_VERTICAL_SPEED (1.0)
