@@ -237,7 +237,7 @@ void ControlInit(void)
   feedback_gains_.r = 2.664374986e+00;
   feedback_gains_.psi = 3.731358603e+00;
 
-  feedback_gains_.psi_integral = 1.742256838e+00 / feedback_gains_.psi;
+  feedback_gains_.psi_integral = 1.742256838e+00 * DT / feedback_gains_.psi;
 
   feedback_gains_.x_dot = 0.18;
   feedback_gains_.x = 0.135;
@@ -301,7 +301,7 @@ void ControlInit(void)
   feedback_gains_.r = 5.019351450e+00;
   feedback_gains_.psi = 1.493714521e+01;
 
-  feedback_gains_.psi_integral = 1.195915077e+01 / feedback_gains_.psi;
+  feedback_gains_.psi_integral = 1.195915077e+01 * DT / feedback_gains_.psi;
 
   feedback_gains_.x_dot = 0.18;
   feedback_gains_.x = 0.135;
