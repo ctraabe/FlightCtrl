@@ -85,7 +85,7 @@ void SetMKDataStream(enum MKStream mk_stream, uint16_t period_10ms)
 
   uint16_t stream_period = period_10ms * 10;  // ms
   if (!stream_period_)
-    stream_timer_ = GetTimestampMillisFromNow(0);  // Start stream immediately
+    stream_timer_ = GetTimestamp() - 1;  // Start stream immediately
   else if (stream_period < stream_period_)
     stream_timer_ = GetTimestampMillisFromNow(stream_period);
   stream_period_ = stream_period;
@@ -187,11 +187,11 @@ static void SendMotorSetpoints(void)
 static void SendSensorData(void)
 {
   struct SensorData {
+    uint16_t timestamp;
     int16_t accelerometer_sum[3];
     int16_t gyro_sum[3];
     uint16_t biased_pressure;
     uint16_t battery_voltage;
-    uint16_t timestamp;
   } __attribute__((packed)) sensor_data;
 
   _Static_assert(((sizeof(struct SensorData) + 2) / 3) * 4 + 6

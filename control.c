@@ -387,8 +387,6 @@ void Control(void)
   else
     for (uint8_t i = NMotors(); i--; ) SetMotorSetpoint(i, 0);
 
-  UpdateIndicator();
-  I2CWaitUntilCompletion();
   TxMotorSetpoints();
 }
 
