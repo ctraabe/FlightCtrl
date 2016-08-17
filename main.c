@@ -1,4 +1,5 @@
 #include <avr/interrupt.h>
+#include <util/crc16.h>
 
 #include "adc.h"
 #include "attitude.h"
@@ -163,6 +164,40 @@ void ResetOverrun(void)
 }
 
 // -----------------------------------------------------------------------------
+// This function computes the CRC for an array of bytes.
+static inline uint16_t CRCCCITT(const uint8_t * array, uint8_t length)
+{
+  uint16_t crc = 0xFFFF;
+  for (uint8_t i = length; i--; ) crc = _crc_ccitt_update(crc, *(array++));
+  return crc;
+}
+
+// -----------------------------------------------------------------------------
+static void SendVisionPacket(void)
+{
+  struct FromVision {
+    uint8_t start_byte;
+    uint8_t payload_length;
+    uint8_t message_id;
+    uint16_t timestamp[2];  // microseconds
+    uint16_t crc;
+  } __attribute__((packed));
+
+  struct FromVision * from_vision = (struct FromVision *)RequestUARTTxBuffer();
+
+  if (!from_vision) return;
+
+  from_vision->start_byte = 0xFE;
+  from_vision->payload_length = 4;
+  from_vision->timestamp[0] = GetTimestamp();
+  from_vision->timestamp[1] = NavTimestamp();
+  from_vision->crc = CRCCCITT((uint8_t *)&from_vision->payload_length,
+    sizeof(struct FromVision) - 3);
+
+  UARTTxBuffer(sizeof(struct FromVision));
+}
+
+// -----------------------------------------------------------------------------
 int16_t main(void)
 {
   Init();
@@ -228,9 +263,10 @@ int16_t main(void)
       ErrorCheck();
 
       ExchangeDataWithNav();
+      SendVisionPacket();
 
       ProcessIncomingUART();
-      SendPendingUART();
+      // SendPendingUART();
 
       if (main_overrun_count_) RedLEDOn();
 
@@ -253,6 +289,7 @@ int16_t main(void)
 
     if (flag_2hz_)
     {
+      GreenLEDToggle();
       flag_2hz_ = 0;
     }
   }

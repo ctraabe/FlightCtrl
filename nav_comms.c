@@ -147,6 +147,12 @@ uint8_t NavStale(void)
   return nav_error_bits_ & NAV_ERROR_BIT_STALE;
 }
 
+// -----------------------------------------------------------------------------
+uint16_t NavTimestamp(void)
+{
+  return from_nav_[from_nav_tail_].version;
+}
+
 
 // =============================================================================
 // Public functions:
