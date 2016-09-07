@@ -20,7 +20,7 @@ volatile uint16_t ms_timestamp_ = 0;
 // Public functions:
 
 // This function initializes TIMER1 and TIMER3. These timers trigger interrupts
-// at 1 kHz and 128 Hz respectively. TIMER1 also updates a 32-bit ms timestamp.
+// at 1 kHz and 128 Hz respectively. TIMER1 also updates a 16-bit ms timestamp.
 void TimingInit(void)
 {
   // Waveform generation mode bits:
