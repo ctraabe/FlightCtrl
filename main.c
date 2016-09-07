@@ -215,7 +215,6 @@ int16_t main(void)
       // NotifyNav();
 
       UpdateSBus();
-      UpdateState();
 
       ProcessSensorReadings();
 
@@ -223,7 +222,65 @@ int16_t main(void)
       UpdatePressureAltitude();
       UpdateVerticalSpeed();
 
-      Control();
+      static altitude_control_pv = SBUS_SWITCH_DOWN;
+      static nav_control_pv = SBUS_SWITCH_DOWN;
+      static takeoff_pv = SBUS_SWITCH_DOWN;
+      if (SBusAltitudeControl() == SBUS_SWITCH_UP)
+      {
+        static uint8_t flag = 1;
+        if (SBusAltitudeControl() != altitude_control_pv) flag = !flag;
+        if (flag)
+        {
+          SetMotorSetpoint(0, 100);
+          SetMotorSetpoint(3, 100);
+        }
+        else
+        {
+          SetMotorSetpoint(1, 100);
+          SetMotorSetpoint(2, 100);
+        }
+        TxMotorSetpoints();
+      }
+      else if (SBusNavControl() == SBUS_SWITCH_UP)
+      {
+        static uint8_t flag = 1;
+        if (SBusAltitudeControl() != altitude_control_pv) flag = !flag;
+        if (flag)
+        {
+          SetMotorSetpoint(0, 100);
+          SetMotorSetpoint(2, 100);
+        }
+        else
+        {
+          SetMotorSetpoint(1, 100);
+          SetMotorSetpoint(3, 100);
+        }
+        TxMotorSetpoints();
+      }
+      else if (SBusTakeoff() == SBUS_SWITCH_UP)
+      {
+        static uint8_t flag = 1;
+        if (SBusAltitudeControl() != altitude_control_pv) flag = !flag;
+        if (flag)
+        {
+          SetMotorSetpoint(0, 100);
+          SetMotorSetpoint(1, 100);
+        }
+        else
+        {
+          SetMotorSetpoint(2, 100);
+          SetMotorSetpoint(3, 100);
+        }
+        TxMotorSetpoints();
+      }
+      else
+      {
+        UpdateState();
+        Control();
+      }
+      altitude_control_pv = SBusAltitudeControl();
+      nav_control_pv = SBusNavControl();
+      takeoff_pv = SBusTakeoff();
 
       ErrorCheck();
 
