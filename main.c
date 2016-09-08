@@ -222,54 +222,92 @@ int16_t main(void)
       UpdatePressureAltitude();
       UpdateVerticalSpeed();
 
-      static altitude_control_pv = SBUS_SWITCH_DOWN;
-      static nav_control_pv = SBUS_SWITCH_DOWN;
-      static takeoff_pv = SBUS_SWITCH_DOWN;
+      static uint16_t axis_timer = 0;
+      static uint8_t altitude_control_pv = SBUS_SWITCH_DOWN;
+      static uint8_t nav_control_pv = SBUS_SWITCH_DOWN;
+      static uint8_t takeoff_pv = SBUS_SWITCH_DOWN;
+      uint16_t speed;
       if (SBusAltitudeControl() == SBUS_SWITCH_UP)
       {
         static uint8_t flag = 1;
-        if (SBusAltitudeControl() != altitude_control_pv) flag = !flag;
-        if (flag)
+        if (SBusAltitudeControl() != altitude_control_pv)
         {
-          SetMotorSetpoint(0, 100);
-          SetMotorSetpoint(3, 100);
+          axis_timer = GetTimestampMillisFromNow(3000);
+          flag = !flag;
+        }
+        if (TimestampInPast(axis_timer))
+        {
+          speed = 550;
         }
         else
         {
-          SetMotorSetpoint(1, 100);
-          SetMotorSetpoint(2, 100);
+          speed = 100;
+        }
+        if (flag)
+        {
+          SetMotorSetpoint(0, speed);
+          SetMotorSetpoint(3, speed);
+        }
+        else
+        {
+          SetMotorSetpoint(1, speed);
+          SetMotorSetpoint(2, speed);
         }
         TxMotorSetpoints();
       }
       else if (SBusNavControl() == SBUS_SWITCH_UP)
       {
         static uint8_t flag = 1;
-        if (SBusAltitudeControl() != altitude_control_pv) flag = !flag;
-        if (flag)
+        if (SBusNavControl() != nav_control_pv)
         {
-          SetMotorSetpoint(0, 100);
-          SetMotorSetpoint(2, 100);
+          axis_timer = GetTimestampMillisFromNow(3000);
+          flag = !flag;
+        }
+        if (TimestampInPast(axis_timer))
+        {
+          speed = 550;
         }
         else
         {
-          SetMotorSetpoint(1, 100);
-          SetMotorSetpoint(3, 100);
+          speed = 100;
+        }
+        if (flag)
+        {
+          SetMotorSetpoint(0, speed);
+          SetMotorSetpoint(2, speed);
+        }
+        else
+        {
+          SetMotorSetpoint(1, speed);
+          SetMotorSetpoint(3, speed);
         }
         TxMotorSetpoints();
       }
       else if (SBusTakeoff() == SBUS_SWITCH_UP)
       {
         static uint8_t flag = 1;
-        if (SBusAltitudeControl() != altitude_control_pv) flag = !flag;
-        if (flag)
+        if (SBusTakeoff() != takeoff_pv)
         {
-          SetMotorSetpoint(0, 100);
-          SetMotorSetpoint(1, 100);
+          axis_timer = GetTimestampMillisFromNow(3000);
+          flag = !flag;
+        }
+        if (TimestampInPast(axis_timer))
+        {
+          speed = 750;
         }
         else
         {
-          SetMotorSetpoint(2, 100);
-          SetMotorSetpoint(3, 100);
+          speed = 100;
+        }
+        if (flag)
+        {
+          SetMotorSetpoint(0, speed);
+          SetMotorSetpoint(1, speed);
+        }
+        else
+        {
+          SetMotorSetpoint(2, speed);
+          SetMotorSetpoint(3, speed);
         }
         TxMotorSetpoints();
       }
