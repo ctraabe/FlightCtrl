@@ -7,6 +7,8 @@
 #include "uart.h"
 
 
+#define MK_START_CHARACTER ('#')
+
 #define MK_SERIAL_ALL_ADDRESS (0)
 #define MK_SERIAL_FC_ADDRESS (1)
 #define MK_SERIAL_NC_ADDRESS (2)

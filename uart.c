@@ -48,6 +48,7 @@
 #include "mk_serial_tx.h"
 #include "state.h"
 #include "timing.h"
+#include "ut_serial_protocol.h"
 
 
 // =============================================================================
@@ -109,10 +110,20 @@ void ProcessIncomingUART(void)
     rx_buffer_tail = (rx_buffer_tail + 1) % UART_RX_BUFFER_LENGTH;
 
     // Add other Rx protocols here.
-    if (mode != UART_RX_MODE_IDLE)
-      mode = MKSerialRx(rx_buffer_[rx_buffer_tail], data_buffer_);
-    else if (rx_buffer_[rx_buffer_tail] == '#')  // MK protocol start character
-      mode = UART_RX_MODE_MK_ONGOING;
+    switch (mode)
+    {
+      case UART_RX_MODE_UT_ONGOING:
+        mode = UTSerialRx(rx_buffer_[rx_buffer_tail], data_buffer_);
+        break;
+      case UART_RX_MODE_MK_ONGOING:
+        mode = MKSerialRx(rx_buffer_[rx_buffer_tail], data_buffer_);
+        break;
+      default:
+        if (rx_buffer_[rx_buffer_tail] == UT_START_CHARACTER)
+          mode = UART_RX_MODE_UT_ONGOING;
+        else if (rx_buffer_[rx_buffer_tail] == MK_START_CHARACTER)
+          mode = UART_RX_MODE_MK_ONGOING;
+    }
   }
 }
 
