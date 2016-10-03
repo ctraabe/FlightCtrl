@@ -109,6 +109,7 @@ void UpdateState(void)
         if (SafetyCheck())
         {
           state_ |= STATE_BIT_INITIALIZED;
+          state_ ^= STATE_BIT_INITIALIZATION_TOGGLE;
         }
         else
         {

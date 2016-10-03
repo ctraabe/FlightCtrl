@@ -12,6 +12,7 @@ enum StateBits {
   STATE_BIT_INITIALIZED           = 1<<1,
   STATE_BIT_STARTING              = 1<<2,
   STATE_BIT_MOTORS_RUNNING        = 1<<3,
+  STATE_BIT_INITIALIZATION_TOGGLE = 1<<4,
 };
 
 enum ControlMode {
