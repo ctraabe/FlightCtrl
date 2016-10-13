@@ -1,7 +1,10 @@
 #include "mk_serial_rx.h"
 
+#include <avr/wdt.h>
+
 #include "mk_serial_protocol.h"
 #include "mk_serial_tx.h"
+#include "state.h"
 #include "timing.h"
 
 
@@ -23,6 +26,9 @@ void HandleMKRx(uint8_t address, uint8_t label, const uint8_t * data_buffer)
       break;
     case 'v':  // Request firmware version
       SetMKTxRequest(MK_TX_VERSION);
+      break;
+    case 'R':  // Reset to bootloader
+      if (!MotorsRunning()) wdt_enable(WDTO_15MS);
       break;
     default:
       // Check for FlightCtrl specific messages.
