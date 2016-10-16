@@ -20,11 +20,14 @@
 // =============================================================================
 // Private data:
 
-#define NAV_MESSAGE_START_BYTE (0xAA)
+#define NAV_COMMS_VERSION (1)
 #define NAV_FRESHNESS_LIMIT (500)  // millisends
+#define NAV_MESSAGE_START_BYTE (0xAA)
 
 static volatile struct FromNav {
     uint16_t version;
+    uint8_t nav_mode;
+    uint8_t status;
     float position[3];
     float velocity[3];
     float heading_correction_quat_0;
@@ -33,8 +36,6 @@ static volatile struct FromNav {
     float transit_speed;
     float target_heading;
     float heading_rate;
-    uint8_t nav_mode;
-    uint8_t status;
     uint16_t crc;
 } __attribute__((packed)) from_nav_[2] = { 0 };
 
@@ -296,7 +297,8 @@ void ProcessDataFromNav(void)
   for (uint8_t i = sizeof(struct FromNav) - 2; i--; )
     crc = _crc_ccitt_update(crc, *(rx_buffer_ptr++));
 
-  if (from_nav_[from_nav_head_].crc == crc)
+  if ((from_nav_[from_nav_head_].crc == crc)
+    && (from_nav_[from_nav_head_].version == NAV_COMMS_VERSION))
   {
     // Swap buffers.
     from_nav_tail_ = from_nav_head_;
