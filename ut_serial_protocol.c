@@ -25,28 +25,37 @@
 enum UARTRxMode UTSerialRx(uint8_t byte, uint8_t * data_buffer)
 {
   static uint8_t * rx_ptr = 0;
-  static uint8_t bytes_processed = 0, length = 0;
+  static uint8_t bytes_processed = 0, length = 0, id = 0;
   static union U16Bytes crc;
 
   if (bytes_processed == 0)  // First byte is payload length
   {
     if ((UT_HEADER_LENGTH + byte) > UART_DATA_BUFFER_LENGTH) goto RESET;
     length = byte;
+    crc.u16 = _crc_ccitt_update(0xFFFF, byte);
     rx_ptr = data_buffer;
-    crc.u16 = 0xFFFF;
   }
-  else if (bytes_processed < (UT_HEADER_LENGTH + length))
+  else if (bytes_processed == 1)  // Second byte is id
+  {
+    id = byte;
+    crc.u16 = _crc_ccitt_update(crc.u16, byte);
+  }
+  else if (bytes_processed == 2)  // Third byte is currently unused
+  {
+    crc.u16 = _crc_ccitt_update(crc.u16, byte);
+  }
+  else if (bytes_processed < (UT_HEADER_LENGTH - 1 + length))  // Payload
   {
     crc.u16 = _crc_ccitt_update(crc.u16, byte);
     *rx_ptr++ = byte;
   }
-  else if (bytes_processed == (UT_HEADER_LENGTH + length))
+  else if (bytes_processed == (UT_HEADER_LENGTH - 1 + length))  // CRC[0]
   {
     if (byte != crc.bytes[0]) goto RESET;
   }
-  else
+  else  // CRC[1]
   {
-    if (byte == crc.bytes[1]) HandleUTRx(data_buffer[0], &data_buffer[1]);
+    if (byte == crc.bytes[1]) HandleUTRx(id, data_buffer);
     goto RESET;
   }
   bytes_processed++;
@@ -73,17 +82,23 @@ void UTSerialTx(uint8_t id, const uint8_t * source, uint8_t length)
   // Copy the start character to the TX buffer;
   *tx_ptr++ = UT_START_CHARACTER;
 
-  // Copy the header to the TX buffer.
+  // Copy the payload length to the TX buffer.
+  *tx_ptr++ = length;
+
+  // Copy the id to the TX buffer.
   *tx_ptr++ = id;
+
+  // The next byte is unused (for padding and future use)
+  tx_ptr++;
 
   // Copy the payload to the TX buffer.
   memcpy(tx_ptr, source, length);
+  tx_ptr += length;
 
-  // Compute the CRC and copy to the TX buffer.
-  union U16Bytes crc;
-  do {
-    crc.u16 = _crc_ccitt_update(crc.u16, *tx_ptr++);
-  } while (--length);
+  // Compute the CRC (starting from payload length) and copy to the TX buffer.
+  union U16Bytes crc = { 0xFFFF };
+  for(uint8_t i = 1; i < length + UT_HEADER_LENGTH; ++i)
+    crc.u16 = _crc_ccitt_update(crc.u16, tx_buffer[i]);
   *tx_ptr++ = crc.bytes[0];
   *tx_ptr = crc.bytes[1];
 
