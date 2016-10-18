@@ -5,6 +5,12 @@
 #include <inttypes.h>
 
 
+enum NavStatusBits {
+  NAV_STATUS_BIT_HEADING_DATA_OK  = 1<<0,
+  NAV_STATUS_BIT_POSITION_DATA_OK = 1<<1,
+  NAV_STATUS_BIT_VELOCITY_DATA_OK = 1<<2,
+};
+
 enum NavErrorBits {
   NAV_ERROR_BIT_STALE = 1<<0,
 };

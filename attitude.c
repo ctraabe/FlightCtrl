@@ -63,6 +63,7 @@ void UpdateAttitude(void)
   {
     HandleAttitudeReset();
   }
+  if (NavStatus() & NAV_STATUS_BIT_HEADING_DATA_OK) CorrectHeading();
   UpdateGravtiyInBody(quat_, g_b_);
   heading_angle_ = HeadingFromQuaternion(quat_);
 }
