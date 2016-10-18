@@ -75,7 +75,7 @@ $(LST): $(ELF)
 
 # Target to build the .elf file
 # NOTE: -lm includes the math library (libm.a)
-$(ELF): $(SOURCES) $(HEADERS) $(BUILD_PATH)
+$(ELF): $(SOURCES) $(HEADERS) $(BUILD_PATH) makefile
 	$(CC) $(LTOFLAGS) $(LDFLAGS) $(CCFLAGS) $(ALLFLAGS) -o $@ $(SOURCES) -lm
 
 # Target to program the microprocessor flash only
