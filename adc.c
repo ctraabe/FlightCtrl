@@ -17,8 +17,8 @@
 
 // ADC sample indices
 enum ADCSensorIndex {
-  ADC_ACCEL_Y  = 0,
-  ADC_ACCEL_X  = 1,
+  ADC_ACCEL_X  = 0,
+  ADC_ACCEL_Y  = 1,
   ADC_GYRO_Z   = 2,
   ADC_GYRO_X   = 3,
   ADC_GYRO_Y   = 4,
@@ -70,10 +70,12 @@ uint16_t Accelerometer(enum BodyAxes axis)
   switch (axis)
   {
     case X_BODY_AXIS:
-      return ADCSample(ADC_ACCEL_X);
+      if (BoardVersion() > 22) return ADCSample(ADC_ACCEL_X);
+      return ADCSample(ADC_ACCEL_Y);
       break;
     case Y_BODY_AXIS:
-      return ADCSample(ADC_ACCEL_Y);
+      if (BoardVersion() > 22) return ADCSample(ADC_ACCEL_Y);
+      return ADCSample(ADC_ACCEL_X);
       break;
     case Z_BODY_AXIS:
     default:
@@ -215,10 +217,20 @@ void LoadGyroOffsets(void)
 void ProcessSensorReadings(void)
 {
   // Raw accelerometer reading minus bias.
-  accelerometer_sum_[X_BODY_AXIS] = -SumRecords(ADC_ACCEL_X)
-    - acc_offset_[X_BODY_AXIS];
-  accelerometer_sum_[Y_BODY_AXIS] = -SumRecords(ADC_ACCEL_Y)
-    - acc_offset_[Y_BODY_AXIS];
+  if (BoardVersion() > 22)
+  {
+    accelerometer_sum_[X_BODY_AXIS] = -SumRecords(ADC_ACCEL_X)
+      - acc_offset_[X_BODY_AXIS];
+    accelerometer_sum_[Y_BODY_AXIS] = -SumRecords(ADC_ACCEL_Y)
+      - acc_offset_[Y_BODY_AXIS];
+  }
+  else
+  {
+    accelerometer_sum_[X_BODY_AXIS] = -SumRecords(ADC_ACCEL_Y)
+      - acc_offset_[X_BODY_AXIS];
+    accelerometer_sum_[Y_BODY_AXIS] = -SumRecords(ADC_ACCEL_X)
+      - acc_offset_[Y_BODY_AXIS];
+  }
   accelerometer_sum_[Z_BODY_AXIS] = -SumRecords(ADC_ACCEL_Z)
     - acc_offset_[Z_BODY_AXIS];
 
@@ -228,11 +240,15 @@ void ProcessSensorReadings(void)
   acceleration_[Y_BODY_AXIS] = (float)accelerometer_sum_[Y_BODY_AXIS]
     / ACCELEROMETER_SCALE / ADC_N_SAMPLES;
   if (BoardVersion() > 21)
+  {
     acceleration_[Z_BODY_AXIS] = (float)accelerometer_sum_[Z_BODY_AXIS]
       / ACCELEROMETER_2_2_SCALE / ADC_N_SAMPLES;
+  }
   else
+  {
     acceleration_[Z_BODY_AXIS] = (float)accelerometer_sum_[Z_BODY_AXIS]
       / ACCELEROMETER_SCALE / ADC_N_SAMPLES;
+  }
 
   // Raw gyro reading minus bias.
   gyro_sum_[X_BODY_AXIS] = -SumRecords(ADC_GYRO_X) - gyro_offset_[X_BODY_AXIS];
