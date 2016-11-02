@@ -4,18 +4,19 @@
 
 TARGET := $(notdir $(shell pwd))
 
+PROGRAMMER := mk-programmer
+# PROGRAMMER := avrisp2
+# PROGRAMMER := atmelice_isp
+
 MCU   := atmega1284p
 F_CPU := 20000000
 
-CCFLAGS   = -std=gnu11 -Wstrict-prototypes
-LDFLAGS   = -Ofast -Wall -Wextra -Wundef -Werror \
+CCFLAGS  := -std=gnu11 -Wstrict-prototypes
+LDFLAGS  := -Ofast -Wall -Wextra -Wundef -Werror \
             -fdata-sections -ffunction-sections -fshort-enums \
             -Wl,--relax,--gc-sections,-u,vfprintf -lprintf_flt -lm
 LTOFLAGS := -flto -fwhole-program
 ALLFLAGS  = -mmcu=$(MCU) -DF_CPU="$(F_CPU)UL"
-# PROGRAMMER := avrisp2
-PROGRAMMER := atmelice_isp
-DUDEFLAGS = -c $(PROGRAMMER) -p $(MCU)
 
 PROGRAM_START := 0x0000
 EEPROM_START := 0x0000
@@ -38,6 +39,12 @@ ifneq ($(DEV_BUILD_PATH),)
   BUILD_PATH := $(DEV_BUILD_PATH)/build/$(TARGET)
 else
   BUILD_PATH := build
+endif
+
+ifeq ($(PROGRAMMER), mk-programmer)
+  PROGRAM = $(PROGRAMMER) $(HEX)
+else
+  PROGRAM = $(DUDE) -c $(PROGRAMMER) -p $(MCU) -U flash:w:$(HEX):i
 endif
 
 SOURCES  := $(wildcard *.c)
@@ -80,7 +87,7 @@ $(ELF): $(SOURCES) $(HEADERS) $(BUILD_PATH) makefile
 
 # Target to program the microprocessor flash only
 program: $(HEX)
-	$(DUDE) $(DUDEFLAGS) -U flash:w:$(HEX):i
+	$(PROGRAM)
 
 write_eeprom: $(EEP)
 	$(DUDE) $(DUDEFLAGS) -U eeprom:w:$(EEP):i
