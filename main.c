@@ -231,8 +231,7 @@ int16_t main(void)
       NotifyNav();
 
       ProcessIncomingUART();
-      // SendPendingUART();
-      SendVerticalData();
+      SendPendingUART();
 
       if (main_overrun_count_) RedLEDOn();
 

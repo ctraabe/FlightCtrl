@@ -455,6 +455,11 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
       Vector3Copy((const float *)VelocityVector(), velocity);
       Vector3Copy((const float *)TargetPositionVector(), position_cmd);
 
+      // TODO: decide whether or not to handle this with a switch or to let Nav
+      // handle all vertical data.
+      position[D_WORLD_AXIS] = -DeltaPressureAltitude();
+      velocity[D_WORLD_AXIS] = -VerticalSpeed();
+
       // Set the position error limit according to the transit speed. (Also,
       // make sure the transit speed is sane.)
       position_error_limit = FloatLimit(TransitSpeed(), MIN_TRANSIT_SPEED,
