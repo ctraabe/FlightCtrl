@@ -8,6 +8,7 @@
 
 
 #define UT_START_CHARACTER ('S')
+#define UT_HEADER_LENGTH (4)
 
 enum UTSerialID {
   UT_SERIAL_ID_BEEP_PATTERN = 0,

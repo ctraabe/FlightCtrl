@@ -20,6 +20,8 @@
 #include "timing.h"
 #include "uart.h"
 #include "vertical_speed.h"
+// TODO: remove
+#include "ut_serial_tx.h"
 
 #ifdef MOTOR_TEST
   #include "motor_test.h"
@@ -229,7 +231,8 @@ int16_t main(void)
       NotifyNav();
 
       ProcessIncomingUART();
-      SendPendingUART();
+      // SendPendingUART();
+      SendVerticalData();
 
       if (main_overrun_count_) RedLEDOn();
 
