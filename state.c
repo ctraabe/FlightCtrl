@@ -12,8 +12,6 @@
 #include "timing.h"
 #include "uart.h"
 #include "vector.h"
-// TODO: remove
-#include "led.h"
 
 
 // =============================================================================
@@ -105,7 +103,6 @@ void UpdateState(void)
       {
         stick_timer = GetTimestampMillisFromNow(2000);
         PreflightInit();
-        // TODO: move the safety check to preflight to main.c
         if (SafetyCheck())
         {
           state_ |= STATE_BIT_INITIALIZED;
@@ -114,7 +111,6 @@ void UpdateState(void)
         else
         {
           state_ &= ~STATE_BIT_INITIALIZED;
-          RedLEDOn();
           BeepPattern(0x0000AAAA);
         }
       }

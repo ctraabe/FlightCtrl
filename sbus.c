@@ -13,8 +13,8 @@
 #define USART1_BAUD (100000L)
 #define SBUS_NO_NEW_DATA (-1)
 #define SBUS_SIGNAL_LOST_BIT (2)
-#define SBUS_STICK_EDGE_THRESHOLD (10)
-#define SBUS_STICK_CENTER_THRESHOLD (SBUS_MAX / 16)  // 8% on either side
+#define SBUS_STICK_EDGE_THRESHOLD (SBUS_MAX / 25)  // 2%
+#define SBUS_STICK_CENTER_THRESHOLD (SBUS_MAX / 10)  // 10% on either side
 #define SBUS_FRESHNESS_LIMIT (100)  // millisends
 
 // The following is not declared static so that it will be visible to sbus.S.
