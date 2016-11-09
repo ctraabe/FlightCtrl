@@ -207,6 +207,8 @@ int16_t main(void)
     { +5.847173231e+00, +0.000000000e+00, +5.469661607e+01, -5.576508516e+01 },
   };
   SetActuationInverse(b_inv);
+  PreflightInit();
+  SensorCalibration();
 #endif
 */
   // Main loop
