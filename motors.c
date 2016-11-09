@@ -17,6 +17,7 @@ enum BLCStatusCode
   BLC_STATUS_UNKNOWN = 0,
   BLC_STATUS_MISMATCH = 1,  // Arbitrary
   BLC_STATUS_STARTING = 40,
+  BLC_STATUS_AFRO_ESC = 239,  // AfroESC with custom UT firmware
   BLC_STATUS_BLC_TO_PPM = 240,  // Custom BLCtrl to PPM translator board
   BLC_STATUS_V3_FAST_READY = 248,
   BLC_STATUS_V3_READY = 249,
@@ -167,6 +168,7 @@ void DetectMotors(void)
       blc_feature_bits_ |= BLC_FEATURE_V3;
     case BLC_STATUS_V2_READY:
       blc_feature_bits_ |= BLC_FEATURE_EXTENDED_COMMS;
+    case BLC_STATUS_AFRO_ESC:
     case BLC_STATUS_BLC_TO_PPM:
       setpoint_length_ = sizeof(uint16_t);
     default:
