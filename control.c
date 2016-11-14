@@ -450,7 +450,11 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
   {
     case CONTROL_MODE_NAV:
     {
-      if ((NavStatus() != 1) || NavStale()) return;  // Do not update
+      if (!(NavStatus() & (NAV_STATUS_BIT_POSITION_DATA_OK
+        | NAV_STATUS_BIT_VELOCITY_DATA_OK)) || NavStale())
+      {
+        return;  // Do not update
+      }
 
       // Copy volatile data to local memory.
       Vector3Copy((const float *)PositionVector(), position);
