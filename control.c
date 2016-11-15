@@ -457,14 +457,21 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
       }
 
       // Copy volatile data to local memory.
-      Vector3Copy((const float *)PositionVector(), position);
-      Vector3Copy((const float *)VelocityVector(), velocity);
+      if (NavStatus() & NAV_STATUS_BIT_LOW_PRECISION_VERTICAL)
+      {
+        position[N_WORLD_AXIS] = PositionVector()[N_WORLD_AXIS];
+        position[E_WORLD_AXIS] = PositionVector()[E_WORLD_AXIS];
+        position[D_WORLD_AXIS] = -DeltaPressureAltitude();
+        velocity[N_WORLD_AXIS] = VelocityVector()[N_WORLD_AXIS];
+        velocity[E_WORLD_AXIS] = VelocityVector()[E_WORLD_AXIS];
+        velocity[D_WORLD_AXIS] = -VerticalSpeed();
+      }
+      else
+      {
+        Vector3Copy((const float *)PositionVector(), position);
+        Vector3Copy((const float *)VelocityVector(), velocity);
+      }
       Vector3Copy((const float *)TargetPositionVector(), position_cmd);
-
-      // TODO: decide whether or not to handle this with a switch or to let Nav
-      // handle all vertical data.
-      position[D_WORLD_AXIS] = -DeltaPressureAltitude();
-      velocity[D_WORLD_AXIS] = -VerticalSpeed();
 
       // Set the position error limit according to the transit speed. (Also,
       // make sure the transit speed is sane.)
