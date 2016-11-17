@@ -2,7 +2,7 @@
 # LOG_FLT_CTRL_DEBUG_TO_SD : sends extended data packet to nav for SD logging
 # MOTOR_TEST : enables motor/propeller response test routine
 
-TARGET := $(notdir $(shell pwd))
+TARGET := UT_FlightCtrl
 
 PROGRAMMER := mk-programmer
 # PROGRAMMER := avrisp2
@@ -53,7 +53,7 @@ ASSEMBLY := $(addsuffix .lst, $(addprefix $(BUILD_PATH)/, $(SOURCES)))
 HEADERS  := $(wildcard *.h)
 
 ELF := $(BUILD_PATH)/$(TARGET).elf
-HEX := $(BUILD_PATH)/$(TARGET).hex
+HEX := $(BUILD_PATH)/$(TARGET)_ATMEGA1284p.hex
 EEP := $(BUILD_PATH)/$(TARGET).eep
 LST := $(BUILD_PATH)/$(TARGET).lst
 
