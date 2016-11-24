@@ -481,8 +481,8 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
   {
     case CONTROL_MODE_NAV:
     {
-      if (!(NavStatus() & (NAV_STATUS_BIT_POSITION_DATA_OK
-        | NAV_STATUS_BIT_VELOCITY_DATA_OK)) || NavStale())
+      if (!(NavStatus() & NAV_STATUS_BIT_POSITION_DATA_OK)
+        || !(NavStatus() & NAV_STATUS_BIT_VELOCITY_DATA_OK) || NavStale())
       {
         return;  // Do not update
       }
