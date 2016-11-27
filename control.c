@@ -270,11 +270,11 @@ void ControlInit(void)
   k_motor_lag_ = 1.0 / 0.07;
 #elif defined HEXA690
   // control proportion: 0.500000
-  feedback_gains_.p_dot = +9.851925470e-01;
-  feedback_gains_.p = +2.456405558e+01;
-  feedback_gains_.phi = +1.167264273e+02;
-  feedback_gains_.r = +3.573743418e+00;
-  feedback_gains_.psi = +8.722527438e+00;
+  feedback_gains_.p_dot = +1.014067683e+00;
+  feedback_gains_.p = +2.528383346e+01;
+  feedback_gains_.phi = +1.218943197e+02;
+  feedback_gains_.r = +4.214169663e+00;
+  feedback_gains_.psi = +1.070299558e+01;
 
   feedback_gains_.x_dot = 0.18;
   feedback_gains_.x = 0.135;
