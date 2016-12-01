@@ -4,6 +4,7 @@
 
 #include "eeprom.h"
 #include "i2c.h"
+#include "state.h"
 #include "uart.h"
 
 
@@ -118,7 +119,7 @@ uint8_t NMotors(void)
 // features of the controller.
 void DetectMotors(void)
 {
-  // TODO: if (motors_on) return;
+  if (MotorsRunning()) return;
 
   // Send a 0 command to each brushless controller address and record any
   // responses.
@@ -146,9 +147,9 @@ void DetectMotors(void)
   // Check for missing or extra motors. Assumes that present motors have
   // contiguous addresses beginning with 0.
   n_motors_ = eeprom_read_byte(&eeprom.n_motors);
-  if (((1 << n_motors_) - 1) & !motors)
+  if (((1 << n_motors_) - 1) & ~motors)
     blc_error_bits_ |= BLC_ERROR_BIT_MISSING_MOTOR;
-  if (motors & !((1 << n_motors_) - 1))
+  if (motors & ~((1 << n_motors_) - 1))
     blc_error_bits_ |= BLC_ERROR_BIT_EXTRA_MOTOR;
   if (blc_error_bits_ & ~_BV(BLC_ERROR_BIT_INCONSISTENT_SETTINGS))
   {
