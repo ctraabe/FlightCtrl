@@ -57,13 +57,13 @@ void UpdateAttitude(void)
     UpdateQuaternion(quat_, AngularRateVector(), DT);
     UpdateGravtiyInBody(quat_, g_b_);
     CorrectQuaternionWithAccelerometer(quat_);
+    if (NavStatus() & NAV_STATUS_BIT_HEADING_DATA_OK) CorrectHeading();
     QuaternionNormalizingFilter(quat_);
   }
   else
   {
     HandleAttitudeReset();
   }
-  if (NavStatus() & NAV_STATUS_BIT_HEADING_DATA_OK) CorrectHeading();
   UpdateGravtiyInBody(quat_, g_b_);
   heading_angle_ = HeadingFromQuaternion(quat_);
 }
@@ -71,21 +71,17 @@ void UpdateAttitude(void)
 // -----------------------------------------------------------------------------
 void CorrectHeading(void)
 {
-  // Disregard bad data
-  // TODO: set some error bit
+  // Check for valid data and ensure only small corrections.
   if (HeadingCorrection0() > 1.0 || HeadingCorrection0() < 0.95) return;
   if (fabs(HeadingCorrectionZ()) > 0.05) return;
 
-  float quat_corection[4] = { HeadingCorrection0(), 0.0, 0.0,
-    HeadingCorrectionZ() };
-
-  float result[4];
-  QuaternionMultiply(quat_corection, quat_, result);
-  quat_[0] = result[0];
-  quat_[1] = result[1];
-  quat_[2] = result[2];
-  quat_[3] = result[3];
-  QuaternionNormalizingFilter(quat_);
+  float temp;
+  temp = quat_[0];
+  quat_[0] = HeadingCorrection0() * quat_[0] - HeadingCorrectionZ() * quat_[3];
+  quat_[3] = HeadingCorrection0() * quat_[3] + HeadingCorrectionZ() * temp;
+  temp = quat_[1];
+  quat_[1] = HeadingCorrection0() * quat_[1] - HeadingCorrectionZ() * quat_[2];
+  quat_[2] = HeadingCorrection0() * quat_[2] + HeadingCorrectionZ() * temp;
 }
 
 // -----------------------------------------------------------------------------

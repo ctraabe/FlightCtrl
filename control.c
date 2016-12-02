@@ -704,9 +704,16 @@ static void CommandsFromSticks(float g_b_cmd[2], float * heading_cmd,
 
   // Integrate the yaw stick to get a heading command.
   if (MotorsRunning())
+  {
     *heading_cmd += *heading_rate_cmd * DT;
+    // Also apply (approximate) heading corrections from NavCtrl.
+    if (NavStatus() & NAV_STATUS_BIT_HEADING_DATA_OK)
+      *heading_cmd += 2.0 * HeadingCorrectionZ();
+  }
   else
+  {
     *heading_cmd = HeadingAngle();
+  }
   *heading_cmd = WrapToPlusMinusPi(*heading_cmd);
 
   // Compute the thrust command.
