@@ -112,7 +112,7 @@ void UpdateIndicator(void)
       indicator_led = BLUE;
       break;
 
-    case BLUE:  // Receiving valid nav data
+    case BLUE:  // Receiving valid Nav data
       if (!NavStale() && NavStatus() == 1)
         LEDOn(INDICATOR_B_REGISTER);
       else
@@ -176,37 +176,37 @@ void UpdateIndicator(void)
 
 static void LEDOff(uint8_t led_register)
 {
-    uint8_t tx_buffer[2];
-    tx_buffer[0] = led_register;
-    tx_buffer[1] = 0x10;
-    I2CTx(INDICATOR_ADDRESS, tx_buffer, 2);
+  uint8_t tx_buffer[2];
+  tx_buffer[0] = led_register;
+  tx_buffer[1] = 0x10;
+  I2CTx(INDICATOR_ADDRESS, tx_buffer, 2);
 }
 
 // -----------------------------------------------------------------------------
 static void LEDOn(uint8_t led_register)
 {
-    uint8_t tx_buffer[2];
-    tx_buffer[0] = led_register;
-    tx_buffer[1] = 0x00;
-    I2CTx(INDICATOR_ADDRESS, tx_buffer, 2);
+  uint8_t tx_buffer[2];
+  tx_buffer[0] = led_register;
+  tx_buffer[1] = 0x00;
+  I2CTx(INDICATOR_ADDRESS, tx_buffer, 2);
 }
 
 // -----------------------------------------------------------------------------
 static void RGBLEDOff(uint8_t led_register)
 {
-    uint8_t tx_buffer[2];
-    tx_buffer[0] = led_register;
-    tx_buffer[1] = 0x00;
-    I2CTx(INDICATOR_ADDRESS, tx_buffer, 2);
+  uint8_t tx_buffer[2];
+  tx_buffer[0] = led_register;
+  tx_buffer[1] = 0x00;
+  I2CTx(INDICATOR_ADDRESS, tx_buffer, 2);
 }
 
 // -----------------------------------------------------------------------------
 static void RGBLEDOn(uint8_t led_register)
 {
-    uint8_t tx_buffer[2];
-    tx_buffer[0] = led_register;
-    tx_buffer[1] = 0x10;
-    I2CTx(INDICATOR_ADDRESS, tx_buffer, 2);
+  uint8_t tx_buffer[2];
+  tx_buffer[0] = led_register;
+  tx_buffer[1] = 0x10;
+  I2CTx(INDICATOR_ADDRESS, tx_buffer, 2);
 }
 
 // -----------------------------------------------------------------------------

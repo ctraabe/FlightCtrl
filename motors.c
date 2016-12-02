@@ -4,6 +4,7 @@
 
 #include "eeprom.h"
 #include "i2c.h"
+#include "indicator.h"
 #include "state.h"
 #include "uart.h"
 
@@ -226,7 +227,11 @@ void TxMotorSetpoints(void)
 
 static void TxNextMotorSetpoint(void)
 {
-  if (comms_in_progress_--) TxMotorSetpoint(comms_in_progress_);
+  // Update the I2C indicator after the last motor has been updated.
+  if (comms_in_progress_--)
+    TxMotorSetpoint(comms_in_progress_);
+  else
+    UpdateIndicator();
 }
 
 // -----------------------------------------------------------------------------
