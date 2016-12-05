@@ -51,7 +51,7 @@ void UARTTxBuffer(uint8_t tx_length);
 void UARTTxByte(uint8_t byte);
 
 // -----------------------------------------------------------------------------
-uint32_t UARTWaitUntilCompletion(uint32_t time_limit_ms);
+uint8_t UARTWaitUntilCompletion(uint16_t time_limit_ms);
 
 // -----------------------------------------------------------------------------
 // This function mimics printf, but puts the result on the UART stream. It also

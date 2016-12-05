@@ -57,7 +57,7 @@ enum I2CError I2CTxThenRxThenCallback(uint8_t slave_address,
   I2CCallback callback_ptr);
 
 // -----------------------------------------------------------------------------
-void I2CWaitUntilCompletion(void);
+uint8_t I2CWaitUntilCompletion(uint16_t time_limit_ms);
 
 
 #endif  // I2C_H_

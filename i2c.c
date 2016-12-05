@@ -4,6 +4,7 @@
 #include <util/twi.h>
 
 #include "mcu_pins.h"
+#include "timing.h"
 
 
 // =============================================================================
@@ -119,10 +120,15 @@ enum I2CError I2CTxThenRxThenCallback(uint8_t slave_address,
 }
 
 // -----------------------------------------------------------------------------
-// TODO: make a version that takes a limit
-void I2CWaitUntilCompletion(void)
+uint8_t I2CWaitUntilCompletion(uint16_t time_limit_ms)
 {
-  while (i2c_mode_) continue;
+  uint16_t timeout = GetTimestampMillisFromNow(time_limit_ms);
+  while ((i2c_mode_ != I2C_MODE_IDLE) && !TimestampInPast(timeout)) continue;
+  if (!TimestampInPast(timeout)) return 0;
+
+  // Reset I2C if the communication didn't complete within the expected time.
+  I2CReset();
+  return 1;
 }
 
 

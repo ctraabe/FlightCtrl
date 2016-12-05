@@ -1,6 +1,8 @@
 #include "buzzer.h"
 
 #include "mcu_pins.h"
+#include "state.h"
+#include "timing.h"
 #include "union_types.h"
 
 
@@ -133,7 +135,11 @@ void UpdateBuzzer(void)
 // -----------------------------------------------------------------------------
 void WaitForBuzzerToComplete(void)
 {
-  while (pending_repetions_ || repetitions_) continue;
+  if (!MotorsInhibited()) return;
+
+  uint16_t timeout = GetTimestampMillisFromNow(2001);
+  while ((pending_repetions_ || repetitions_) && !TimestampInPast(timeout))
+    continue;
 }
 
 

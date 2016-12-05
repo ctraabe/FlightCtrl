@@ -34,7 +34,7 @@ void IndicatorInit(void)
   uint8_t tx_buffer[30] = { 0 };
   tx_buffer[1] = 0x20;
   I2CTx(INDICATOR_ADDRESS, tx_buffer, 2);
-  I2CWaitUntilCompletion();
+  I2CWaitUntilCompletion(100);
   tx_buffer[0] = 0x09;
   tx_buffer[1] = 0x00;
   tx_buffer[19-8] = 0x10;
@@ -43,7 +43,7 @@ void IndicatorInit(void)
   tx_buffer[31-8] = 0x10;
   tx_buffer[35-8] = 0x10;
   I2CTx(INDICATOR_ADDRESS, tx_buffer, 30);
-  I2CWaitUntilCompletion();
+  I2CWaitUntilCompletion(100);
 
   LEDOn(INDICATOR_R1_REGISTER);
 }

@@ -131,7 +131,7 @@ void DetectMotors(void)
   {
     I2CTxThenRx(MOTORS_BASE_ADDRESS + (i << 1), &setpoint, sizeof(setpoint),
       (volatile uint8_t *)&blc_status_[i], sizeof(struct BLCStatus));
-    I2CWaitUntilCompletion();
+    I2CWaitUntilCompletion(100);
     // I2C will give an error if there is no response.
     if (!I2CError())
     {

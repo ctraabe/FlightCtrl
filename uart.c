@@ -171,9 +171,9 @@ void UARTTxByte(uint8_t byte)
 }
 
 // -----------------------------------------------------------------------------
-uint32_t UARTWaitUntilCompletion(uint32_t time_limit_ms)
+uint8_t UARTWaitUntilCompletion(uint16_t time_limit_ms)
 {
-  uint32_t timeout = GetTimestampMillisFromNow(time_limit_ms);
+  uint16_t timeout = GetTimestampMillisFromNow(time_limit_ms);
   while ((tx_bytes_remaining_ != 0) && !TimestampInPast(timeout)) continue;
   return TimestampInPast(timeout);
 }
