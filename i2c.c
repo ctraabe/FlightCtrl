@@ -88,8 +88,13 @@ enum I2CError I2CRxThenCallback(uint8_t slave_address,
 enum I2CError I2CTx(uint8_t slave_address, const uint8_t *tx_source_ptr,
   uint8_t tx_source_len)
 {
-  return I2CTxThenRxThenCallback(slave_address, tx_source_ptr, tx_source_len,
-    0, 0, (I2CCallback)0);
+  if (i2c_mode_ != I2C_MODE_IDLE) return I2C_ERROR_BUSY;
+  slave_address_ = slave_address;
+  tx_source_ptr_ = tx_source_ptr;
+  tx_source_len_ = tx_source_len;
+  i2c_error_ = I2C_ERROR_NONE;
+  I2CStart(I2C_MODE_TX);
+  return I2C_ERROR_NONE;
 }
 
 // -----------------------------------------------------------------------------
