@@ -89,9 +89,17 @@ enum NavMode NavMode(void)
 }
 
 // -----------------------------------------------------------------------------
-uint16_t NavStatus(void)
+uint8_t NavStatus(void)
 {
   return from_nav_[from_nav_tail_].status;
+}
+
+// -----------------------------------------------------------------------------
+uint8_t NavStatusOK(void)
+{
+  uint8_t ok = NAV_STATUS_BIT_HEADING_DATA_OK | NAV_STATUS_BIT_POSITION_DATA_OK
+    | NAV_STATUS_BIT_VELOCITY_DATA_OK;
+  return ((from_nav_[from_nav_tail_].status & ok) == ok) & !NavStale();
 }
 
 // -----------------------------------------------------------------------------

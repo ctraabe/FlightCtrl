@@ -28,9 +28,6 @@
 #include "state.h"
 #include "vector.h"
 #include "vertical_speed.h"
-// TODO: remove
-#include "i2c.h"
-#include "indicator.h"
 
 
 // =============================================================================
@@ -481,8 +478,7 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
   {
     case CONTROL_MODE_NAV:
     {
-      if (!(NavStatus() & NAV_STATUS_BIT_POSITION_DATA_OK)
-        || !(NavStatus() & NAV_STATUS_BIT_VELOCITY_DATA_OK) || NavStale())
+      if (!NavStatusOK())
       {
         return;  // Do not update
       }

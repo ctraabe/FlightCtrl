@@ -36,7 +36,10 @@ uint8_t NavRecieved(void);
 enum NavMode NavMode(void);
 
 // -----------------------------------------------------------------------------
-uint16_t NavStatus(void);
+uint8_t NavStatus(void);
+
+// -----------------------------------------------------------------------------
+uint8_t NavStatusOK(void);
 
 // -----------------------------------------------------------------------------
 const volatile float * PositionVector(void);
