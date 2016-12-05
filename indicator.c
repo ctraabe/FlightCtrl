@@ -6,15 +6,22 @@
 #include "state.h"
 #include "timing.h"
 
-#define INDICATOR_ADDRESS (0xBE)
-#define INDICATOR_RGB_B_REGISTER (0x07)
-#define INDICATOR_RGB_G_REGISTER (0x0B)
-#define INDICATOR_RGB_R_REGISTER (0x0F)
-#define INDICATOR_R1_REGISTER (0x13)
-#define INDICATOR_R2_REGISTER (0x17)
-#define INDICATOR_R3_REGISTER (0x1B)
-#define INDICATOR_B_REGISTER (0x1F)
-#define INDICATOR_G_REGISTER (0x23)
+
+#define PCA9685_ADDRESS (0xBE)
+#define PCA9685_RGB_B_REGISTER (0x2F)
+#define PCA9685_RGB_G_REGISTER (0x27)
+#define PCA9685_RGB_R_REGISTER (0x2B)
+#define PCA9685_R1_REGISTER (0x13)
+#define PCA9685_R2_REGISTER (0x17)
+#define PCA9685_R3_REGISTER (0x1B)
+#define PCA9685_B_REGISTER (0x1F)
+#define PCA9685_G_REGISTER (0x23)
+
+
+// =============================================================================
+// Private data:
+
+uint8_t tx_buffer_[2] = { 0 };
 
 
 // =============================================================================
@@ -31,21 +38,25 @@ static void ToggleGreenLED(void);
 
 void IndicatorInit(void)
 {
-  uint8_t tx_buffer[30] = { 0 };
-  tx_buffer[1] = 0x20;
-  I2CTx(INDICATOR_ADDRESS, tx_buffer, 2);
+  // Set the PCA9685 to auto-increment the registers.
+  tx_buffer_[0] = 0x00;
+  tx_buffer_[1] = 0x20;
+  I2CTx(PCA9685_ADDRESS, tx_buffer_, 2);
   I2CWaitUntilCompletion(100);
+
+  // Initialize all LED registers to the off state.
+  uint8_t tx_buffer[42] = { 0 };
   tx_buffer[0] = 0x09;
-  tx_buffer[1] = 0x00;
   tx_buffer[19-8] = 0x10;
   tx_buffer[23-8] = 0x10;
   tx_buffer[27-8] = 0x10;
   tx_buffer[31-8] = 0x10;
   tx_buffer[35-8] = 0x10;
-  I2CTx(INDICATOR_ADDRESS, tx_buffer, 30);
+  I2CTx(PCA9685_ADDRESS, tx_buffer, 42);
   I2CWaitUntilCompletion(100);
 
-  LEDOn(INDICATOR_R1_REGISTER);
+  LEDOn(PCA9685_R1_REGISTER);
+  I2CWaitUntilCompletion(100);
 }
 
 // -----------------------------------------------------------------------------
@@ -67,14 +78,14 @@ void UpdateIndicator(void)
     RGB_RED,
     RGB_GREEN,
     RGB_BLUE,
-  } indicator_led = GREEN;
+  } PCA9685_led = GREEN;
 
   uint8_t rgb = 0x00;
   uint16_t blink_pattern = 0xA820;
 
   if (ControlMode() == CONTROL_MODE_NAV)
   {
-    if (!NavStale() && NavStatus() == 1)
+    if (NavStatusOK())
     {
       rgb = RGB_B;
       blink_pattern = 0xA820;
@@ -101,7 +112,7 @@ void UpdateIndicator(void)
     rgb = 0;
   }
 
-  switch (indicator_led)
+  switch (PCA9685_led)
   {
     case GREEN:  // Heartbeat
       if (TimestampInPast(heartbeat_timer))
@@ -109,63 +120,63 @@ void UpdateIndicator(void)
         ToggleGreenLED();
         heartbeat_timer += 500;
       }
-      indicator_led = BLUE;
+      PCA9685_led = BLUE;
       break;
 
     case BLUE:  // Receiving valid Nav data
-      if (!NavStale() && NavStatus() == 1)
-        LEDOn(INDICATOR_B_REGISTER);
+      if (NavStatusOK())
+        LEDOn(PCA9685_B_REGISTER);
       else
-        LEDOff(INDICATOR_B_REGISTER);
-      indicator_led = RED1;
+        LEDOff(PCA9685_B_REGISTER);
+      PCA9685_led = RED1;
       break;
 
     case RED1:  // Route 0-2
-      indicator_led = RED2;
-      LEDOn(INDICATOR_R1_REGISTER);
+      PCA9685_led = RED2;
+      LEDOn(PCA9685_R1_REGISTER);
       break;
 
     case RED2:  // Route 1-2
       if (SBusSwitch(0) != 0)
-        LEDOn(INDICATOR_R2_REGISTER);
+        LEDOn(PCA9685_R2_REGISTER);
       else
-        LEDOff(INDICATOR_R2_REGISTER);
-      indicator_led = RED3;
+        LEDOff(PCA9685_R2_REGISTER);
+      PCA9685_led = RED3;
       break;
 
     case RED3:  // Route 2
       if (SBusSwitch(0) == 2)
-        LEDOn(INDICATOR_R3_REGISTER);
+        LEDOn(PCA9685_R3_REGISTER);
       else
-        LEDOff(INDICATOR_R3_REGISTER);
-      indicator_led = RGB_RED;
+        LEDOff(PCA9685_R3_REGISTER);
+      PCA9685_led = RGB_RED;
       break;
 
     case RGB_RED:
       if ((rgb & RGB_R) && (blink_pattern & blink_mask))
-        RGBLEDOn(INDICATOR_RGB_R_REGISTER);
+        RGBLEDOn(PCA9685_RGB_R_REGISTER);
       else
-        RGBLEDOff(INDICATOR_RGB_R_REGISTER);
-      indicator_led = RGB_GREEN;
+        RGBLEDOff(PCA9685_RGB_R_REGISTER);
+      PCA9685_led = RGB_GREEN;
       break;
 
     case RGB_GREEN:
       if ((rgb & RGB_G) && (blink_pattern & blink_mask))
-        RGBLEDOn(INDICATOR_RGB_G_REGISTER);
+        RGBLEDOn(PCA9685_RGB_G_REGISTER);
       else
-        RGBLEDOff(INDICATOR_RGB_G_REGISTER);
-      indicator_led = RGB_BLUE;
+        RGBLEDOff(PCA9685_RGB_G_REGISTER);
+      PCA9685_led = RGB_BLUE;
       break;
 
     case RGB_BLUE:
       if ((rgb & RGB_B) && (blink_pattern & blink_mask))
-        RGBLEDOn(INDICATOR_RGB_B_REGISTER);
+        RGBLEDOn(PCA9685_RGB_B_REGISTER);
       else
-        RGBLEDOff(INDICATOR_RGB_B_REGISTER);
+        RGBLEDOff(PCA9685_RGB_B_REGISTER);
       blink_mask >>= 1;
       if (blink_mask == 0) blink_mask = 1 << 15;
     default:
-      indicator_led = GREEN;
+      PCA9685_led = GREEN;
       break;
   }
 }
@@ -176,37 +187,33 @@ void UpdateIndicator(void)
 
 static void LEDOff(uint8_t led_register)
 {
-  uint8_t tx_buffer[2];
-  tx_buffer[0] = led_register;
-  tx_buffer[1] = 0x10;
-  I2CTx(INDICATOR_ADDRESS, tx_buffer, 2);
+  tx_buffer_[0] = led_register;
+  tx_buffer_[1] = 0x10;
+  I2CTx(PCA9685_ADDRESS, tx_buffer_, 2);
 }
 
 // -----------------------------------------------------------------------------
 static void LEDOn(uint8_t led_register)
 {
-  uint8_t tx_buffer[2];
-  tx_buffer[0] = led_register;
-  tx_buffer[1] = 0x00;
-  I2CTx(INDICATOR_ADDRESS, tx_buffer, 2);
+  tx_buffer_[0] = led_register;
+  tx_buffer_[1] = 0x00;
+  I2CTx(PCA9685_ADDRESS, tx_buffer_, 2);
 }
 
 // -----------------------------------------------------------------------------
 static void RGBLEDOff(uint8_t led_register)
 {
-  uint8_t tx_buffer[2];
-  tx_buffer[0] = led_register;
-  tx_buffer[1] = 0x00;
-  I2CTx(INDICATOR_ADDRESS, tx_buffer, 2);
+  tx_buffer_[0] = led_register;
+  tx_buffer_[1] = 0x00;
+  I2CTx(PCA9685_ADDRESS, tx_buffer_, 2);
 }
 
 // -----------------------------------------------------------------------------
 static void RGBLEDOn(uint8_t led_register)
 {
-  uint8_t tx_buffer[2];
-  tx_buffer[0] = led_register;
-  tx_buffer[1] = 0x10;
-  I2CTx(INDICATOR_ADDRESS, tx_buffer, 2);
+  tx_buffer_[0] = led_register;
+  tx_buffer_[1] = 0x10;
+  I2CTx(PCA9685_ADDRESS, tx_buffer_, 2);
 }
 
 // -----------------------------------------------------------------------------
@@ -214,8 +221,8 @@ static void ToggleGreenLED(void)
 {
   static uint8_t state = 0;
   if (state)
-    LEDOff(INDICATOR_G_REGISTER);
+    LEDOff(PCA9685_G_REGISTER);
   else
-    LEDOn(INDICATOR_G_REGISTER);
+    LEDOn(PCA9685_G_REGISTER);
   state = !state;
 }
