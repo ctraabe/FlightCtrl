@@ -231,7 +231,7 @@ static void TxNextMotorSetpoint(void)
   if (comms_in_progress_--)
     TxMotorSetpoint(comms_in_progress_);
   else
-    UpdateIndicator();
+    TxIndicatorUpdate();
 }
 
 // -----------------------------------------------------------------------------

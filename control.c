@@ -19,6 +19,7 @@
 #include "attitude.h"
 #include "custom_math.h"
 #include "eeprom.h"
+#include "indicator.h"
 #include "main.h"
 #include "motors.h"
 #include "nav_comms.h"
@@ -417,6 +418,8 @@ void Control(void)
   else
     for (uint8_t i = NMotors(); i--; ) SetMotorSetpoint(i, 0);
 
+  // Update the indicator state before the I2C sequence is started.
+  UpdateIndicator();
   TxMotorSetpoints();
 }
 

@@ -227,7 +227,6 @@ int16_t main(void)
   {
     if (flag_128hz_)
     {
-
       UpdateSBus();
       UpdateState();
 
@@ -242,7 +241,6 @@ int16_t main(void)
       ErrorCheck();
 
       NotifyNav();
-
       ProcessIncomingUART();
       SendPendingUART();
 

@@ -16,7 +16,6 @@ enum I2CMode {
   I2C_MODE_IDLE = 0,
   I2C_MODE_TX,
   I2C_MODE_RX,
-  I2C_MODE_TX_THEN_RX
 };
 
 static volatile enum I2CMode i2c_mode_ = I2C_MODE_IDLE;
@@ -74,27 +73,16 @@ enum I2CError I2CRxThenCallback(uint8_t slave_address,
   volatile uint8_t *rx_destination_ptr, uint8_t rx_destination_len,
   I2CCallback callback_ptr)
 {
-  if (i2c_mode_ != I2C_MODE_IDLE) return I2C_ERROR_BUSY;
-  slave_address_ = slave_address;
-  rx_destination_ptr_ = rx_destination_ptr;
-  rx_destination_len_ = rx_destination_len;
-  callback_ptr_ = callback_ptr;
-  i2c_error_ = I2C_ERROR_NONE;
-  I2CStart(I2C_MODE_RX);
-  return I2C_ERROR_NONE;
+  return I2CTxThenRxThenCallback(slave_address, (uint8_t *)0, 0,
+    rx_destination_ptr, rx_destination_len, callback_ptr);
 }
 
 // -----------------------------------------------------------------------------
 enum I2CError I2CTx(uint8_t slave_address, const uint8_t *tx_source_ptr,
   uint8_t tx_source_len)
 {
-  if (i2c_mode_ != I2C_MODE_IDLE) return I2C_ERROR_BUSY;
-  slave_address_ = slave_address;
-  tx_source_ptr_ = tx_source_ptr;
-  tx_source_len_ = tx_source_len;
-  i2c_error_ = I2C_ERROR_NONE;
-  I2CStart(I2C_MODE_TX);
-  return I2C_ERROR_NONE;
+  return I2CTxThenRxThenCallback(slave_address, tx_source_ptr, tx_source_len,
+    (uint8_t *)0, 0, (I2CCallback)0);
 }
 
 // -----------------------------------------------------------------------------
@@ -119,9 +107,17 @@ enum I2CError I2CTxThenRxThenCallback(uint8_t slave_address,
   rx_destination_ptr_ = rx_destination_ptr;
   rx_destination_len_ = rx_destination_len;
   callback_ptr_ = callback_ptr;
-  i2c_error_ = I2C_ERROR_NONE;
-  I2CStart(I2C_MODE_TX_THEN_RX);
-  return I2C_ERROR_NONE;
+  if (tx_source_ptr != 0 && tx_source_len != 0)
+  {
+    I2CStart(I2C_MODE_TX);
+    return I2C_ERROR_NONE;
+  }
+  if (rx_destination_ptr_ != 0 && rx_destination_len != 0)
+  {
+    I2CStart(I2C_MODE_RX);
+    return I2C_ERROR_NONE;
+  }
+  return I2C_ERROR_BAD_CALL;
 }
 
 // -----------------------------------------------------------------------------
@@ -199,7 +195,8 @@ static void I2CTxByte(uint8_t byte)
 // Go to the next communication phase.
 static void Next(void)
 {
-  if (i2c_mode_ == I2C_MODE_TX_THEN_RX && i2c_error_ == I2C_ERROR_NONE)
+  if (i2c_mode_ == I2C_MODE_TX && i2c_error_ == I2C_ERROR_NONE
+    && rx_destination_ptr_ != 0 && rx_destination_len_ != 0)
   {
     I2CStart(I2C_MODE_RX);
   }
@@ -304,7 +301,6 @@ ISR(TWI_vect)
   switch (i2c_mode_)
   {
     case I2C_MODE_TX:
-    case I2C_MODE_TX_THEN_RX:
       ProcessTxInterrupt();
       break;
     case I2C_MODE_RX:

@@ -60,6 +60,12 @@ void IndicatorInit(void)
 }
 
 // -----------------------------------------------------------------------------
+void TxIndicatorUpdate(void)
+{
+  I2CTx(PCA9685_ADDRESS, tx_buffer_, 2);
+}
+
+// -----------------------------------------------------------------------------
 void UpdateIndicator(void)
 {
   enum RGBColorBits {
@@ -175,6 +181,7 @@ void UpdateIndicator(void)
         RGBLEDOff(PCA9685_RGB_B_REGISTER);
       blink_mask >>= 1;
       if (blink_mask == 0) blink_mask = 1 << 15;
+
     default:
       PCA9685_led = GREEN;
       break;
@@ -189,7 +196,6 @@ static void LEDOff(uint8_t led_register)
 {
   tx_buffer_[0] = led_register;
   tx_buffer_[1] = 0x10;
-  I2CTx(PCA9685_ADDRESS, tx_buffer_, 2);
 }
 
 // -----------------------------------------------------------------------------
@@ -197,7 +203,6 @@ static void LEDOn(uint8_t led_register)
 {
   tx_buffer_[0] = led_register;
   tx_buffer_[1] = 0x00;
-  I2CTx(PCA9685_ADDRESS, tx_buffer_, 2);
 }
 
 // -----------------------------------------------------------------------------
@@ -205,7 +210,6 @@ static void RGBLEDOff(uint8_t led_register)
 {
   tx_buffer_[0] = led_register;
   tx_buffer_[1] = 0x00;
-  I2CTx(PCA9685_ADDRESS, tx_buffer_, 2);
 }
 
 // -----------------------------------------------------------------------------
@@ -213,7 +217,6 @@ static void RGBLEDOn(uint8_t led_register)
 {
   tx_buffer_[0] = led_register;
   tx_buffer_[1] = 0x10;
-  I2CTx(PCA9685_ADDRESS, tx_buffer_, 2);
 }
 
 // -----------------------------------------------------------------------------
