@@ -274,8 +274,8 @@ void ControlInit(void)
   feedback_gains_.r = +4.214169663e+00;
   feedback_gains_.psi = +1.070299558e+01;
 
-  feedback_gains_.x_dot = 0.18;
-  feedback_gains_.x = 0.135;
+  feedback_gains_.x_dot = 0.25;
+  feedback_gains_.x = 0.1;
   feedback_gains_.x_integral = 0.045 * DT;
 
   feedback_gains_.w_dot = 0.0;
@@ -338,14 +338,14 @@ void ControlInit(void)
 
   feedback_gains_.psi_integral = 1.356024132e+01 * DT / feedback_gains_.psi;
 
-  feedback_gains_.x_dot = 0.18;
+  feedback_gains_.x_dot = 0.4;
   feedback_gains_.x = 0.135;
-  feedback_gains_.x_integral = 0.045 * DT;
+  feedback_gains_.x_integral = 0.02 * DT;
 
   feedback_gains_.w_dot = 0.0;
-  feedback_gains_.w = 2.0;
-  feedback_gains_.z = 1.5;
-  feedback_gains_.z_integral = 0.45 * DT * actuation_inverse_[0][3];
+  feedback_gains_.w = 5.0;
+  feedback_gains_.z = 8.0;
+  feedback_gains_.z_integral = 4.5 * DT * actuation_inverse_[0][3];
 
   kalman_coefficients_.A11 = 8.943955582e-01;
   kalman_coefficients_.A13 = 7.392310928e-03;
@@ -383,6 +383,21 @@ void Control(void)
 {
   float g_b_cmd[2];  // Target x and y components of the gravity vector in body
   float heading_rate_cmd;
+
+  // The following are for gain tuning. Should be removed in the future.
+  // feedback_gains_.x_dot = 0.4 * (float)(SBusTrim(1) + SBUS_MAX) / (float)SBUS_MAX;
+  // feedback_gains_.x = 0.135 * (float)(SBusTrim(2) + SBUS_MAX) / (float)SBUS_MAX;
+  // UARTPrintfSafe("%5.3f,%5.3f", feedback_gains_.x_dot, feedback_gains_.x);
+
+  // feedback_gains_.w = 5.0 * (float)(SBusTrim(1) + SBUS_MAX) / (float)SBUS_MAX;
+  // feedback_gains_.z = 8.0 * (float)(SBusTrim(2) + SBUS_MAX) / (float)SBUS_MAX;
+  // UARTPrintfSafe("%5.3f,%5.3f", feedback_gains_.w, feedback_gains_.z);
+
+  // feedback_gains_.x_integral = 0.045 * DT
+  //   * (float)(SBusTrim(1) + SBUS_MAX) / (float)SBUS_MAX;
+  // feedback_gains_.z_integral = 2.25 * DT * actuation_inverse_[0][3]
+  //   * (float)(SBusTrim(2) + SBUS_MAX) / (float)SBUS_MAX;
+  // UARTPrintfSafe("%5.3f,%5.3f", feedback_gains_.x_integral, feedback_gains_.z_integral);
 
   // Derive a target attitude from the position of the sticks.
   CommandsFromSticks(g_b_cmd, &heading_cmd_, &heading_rate_cmd, &thrust_cmd_);
