@@ -330,13 +330,13 @@ void ControlInit(void)
   k_motor_lag_ = 1.0 / 0.1;
 #else  // Large quad
   // control proportion: 0.500000
-  feedback_gains_.p_dot = 1.167214545e+00;
-  feedback_gains_.p = 2.927511520e+01;
-  feedback_gains_.phi = 1.518682558e+02;
-  feedback_gains_.r = 5.240313279e+00;
-  feedback_gains_.psi = 1.623500801e+01;
+  feedback_gains_.p_dot = +1.432616077e+00;
+  feedback_gains_.p = +3.688433387e+01;
+  feedback_gains_.phi = +2.147741471e+02;
+  feedback_gains_.r = +5.240313279e+00;
+  feedback_gains_.psi = +1.623500801e+01;
 
-  feedback_gains_.psi_integral = 1.356024132e+01 * DT / feedback_gains_.psi;
+  feedback_gains_.psi_integral = +1.356024132e+01 * DT / feedback_gains_.psi;
 
   feedback_gains_.x_dot = 0.4;
   feedback_gains_.x = 0.135;
