@@ -274,8 +274,10 @@ void ControlInit(void)
   feedback_gains_.r = +4.214169663e+00;
   feedback_gains_.psi = +1.070299558e+01;
 
-  feedback_gains_.x_dot = 0.2;
-  feedback_gains_.x = 0.06;
+  feedback_gains_.psi_integral = +7.208729681e+00  * DT / feedback_gains_.psi;
+
+  feedback_gains_.x_dot = 0.17;
+  feedback_gains_.x = 0.1;
   feedback_gains_.x_integral = 0.02 * DT;
 
   feedback_gains_.w_dot = 0.0;
