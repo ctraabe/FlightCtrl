@@ -109,10 +109,10 @@ static struct Model {
 } model_ = { 0 };
 
 static struct PositionControlState {
+  float position_cmd[3];
   float position_integral[3];
+  float heading_cmd;
   float heading_integral;
-  float heading_rabbit;
-  float target_baro_altitude;
   float takeoff_thrust_residual;
   int16_t hover_thrust_stick;
   uint8_t control_mode_pv;
@@ -268,13 +268,13 @@ void ControlInit(void)
   k_motor_lag_ = 1.0 / 0.07;
 #elif defined HEXA690
   // control proportion: 0.500000
-  feedback_gains_.p_dot = +1.014067683e+00;
-  feedback_gains_.p = +2.528383346e+01;
-  feedback_gains_.phi = +1.218943197e+02;
-  feedback_gains_.r = +4.214169663e+00;
-  feedback_gains_.psi = +1.070299558e+01;
+  feedback_gains_.p_dot = +1.039864973e+00;
+  feedback_gains_.p = +2.593568008e+01;
+  feedback_gains_.phi = +1.266384385e+02;
+  feedback_gains_.r = +4.176320607e+00;
+  feedback_gains_.psi = +1.047113846e+01;
 
-  feedback_gains_.psi_integral = +7.208729681e+00  * DT / feedback_gains_.psi;
+  feedback_gains_.psi_integral = +6.988058653e+00 * DT / feedback_gains_.psi;
 
   feedback_gains_.x_dot = 0.17;
   feedback_gains_.x = 0.1;
@@ -340,9 +340,9 @@ void ControlInit(void)
 
   feedback_gains_.psi_integral = +1.356024132e+01 * DT / feedback_gains_.psi;
 
-  feedback_gains_.x_dot = 0.4;
-  feedback_gains_.x = 0.135;
-  feedback_gains_.x_integral = 0.02 * DT;
+  feedback_gains_.x_dot = 0.21;
+  feedback_gains_.x = 0.15;
+  feedback_gains_.x_integral = 0.045 * DT;
 
   feedback_gains_.w_dot = 0.0;
   feedback_gains_.w = 5.0;
@@ -493,7 +493,7 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
   struct PositionControlState * state)
 {
   float position[3] = { 0.0 }, velocity[3] = { 0.0 };
-  float position_cmd[3] = { 0.0 }, velocity_cmd[3] = { 0.0 };
+  float velocity_cmd[3] = { 0.0 };
   float position_error_limit = MIN_TRANSIT_SPEED;
   float baro_altitude_thrust_offset = 0;
 
@@ -521,30 +521,60 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
         Vector3Copy((const float *)PositionVector(), position);
         Vector3Copy((const float *)VelocityVector(), velocity);
       }
-      Vector3Copy((const float *)TargetPositionVector(), position_cmd);
 
       // Set the position error limit according to the transit speed. (Also,
       // make sure the transit speed is sane.)
       position_error_limit = FloatLimit(TransitSpeed(), MIN_TRANSIT_SPEED,
         MAX_TRANSIT_SPEED) * k_speed_to_position_error_;
 
+////////////////////////////////////////////////////////////////////////////////
+      if (state->control_mode_pv != CONTROL_MODE_NAV)
+      {
+        Vector3Copy(position, state->position_cmd);
+        state->heading_integral = 0.0;
+        state->heading_cmd = *heading_cmd;
+      }
+
+      float position_rabbit_to_target_vector[3];
+      Vector3Subtract((const float *)TargetPositionVector(),
+        state->position_cmd, position_rabbit_to_target_vector);
+
+      float position_rabbit_to_target_norm = Vector3Norm(
+        position_rabbit_to_target_vector);
+      float position_rabbit_increment_norm = FloatLimit(TransitSpeed(),
+        MIN_TRANSIT_SPEED, MAX_TRANSIT_SPEED) * DT;
+      if (position_rabbit_increment_norm < position_rabbit_to_target_norm)
+      {
+        float rabbit_increment_vector[3];
+        Vector3Scale(position_rabbit_to_target_vector,
+          position_rabbit_increment_norm / position_rabbit_to_target_norm,
+          rabbit_increment_vector);
+        Vector3AddToSelf(state->position_cmd, rabbit_increment_vector);
+      }
+      else
+      {
+        Vector3Copy((const float *)TargetPositionVector(),
+          state->position_cmd);
+      }
+////////////////////////////////////////////////////////////////////////////////
+
       // Form an integral command based on the difference between the current
       // heading and the rabbit.
       state->heading_integral += FloatSLimit(WrapToPlusMinusPi(
-        state->heading_rabbit - HeadingAngle()) * k->psi_integral, M_PI / 12);
+        state->heading_cmd - HeadingAngle()) * k->psi_integral, M_PI / 12);
 
       // Compute a rate command (at the specified rate) that will move the
       // rabbit toward the target.
       float heading_rate_limit = FloatLimit(HeadingRate(), 0.02,
         limit->heading_rate);
       *heading_rate_cmd += FloatSLimit(WrapToPlusMinusPi(TargetHeading()
-        - state->heading_rabbit) / DT, heading_rate_limit);
+        - state->heading_cmd) / DT, heading_rate_limit);
 
       // Move the rabbit toward the target at the computed rate.
-      state->heading_rabbit += *heading_rate_cmd * DT;
+      state->heading_cmd += *heading_rate_cmd * DT;
 
       // Final heading command is the position of the rabbit plus the integral. 
-      *heading_cmd = state->heading_rabbit + state->heading_integral;
+      *heading_cmd = state->heading_cmd + state->heading_integral;
       break;
     }
     case CONTROL_MODE_BARO_ALTITUDE:
@@ -552,7 +582,7 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
       if (state->control_mode_pv != CONTROL_MODE_BARO_ALTITUDE)
       {
         state->hover_thrust_stick = SBusThrust();
-        state->target_baro_altitude = DeltaPressureAltitude();
+        state->position_cmd[D_WORLD_AXIS] = -DeltaPressureAltitude();
       }
 
       position[D_WORLD_AXIS] = -DeltaPressureAltitude();
@@ -561,8 +591,7 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
       velocity_cmd[D_WORLD_AXIS] = -(SBusThrust() - state->hover_thrust_stick)
         * (MAX_VERTICAL_SPEED / (float)SBUS_MAX);
 
-      state->target_baro_altitude += -velocity_cmd[D_WORLD_AXIS] * DT;
-      position_cmd[D_WORLD_AXIS] = -state->target_baro_altitude;
+      state->position_cmd[D_WORLD_AXIS] += velocity_cmd[D_WORLD_AXIS] * DT;
 
       position_error_limit = 1.5 * MAX_VERTICAL_SPEED
         * k_speed_to_position_error_;  // 50% margin
@@ -610,13 +639,6 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
       break;
   }
 
-  // TODO: rethink this:
-  if (ControlMode() != CONTROL_MODE_NAV)
-  {
-    state->heading_integral = 0.0;
-    state->heading_rabbit = *heading_cmd;
-  }
-
   // Reset the integrator when the mode changes.
   if (ControlMode() != state->control_mode_pv)
   {
@@ -627,7 +649,8 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
   }
 
   // Integrate the difference with the model.
-  UpdateModel(position_cmd, velocity_cmd, k, position_error_limit, model);
+  UpdateModel(state->position_cmd, velocity_cmd, k, position_error_limit,
+    model);
   state->position_integral[N_WORLD_AXIS] = FloatSLimit(
     state->position_integral[N_WORLD_AXIS] + (model->position[N_WORLD_AXIS]
     - position[N_WORLD_AXIS]) * k->x_integral, 0.25 * MAX_G_B_CMD);
@@ -639,7 +662,7 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
     - position[D_WORLD_AXIS]) * k->z_integral, 0.15 * THRUST_CMD_RANGE);
 
   float position_error[3], velocity_error[3];
-  Vector3Subtract(position_cmd, position, position_error);
+  Vector3Subtract(state->position_cmd, position, position_error);
   Vector3Subtract(velocity_cmd, velocity, velocity_error);
 
   // If the position error limit is exceeded, then switch to velocity control.
