@@ -45,11 +45,11 @@
 #define MAX_HEADING_RATE (M_PI / 4.0)
 #define MAX_VERTICAL_SPEED (1.0)
 #define MIN_TRANSIT_SPEED (0.1)
-#define MAX_TRANSIT_SPEED (2.0)
+#define MAX_TRANSIT_SPEED (2.5)
 #define STARTING_SETPOINT (40)
 
 #define TAKEOFF_TRANSITION_SPEED (0.25)  // m/s
-#define POST_TAKEOFF_THRUST_ADJUSTMENT (-60)
+#define POST_TAKEOFF_THRUST_ADJUSTMENT (-0)
 #define TAKEOFF_RESIDUAL_WASHOUT_RATE (2.5)  // %/s
 #define TAKEOFF_RESIDUAL_WASHOUT_STEP (TAKEOFF_RESIDUAL_WASHOUT_RATE / 100.0 \
     * (float)(THRUST_CMD_RANGE) * DT)
@@ -126,8 +126,11 @@ static float quat_cmd_[4];  // Target attitude in quaternion
 
 
 static float k_motor_lag_ = 0.0;
-static float k_speed_to_position_error_ = 0.0, k_position_error_to_speed_ = 0.0,
-  k_horiszontal_limit_to_vertical_limit = 0.0,
+static float k_x_velocity_to_position_error_ = 0.0,
+  k_x_position_error_to_velocity_ = 0.0,
+  k_z_velocity_to_position_error_ = 0.0,
+  k_z_position_error_to_velocity_ = 0.0,
+  k_horizontal_limit_to_vertical_limit = 0.0,
   k_vertical_limit_to_horizontal_limit = 0.0;
 static uint16_t setpoints_[MAX_MOTORS] = { 0 };
 
@@ -152,7 +155,7 @@ static void UpdateKalmanFilter(const float angular_cmd[3],
   const struct KalmanCoeffiecients * k, struct KalmanState * x);
 static void UpdateModel(const float position_cmd[3],
   const float velocity_cmd[3], const struct FeedbackGains * k,
-  float position_error_limit, struct Model * m);
+  struct Model * m);
 
 
 // =============================================================================
@@ -372,12 +375,14 @@ void ControlInit(void)
   limits_.heading_error = 0.25 * (MAX_CMD - MIN_CMD) / (feedback_gains_.psi
     * fabs(actuation_inverse_[0][2]));
 
-  k_speed_to_position_error_ = feedback_gains_.x_dot / feedback_gains_.x;
-  k_position_error_to_speed_ = 1.0 / k_speed_to_position_error_;
-  k_horiszontal_limit_to_vertical_limit = feedback_gains_.w / feedback_gains_.z
-    / k_speed_to_position_error_;
+  k_x_velocity_to_position_error_ = feedback_gains_.x_dot / feedback_gains_.x;
+  k_x_position_error_to_velocity_ = 1.0 / k_x_velocity_to_position_error_;
+  k_z_velocity_to_position_error_ = feedback_gains_.w / feedback_gains_.z;
+  k_z_position_error_to_velocity_ = 1.0 / k_z_velocity_to_position_error_;
+  k_horizontal_limit_to_vertical_limit = feedback_gains_.w / feedback_gains_.z
+    / k_x_velocity_to_position_error_;
   k_vertical_limit_to_horizontal_limit = 1.0
-    / k_horiszontal_limit_to_vertical_limit;
+    / k_horizontal_limit_to_vertical_limit;
 }
 
 // -----------------------------------------------------------------------------
@@ -385,24 +390,6 @@ void Control(void)
 {
   float g_b_cmd[2];  // Target x and y components of the gravity vector in body
   float heading_rate_cmd;
-
-  // The following are for gain tuning. Should be removed in the future.
-
-  // feedback_gains_.x_dot = 0.25 * (float)(SBusTrim(1) + SBUS_MAX) / (float)SBUS_MAX;
-  // feedback_gains_.x = 0.085 * (float)(SBusTrim(2) + SBUS_MAX) / (float)SBUS_MAX;
-  // feedback_gains_.x_integral = 0.045 * DT * (float)(SBusTrim(3) + SBUS_MAX) /
-  //   (float)SBUS_MAX;
-  // UARTPrintfSafe("%5.3f,%5.3f,%i", feedback_gains_.x_dot, feedback_gains_.x,
-  //   SBusTrim(3));
-
-  // feedback_gains_.w = 5.0 * (float)(SBusTrim(1) + SBUS_MAX) / (float)SBUS_MAX;
-  // feedback_gains_.z = 8.0 * (float)(SBusTrim(2) + SBUS_MAX) / (float)SBUS_MAX;
-  // feedback_gains_.z_integral = 4.5 * DT * actuation_inverse_[0][3]
-  //   * (float)(SBusTrim(3) + SBUS_MAX) / (float)SBUS_MAX;
-  // UARTPrintfSafe("%5.3f,%5.3f,%i", feedback_gains_.w, feedback_gains_.z,
-  //   SBusTrim(3));
-
-  // UARTPrintfSafe("%5.3f,%5.3f", feedback_gains_.x_integral, feedback_gains_.z_integral);
 
   // Derive a target attitude from the position of the sticks.
   CommandsFromSticks(g_b_cmd, &heading_cmd_, &heading_rate_cmd, &thrust_cmd_);
@@ -492,8 +479,8 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
   float * heading_rate_cmd, float * thrust_cmd, struct Model * model,
   struct PositionControlState * state)
 {
-  float position[3] = { 0.0 }, velocity[3] = { 0.0 };
-  float velocity_cmd[3] = { 0.0 };
+  float position[3] = { 0.0 }, velocity[3] = { 0.0 }, velocity_cmd[3] = { 0.0 };
+  float position_error[3] = { 0.0 }, velocity_error[3] = { 0.0 }, model_error[3] = { 0.0 };
   float position_error_limit = MIN_TRANSIT_SPEED;
   float baro_altitude_thrust_offset = 0;
 
@@ -505,6 +492,8 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
       {
         return;  // Do not update
       }
+
+      // Initialization:
 
       // Copy volatile data to local memory.
       if (NavStatus() & NAV_STATUS_BIT_LOW_PRECISION_VERTICAL)
@@ -522,12 +511,7 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
         Vector3Copy((const float *)VelocityVector(), velocity);
       }
 
-      // Set the position error limit according to the transit speed. (Also,
-      // make sure the transit speed is sane.)
-      position_error_limit = FloatLimit(TransitSpeed(), MIN_TRANSIT_SPEED,
-        MAX_TRANSIT_SPEED) * k_speed_to_position_error_;
-
-////////////////////////////////////////////////////////////////////////////////
+      // Initialize the position command and heading integral.
       if (state->control_mode_pv != CONTROL_MODE_NAV)
       {
         Vector3Copy(position, state->position_cmd);
@@ -535,6 +519,11 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
         state->heading_cmd = *heading_cmd;
       }
 
+      // Position:
+
+      // Compute a virtual position command in the form of a "rabbit" that the
+      // vehicle will chase. The "rabbit" moves toward the target position at a
+      // constant velocity (TransitSpeed).
       float position_rabbit_to_target_vector[3];
       Vector3Subtract((const float *)TargetPositionVector(),
         state->position_cmd, position_rabbit_to_target_vector);
@@ -556,7 +545,22 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
         Vector3Copy((const float *)TargetPositionVector(),
           state->position_cmd);
       }
-////////////////////////////////////////////////////////////////////////////////
+
+      // Integrate the difference with the model.
+      UpdateModel(state->position_cmd, velocity_cmd, k, model);
+
+      // Compute the error between the current position / velocity and the
+      // command.
+      Vector3Subtract(state->position_cmd, position, position_error);
+      Vector3Subtract(velocity_cmd, velocity, velocity_error);
+      Vector3Subtract(model->position, position, model_error);
+
+      // Form an error limit such that the position error cannot lead to an
+      // unreasonably high speed.
+      position_error_limit = FloatLimit(TransitSpeed() + 1.0, MIN_TRANSIT_SPEED,
+        MAX_TRANSIT_SPEED) * k_x_velocity_to_position_error_;
+
+      // Heading:
 
       // Form an integral command based on the difference between the current
       // heading and the rabbit.
@@ -593,8 +597,19 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
 
       state->position_cmd[D_WORLD_AXIS] += velocity_cmd[D_WORLD_AXIS] * DT;
 
+      // Integrate the difference with the model.
+      UpdateModel(state->position_cmd, velocity_cmd, k, model);
+
+      // Compute the error between the current position / velocity and the
+      // command.
+      Vector3Subtract(state->position_cmd, position, position_error);
+      Vector3Subtract(velocity_cmd, velocity, velocity_error);
+      Vector3Subtract(model->position, position, model_error);
+
+      // Form an error limit such that the position error cannot lead to an
+      // unreasonably high speed.
       position_error_limit = 1.5 * MAX_VERTICAL_SPEED
-        * k_speed_to_position_error_;  // 50% margin
+        * k_x_velocity_to_position_error_;  // 50% margin
 
       // Offset the thrust command so that vertical speed commands don't affect
       // the raw thrust command.
@@ -639,7 +654,7 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
       break;
   }
 
-  // Reset the integrator when the mode changes.
+  // Reset the integrator and model when the mode changes.
   if (ControlMode() != state->control_mode_pv)
   {
     state->position_integral[N_WORLD_AXIS] = 0.0;
@@ -648,22 +663,15 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
     ResetModel(position, velocity, model);
   }
 
-  // Integrate the difference with the model.
-  UpdateModel(state->position_cmd, velocity_cmd, k, position_error_limit,
-    model);
   state->position_integral[N_WORLD_AXIS] = FloatSLimit(
-    state->position_integral[N_WORLD_AXIS] + (model->position[N_WORLD_AXIS]
-    - position[N_WORLD_AXIS]) * k->x_integral, 0.25 * MAX_G_B_CMD);
+    state->position_integral[N_WORLD_AXIS] + (model_error[N_WORLD_AXIS])
+    * k->x_integral, 0.25 * MAX_G_B_CMD);
   state->position_integral[E_WORLD_AXIS] = FloatSLimit(
-    state->position_integral[E_WORLD_AXIS] + (model->position[E_WORLD_AXIS]
-    - position[E_WORLD_AXIS]) * k->x_integral, 0.25 * MAX_G_B_CMD);
+    state->position_integral[E_WORLD_AXIS] + (model_error[E_WORLD_AXIS])
+    * k->x_integral, 0.25 * MAX_G_B_CMD);
   state->position_integral[D_WORLD_AXIS] = FloatSLimit(
-    state->position_integral[D_WORLD_AXIS] + (model->position[D_WORLD_AXIS]
-    - position[D_WORLD_AXIS]) * k->z_integral, 0.15 * THRUST_CMD_RANGE);
-
-  float position_error[3], velocity_error[3];
-  Vector3Subtract(state->position_cmd, position, position_error);
-  Vector3Subtract(velocity_cmd, velocity, velocity_error);
+    state->position_integral[D_WORLD_AXIS] + (model_error[D_WORLD_AXIS])
+    * k->z_integral, 0.15 * THRUST_CMD_RANGE);
 
   // If the position error limit is exceeded, then switch to velocity control.
   position_error[D_WORLD_AXIS] *= k_vertical_limit_to_horizontal_limit;
@@ -672,13 +680,11 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
   {
     Vector3ScaleSelf(position_error, position_error_limit
       / position_error_norm);
-    position_error[D_WORLD_AXIS] *= k_horiszontal_limit_to_vertical_limit;
-    Vector3AddToSelf(position_error, model->position);
-    Vector3SubtractFromSelf(position_error, position);
+    position_error[D_WORLD_AXIS] *= k_horizontal_limit_to_vertical_limit;
   }
   else
   {
-    position_error[D_WORLD_AXIS] *= k_horiszontal_limit_to_vertical_limit;
+    position_error[D_WORLD_AXIS] *= k_horizontal_limit_to_vertical_limit;
   }
 
   // Limit the navigation command to half the maximum manual command.
@@ -707,7 +713,7 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
     + k->w * velocity_error[D_WORLD_AXIS]
     + k->z * position_error[D_WORLD_AXIS]),
     0.25 * THRUST_CMD_RANGE)
-    + state->position_integral[Z_BODY_AXIS]
+    + state->position_integral[D_WORLD_AXIS]
     + baro_altitude_thrust_offset
     + state->takeoff_thrust_residual;
 
@@ -898,23 +904,11 @@ static void UpdateKalmanFilter(const float angular_cmd[3],
 // Simple linear decoupled model of position in NED frame with zero heading.
 static void UpdateModel(const float position_cmd[3],
   const float velocity_cmd[3], const struct FeedbackGains * k,
-  float position_error_limit, struct Model * m)
+  struct Model * m)
 {
   float position_error[3], velocity_error[3];
   Vector3Subtract(position_cmd, m->position, position_error);
   Vector3Subtract(velocity_cmd, m->velocity, velocity_error);
-
-  // TODO: the following assumes that this limit affects horizontal and vertical
-  // motion in the same way, which may not be true with different gains!!!
-  // Limit the position error to give the desired transit speed.
-  position_error[D_WORLD_AXIS] *= k_vertical_limit_to_horizontal_limit;
-  float position_error_norm = Vector3Norm(position_error);
-  if (position_error_norm > position_error_limit)
-  {
-    Vector3ScaleSelf(position_error, position_error_limit
-      / position_error_norm);
-  }
-  position_error[D_WORLD_AXIS] *= k_horiszontal_limit_to_vertical_limit;
 
   // Form horizontal acceleration commands.
   float a_w_cmd[3];  // acceleration command in world NED frame
