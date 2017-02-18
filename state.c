@@ -95,6 +95,15 @@ void UpdateState(void)
   static uint8_t sbus_on_off_latch = 0;
   static uint16_t stick_timer;
 
+  if (SBusStale())
+  {
+    state_ |= STATE_BIT_LOST_CONTROL_LINK;
+  }
+  else
+  {
+    state_ &= ~STATE_BIT_LOST_CONTROL_LINK;
+  }
+
   if (MotorsInhibited())
   {
     if (SBusThrustStickUp() && SBusYawStickLeft())
@@ -222,6 +231,14 @@ static void UpdateControlMode(void)
   static uint8_t altitude_switch_pv = SBUS_SWITCH_CENTER;
   static uint8_t nav_switch_pv = SBUS_SWITCH_CENTER;
   static uint8_t takeoff_switch_pv = SBUS_SWITCH_CENTER;
+
+  // Always go into "go home" mode when critical lost link occurs.
+  if (MotorsRunning() && SBusStale())
+  {
+    control_mode_ = CONTROL_MODE_NAV;
+    SetNavMode(NAV_MODE_HOME);
+    return;
+  }
 
   if (SBusNavControl() != nav_switch_pv)
   {

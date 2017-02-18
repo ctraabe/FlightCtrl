@@ -15,12 +15,11 @@ This version of the software currently employs constants that have been pre-comp
 To do
 --
 
+- Fix baro altitude hold
 - Review and improve diagnostics and error handling
 - Implement communication protocol to update configuration (in EEPROM)
 - Compute constants (control gains, Kalman filter coefficients, angular dynamics model coefficients) based on vehicle measurements
-- Receive attitude commands via SPI or UART
 - Limit thrust based on voltage to prevent battery damage
-- Implement altitude hold based on barometric pressure
 - Implement disturbance (acceleration) rejection
 - Implement bootloader
 
