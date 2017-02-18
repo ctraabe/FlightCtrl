@@ -89,6 +89,13 @@ enum NavMode NavMode(void)
 }
 
 // -----------------------------------------------------------------------------
+uint8_t NavPositionReset(void)
+{
+  return from_nav_[from_nav_tail_].status
+    & NAV_STATUS_BIT_POSITION_RESET_REQUEST;
+}
+
+// -----------------------------------------------------------------------------
 uint8_t NavStatus(void)
 {
   return from_nav_[from_nav_tail_].status;

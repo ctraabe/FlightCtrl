@@ -480,7 +480,8 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
   struct PositionControlState * state)
 {
   float position[3] = { 0.0 }, velocity[3] = { 0.0 }, velocity_cmd[3] = { 0.0 };
-  float position_error[3] = { 0.0 }, velocity_error[3] = { 0.0 }, model_error[3] = { 0.0 };
+  float position_error[3] = { 0.0 }, velocity_error[3] = { 0.0 };
+  float model_error[3] = { 0.0 };
   float position_error_limit = MIN_TRANSIT_SPEED;
   float baro_altitude_thrust_offset = 0;
 
@@ -511,11 +512,11 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
         Vector3Copy((const float *)VelocityVector(), velocity);
       }
 
-      // Initialize the position command and heading integral.
-      if (state->control_mode_pv != CONTROL_MODE_NAV)
+      // Initialize the position and heading commands and model.
+      if ((state->control_mode_pv != CONTROL_MODE_NAV) || NavPositionReset())
       {
+        ResetModel(position, velocity, model);
         Vector3Copy(position, state->position_cmd);
-        state->heading_integral = 0.0;
         state->heading_cmd = *heading_cmd;
       }
 
@@ -583,14 +584,15 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
     }
     case CONTROL_MODE_BARO_ALTITUDE:
     {
+      position[D_WORLD_AXIS] = -DeltaPressureAltitude();
+      velocity[D_WORLD_AXIS] = -VerticalSpeed();
+
       if (state->control_mode_pv != CONTROL_MODE_BARO_ALTITUDE)
       {
+        ResetModel(position, velocity, model);
         state->hover_thrust_stick = SBusThrust();
         state->position_cmd[D_WORLD_AXIS] = -DeltaPressureAltitude();
       }
-
-      position[D_WORLD_AXIS] = -DeltaPressureAltitude();
-      velocity[D_WORLD_AXIS] = -VerticalSpeed();
 
       velocity_cmd[D_WORLD_AXIS] = -(SBusThrust() - state->hover_thrust_stick)
         * (MAX_VERTICAL_SPEED / (float)SBUS_MAX);
@@ -651,16 +653,13 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
       // TODO: saturate residual on the low side (requires access to thrust_cmd)
       // if (state->takeoff_thrust_residual < MIN_THRUST_CMD - thrust_cmd)
       //   state->takeoff_thrust_residual = MIN_THRUST_CMD - thrust_cmd;
-      break;
-  }
 
-  // Reset the integrator and model when the mode changes.
-  if (ControlMode() != state->control_mode_pv)
-  {
-    state->position_integral[N_WORLD_AXIS] = 0.0;
-    state->position_integral[E_WORLD_AXIS] = 0.0;
-    state->position_integral[D_WORLD_AXIS] = 0.0;
-    ResetModel(position, velocity, model);
+      // Clear the integrals.
+      state->position_integral[N_WORLD_AXIS] = 0.0;
+      state->position_integral[E_WORLD_AXIS] = 0.0;
+      state->position_integral[D_WORLD_AXIS] = 0.0;
+      state->heading_integral = 0.0;
+      break;
   }
 
   state->position_integral[N_WORLD_AXIS] = FloatSLimit(

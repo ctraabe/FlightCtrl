@@ -10,6 +10,7 @@ enum NavStatusBits {
   NAV_STATUS_BIT_POSITION_DATA_OK        = 1<<1,
   NAV_STATUS_BIT_VELOCITY_DATA_OK        = 1<<2,
   NAV_STATUS_BIT_LOW_PRECISION_VERTICAL  = 1<<3,
+  NAV_STATUS_BIT_POSITION_RESET_REQUEST  = 1<<4,
 };
 
 enum NavErrorBits {
@@ -34,6 +35,9 @@ uint8_t NavRecieved(void);
 
 // -----------------------------------------------------------------------------
 enum NavMode NavMode(void);
+
+// -----------------------------------------------------------------------------
+uint8_t NavPositionReset(void);
 
 // -----------------------------------------------------------------------------
 uint8_t NavStatus(void);
