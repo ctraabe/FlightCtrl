@@ -233,7 +233,7 @@ static void UpdateControlMode(void)
   static uint8_t takeoff_switch_pv = SBUS_SWITCH_CENTER;
 
   // Always go into "go home" mode when critical lost link occurs.
-  if (MotorsRunning() && SBusStale())
+  if ((MotorsRunning() && SBusStale()) || (SBusGoHome() != SBUS_SWITCH_DOWN))
   {
     control_mode_ = CONTROL_MODE_NAV;
     SetNavMode(NAV_MODE_HOME);

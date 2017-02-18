@@ -31,7 +31,7 @@ static struct SBusData
 static uint8_t sbus_error_bits_ = 0x00;
 static uint8_t channel_pitch_, channel_roll_, channel_yaw_, channel_thrust_,
   channel_on_off_, channel_altitude_control_, channel_nav_control_,
-  channel_takeoff_, channel_switch_[6], channel_trim_[4];
+  channel_takeoff_, channel_go_home_, channel_switch_[5], channel_trim_[4];
 
 
 // =============================================================================
@@ -83,6 +83,12 @@ uint8_t SBusOnOff(void)
 enum SBusSwitchState SBusAltitudeControl(void)
 {
   return SBusChannelSwitchState(channel_altitude_control_);
+}
+
+// -----------------------------------------------------------------------------
+enum SBusSwitchState SBusGoHome(void)
+{
+  return SBusChannelSwitchState(channel_go_home_);
 }
 
 // -----------------------------------------------------------------------------
@@ -146,6 +152,7 @@ void SBusInit(void)
     eeprom_read_byte(&eeprom.sbus_channel_altitude_control);
   channel_nav_control_ = eeprom_read_byte(&eeprom.sbus_channel_nav_control);
   channel_takeoff_ = eeprom_read_byte(&eeprom.sbus_channel_takeoff);
+  channel_go_home_ = eeprom_read_byte(&eeprom.sbus_channel_go_home);
   eeprom_read_block((void*)channel_switch_,
     (const void*)&eeprom.sbus_channel_switch[0], sizeof(channel_switch_));
   eeprom_read_block((void*)channel_trim_,
@@ -155,8 +162,8 @@ void SBusInit(void)
 // -----------------------------------------------------------------------------
 void SBusSetChannels(uint8_t pitch, uint8_t roll, uint8_t yaw, uint8_t thrust,
   uint8_t on_off, uint8_t altitude_control, uint8_t nav_control,
-  uint8_t takeoff, uint8_t switch0, uint8_t switch1, uint8_t switch2,
-  uint8_t switch3, uint8_t switch4, uint8_t switch5, uint8_t trim0,
+  uint8_t takeoff, uint8_t go_home, uint8_t switch0, uint8_t switch1,
+  uint8_t switch2, uint8_t switch3, uint8_t switch4, uint8_t trim0,
   uint8_t trim1, uint8_t trim2, uint8_t trim3)
 {
   channel_pitch_ = pitch;
@@ -167,12 +174,12 @@ void SBusSetChannels(uint8_t pitch, uint8_t roll, uint8_t yaw, uint8_t thrust,
   channel_altitude_control_ = altitude_control;
   channel_nav_control_ = nav_control;
   channel_takeoff_ = takeoff;
+  channel_go_home_ = go_home;
   channel_switch_[0] = switch0;
   channel_switch_[1] = switch1;
   channel_switch_[2] = switch2;
   channel_switch_[3] = switch3;
   channel_switch_[4] = switch4;
-  channel_switch_[5] = switch5;
   channel_trim_[0] = trim0;
   channel_trim_[1] = trim1;
   channel_trim_[2] = trim2;
@@ -185,6 +192,7 @@ void SBusSetChannels(uint8_t pitch, uint8_t roll, uint8_t yaw, uint8_t thrust,
   eeprom_update_byte(&eeprom.sbus_channel_altitude_control, altitude_control);
   eeprom_update_byte(&eeprom.sbus_channel_nav_control, nav_control);
   eeprom_update_byte(&eeprom.sbus_channel_takeoff, takeoff);
+  eeprom_update_byte(&eeprom.sbus_channel_go_home, go_home);
   eeprom_update_block((const void*)channel_switch_,
     (void*)&eeprom.sbus_channel_switch[0], sizeof(channel_switch_));
   eeprom_update_block((const void*)channel_trim_,
