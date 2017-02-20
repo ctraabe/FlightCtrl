@@ -55,6 +55,10 @@ void MotorTest(void)
   UpdateSBus();
   if (SBusSwitch(0) != SBUS_SWITCH_UP) return;
 
+  UARTPrintf("");
+  UARTPrintf("Motor Test Started");
+  UARTPrintf("Waiting for switch 1");
+
   enum SBusSwitchState switch1_pv = SBusSwitch(1);
   uint16_t delay = GetTimestampMillisFromNow(50);
   for (;;)
@@ -66,6 +70,9 @@ void MotorTest(void)
     if ((SBusSwitch(1) == SBUS_SWITCH_UP) && (switch1_pv != SBUS_SWITCH_UP))
       break;
     switch1_pv = SBusSwitch(1);
+
+    SetMotorSetpoint(0, 0);
+    TxMotorSetpoints();
   }
   RedLEDOff();
 
