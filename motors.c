@@ -20,7 +20,7 @@ enum BLCStatusCode
   BLC_STATUS_MISMATCH = 1,  // Arbitrary
   BLC_STATUS_STARTING = 40,
   BLC_STATUS_AFRO_ESC = 239,  // AfroESC with custom UT firmware
-  BLC_STATUS_BLC_TO_PPM = 240,  // Custom BLCtrl to PPM translator board
+  BLC_STATUS_BLC_TO_PWM = 240,  // Custom BLCtrl to PWM translator board
   BLC_STATUS_V3_FAST_READY = 248,
   BLC_STATUS_V3_READY = 249,
   BLC_STATUS_V2_READY = 250,
@@ -144,6 +144,11 @@ void DetectMotors(void)
         blc_error_bits_ |= BLC_ERROR_BIT_INCONSISTENT_SETTINGS;
     }
   }
+  if (blc_error_bits_ & BLC_ERROR_BIT_INCONSISTENT_SETTINGS)
+  {
+    UARTPrintf("motors: ERROR: inconsistent settings for motor controllers");
+    return;
+  }
 
   // Check for missing or extra motors. Assumes that present motors have
   // contiguous addresses beginning with 0.
@@ -152,7 +157,8 @@ void DetectMotors(void)
     blc_error_bits_ |= BLC_ERROR_BIT_MISSING_MOTOR;
   if (motors & ~((1 << n_motors_) - 1))
     blc_error_bits_ |= BLC_ERROR_BIT_EXTRA_MOTOR;
-  if (blc_error_bits_ & ~_BV(BLC_ERROR_BIT_INCONSISTENT_SETTINGS))
+  if ((blc_error_bits_ & (BLC_ERROR_BIT_MISSING_MOTOR
+    | BLC_ERROR_BIT_EXTRA_MOTOR)) && (blc_status_code != BLC_STATUS_BLC_TO_PWM))
   {
     UARTPrintf("motors: ERROR: expected controllers with addresses: 0 - %i",
       n_motors_ - 1);
@@ -171,7 +177,7 @@ void DetectMotors(void)
     case BLC_STATUS_V2_READY:
       blc_feature_bits_ |= BLC_FEATURE_EXTENDED_COMMS;
     case BLC_STATUS_AFRO_ESC:
-    case BLC_STATUS_BLC_TO_PPM:
+    case BLC_STATUS_BLC_TO_PWM:
       setpoint_length_ = sizeof(uint16_t);
     default:
       break;

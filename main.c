@@ -65,9 +65,11 @@ void PreflightInit(void)
   WaitForBuzzerToComplete();
   // Warn if any automatic flight modes are armed.
   if ((SBusAltitudeControl() != SBUS_SWITCH_DOWN)
-    || (SBusNavControl() != SBUS_SWITCH_DOWN))
+    || (SBusGoHome() != SBUS_SWITCH_DOWN)
+    || (SBusNavControl() != SBUS_SWITCH_DOWN)
+    || (SBusTakeoff() != SBUS_SWITCH_DOWN))
   {
-    BeepPattern(0x2AA);
+    BeepPattern(0x000000AA);
     WaitForBuzzerToComplete();
   }
   ResetOverrun();
