@@ -30,9 +30,10 @@ enum BLCStatusCode
 
 enum BLCFeatureBits
 {
-  BLC_FEATURE_EXTENDED_COMMS = 1<<0,
-  BLC_FEATURE_V3 = 1<<1,
-  BLC_FEATURE_20KHz = 1<<2,
+  BLC_FEATURE_BIT_12_BIT = 1<<0,
+  BLC_FEATURE_BIT_EXTENDED_COMMS = 1<<1,
+  BLC_FEATURE_BIT_V3 = 1<<2,
+  BLC_FEATURE_BIT_20KHz = 1<<3,
 };
 
 enum BLCConfigBits
@@ -75,7 +76,7 @@ struct BLCStatus
 } __attribute__((packed));
 
 static uint8_t blc_error_bits_ = 0x00;
-static uint8_t blc_feature_bits_ = 0x00;
+static uint8_t blc_feature_BIT_bits_ = 0x00;
 static uint8_t n_motors_ = 0;
 static uint8_t setpoint_length_ = sizeof(uint8_t);
 static uint8_t comms_in_progress_;  // Address to which communication is ongoing
@@ -153,46 +154,63 @@ void DetectMotors(void)
   // Check for missing or extra motors. Assumes that present motors have
   // contiguous addresses beginning with 0.
   n_motors_ = eeprom_read_byte(&eeprom.n_motors);
-  if (((1 << n_motors_) - 1) & ~motors)
-    blc_error_bits_ |= BLC_ERROR_BIT_MISSING_MOTOR;
-  if (motors & ~((1 << n_motors_) - 1))
-    blc_error_bits_ |= BLC_ERROR_BIT_EXTRA_MOTOR;
-  if ((blc_error_bits_ & (BLC_ERROR_BIT_MISSING_MOTOR
-    | BLC_ERROR_BIT_EXTRA_MOTOR)) && (blc_status_code != BLC_STATUS_BLC_TO_PWM))
+  if (blc_status_code != BLC_STATUS_BLC_TO_PWM)
   {
-    UARTPrintf("motors: ERROR: expected controllers with addresses: 0 - %i",
-      n_motors_ - 1);
-    UARTPrintf("  Bit field of responding addresses is: %X", motors);
-    return;
+    if (((1 << n_motors_) - 1) & ~motors)
+      blc_error_bits_ |= BLC_ERROR_BIT_MISSING_MOTOR;
+    if (motors & ~((1 << n_motors_) - 1))
+      blc_error_bits_ |= BLC_ERROR_BIT_EXTRA_MOTOR;
+    if ((blc_error_bits_ & (BLC_ERROR_BIT_MISSING_MOTOR
+      | BLC_ERROR_BIT_EXTRA_MOTOR)))
+    {
+      UARTPrintf("motors: ERROR: expected controllers with addresses: 0 - %i",
+        n_motors_ - 1);
+      UARTPrintf("  Bit field of responding addresses is: %X", motors);
+      return;
+    }
   }
 
   // Identify additional features of the brushless controllers.
-  UARTPrintf("motors: detected controllers with the following compatibility:");
   switch (blc_status_code)
   {
     case BLC_STATUS_V3_FAST_READY:
-      blc_feature_bits_ |= BLC_FEATURE_20KHz;
+      blc_feature_BIT_bits_ |= BLC_FEATURE_BIT_20KHz;
     case BLC_STATUS_V3_READY:
-      blc_feature_bits_ |= BLC_FEATURE_V3;
+      blc_feature_BIT_bits_ |= BLC_FEATURE_BIT_V3;
     case BLC_STATUS_V2_READY:
-      blc_feature_bits_ |= BLC_FEATURE_EXTENDED_COMMS;
+      blc_feature_BIT_bits_ |= BLC_FEATURE_BIT_EXTENDED_COMMS;
     case BLC_STATUS_AFRO_ESC:
     case BLC_STATUS_BLC_TO_PWM:
+      blc_feature_BIT_bits_ |= BLC_FEATURE_BIT_12_BIT;
       setpoint_length_ = sizeof(uint16_t);
     default:
       break;
   }
 
   // Report successful detection.
-  if (blc_status_code == BLC_STATUS_V2_READY)
-    UARTPrintf("motors: detected %u V2 controllers", n_motors_);
-  else if (blc_status_code == BLC_STATUS_V3_READY)
-    UARTPrintf("motors: detected %u V3 controllers", n_motors_);
-  else if (blc_status_code == BLC_STATUS_V3_FAST_READY)
-    UARTPrintf("motors: detected %u V3 controllers in fast mode (20 kHz PWM)",
-      n_motors_);
-  else
-    UARTPrintf("motors: detected %u V1 controllers", n_motors_);
+  switch (blc_status_code)
+  {
+    case BLC_STATUS_V2_READY:
+      UARTPrintf("motors: detected %u V2 controllers", n_motors_);
+      break;
+    case BLC_STATUS_V3_READY:
+      UARTPrintf("motors: detected %u V3 controllers", n_motors_);
+      break;
+    case BLC_STATUS_V3_FAST_READY:
+      UARTPrintf("motors: detected %u V3 controllers in fast mode (20 kHz PWM)",
+        n_motors_);
+      break;
+    case BLC_STATUS_AFRO_ESC:
+      UARTPrintf("motors: detected %u AfroESCs", n_motors_);
+      break;
+    case BLC_STATUS_BLC_TO_PWM:
+      UARTPrintf("motors: detected BLCtrlToPWM board");
+      UARTPrintf("motors: unable to verify number of motors connected");
+      break;
+    default:
+      UARTPrintf("motors: detected %u V1 controllers", n_motors_);
+      break;
+  }
 }
 
 // -----------------------------------------------------------------------------

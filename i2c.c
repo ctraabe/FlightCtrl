@@ -66,6 +66,7 @@ uint8_t I2CIsIdle(void)
 void I2CReset(void)
 {
   I2CStop();
+  i2c_error_ = I2C_ERROR_NONE;
 }
 
 // -----------------------------------------------------------------------------
@@ -219,6 +220,7 @@ static void ProcessTxInterrupt(void)
       I2CTxByte(slave_address_ + TW_WRITE);
       break;
     case TW_MT_SLA_ACK:  // SLA+W transmitted, ACK received
+      i2c_error_ = I2C_ERROR_NONE;
     case TW_MT_DATA_ACK:  // Data transmitted, ACK received
       if (tx_source_len_ > 0)
       {
@@ -272,6 +274,7 @@ static void ProcessRxInterrupt(void)
     case TW_MR_SLA_ACK:  // SLA+R transmitted, ACK received
       if (rx_destination_len_ > 1) I2CRxAck();
       else I2CRxNAck();  // Don't send acknowledgment following last reception.
+      i2c_error_ = I2C_ERROR_NONE;
       break;
     case TW_MR_DATA_NACK:  // Data received, NACK returned
       I2CReadByte();
