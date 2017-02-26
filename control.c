@@ -269,6 +269,38 @@ void ControlInit(void)
   kalman_coefficients_.K[2][1] = 1.470361439e+02;
 
   k_motor_lag_ = 1.0 / 0.07;
+#elif defined BI_QUAD
+  feedback_gains_.p_dot = +6.832506705e-01;
+  feedback_gains_.p = +1.766006881e+01;
+  feedback_gains_.phi = +7.115536870e+01;
+  feedback_gains_.r = +2.916751894e+00;
+  feedback_gains_.psi = +4.521286610e+00;
+
+  feedback_gains_.psi_integral = +2.193718812e+00 / feedback_gains_.psi;
+
+  feedback_gains_.x_dot = 0.17;
+  feedback_gains_.x = 0.1;
+  feedback_gains_.x_integral = 0.02 * DT;
+
+  feedback_gains_.w_dot = 0.0;
+  feedback_gains_.w = 3.0;
+  feedback_gains_.z = 5.0;
+  feedback_gains_.z_integral = 3.2 * DT * actuation_inverse_[0][3];
+
+  kalman_coefficients_.A11 = +8.943955582e-01;
+  kalman_coefficients_.A13 = +7.392310928e-03;
+  kalman_coefficients_.A21 = +7.392310928e-03;
+  kalman_coefficients_.A23 = +2.941323505e-05;
+  kalman_coefficients_.B11 = +1.056044418e-01;
+  kalman_coefficients_.B21 = +4.201890722e-04;
+  kalman_coefficients_.K[0][0] = +7.736180483e-03;
+  kalman_coefficients_.K[0][1] = +6.465227478e+00;
+  kalman_coefficients_.K[1][0] = +1.973030846e-04;
+  kalman_coefficients_.K[1][1] = +2.905144232e-01;
+  kalman_coefficients_.K[2][0] = +2.225348506e-01;
+  kalman_coefficients_.K[2][1] = +1.470361439e+02;
+
+  k_motor_lag_ = 1.0 / 0.07;
 #elif defined HEXA690
   // control proportion: 0.500000
   feedback_gains_.p_dot = +1.039864973e+00;
@@ -380,10 +412,10 @@ void ControlInit(void)
   feedback_gains_.x = 0.15;
   feedback_gains_.x_integral = 0.045 * DT;
 
-  feedback_gains_.w_dot = 0.0;
-  feedback_gains_.w = 5.0;
-  feedback_gains_.z = 8.0;
-  feedback_gains_.z_integral = 4.5 * DT * actuation_inverse_[0][3];
+  feedback_gains_.w_dot = +0.000000000e+00;
+  feedback_gains_.w = +2.200000000e+00;
+  feedback_gains_.z = +2.000000000e+00;
+  feedback_gains_.z_integral = +1.225890194e+00 * DT * actuation_inverse_[0][3];
 
   kalman_coefficients_.A11 = 8.943955582e-01;
   kalman_coefficients_.A13 = 7.392310928e-03;
