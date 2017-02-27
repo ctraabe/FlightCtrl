@@ -270,22 +270,22 @@ void ControlInit(void)
 
   k_motor_lag_ = 1.0 / 0.07;
 #elif defined BI_QUAD
-  feedback_gains_.p_dot = +6.832506705e-01;
-  feedback_gains_.p = +1.766006881e+01;
-  feedback_gains_.phi = +7.115536870e+01;
-  feedback_gains_.r = +2.916751894e+00;
-  feedback_gains_.psi = +4.521286610e+00;
+  feedback_gains_.p_dot = +6.558822907e-01;
+  feedback_gains_.p = +1.709045882e+01;
+  feedback_gains_.phi = +6.774069832e+01;
+  feedback_gains_.r = +2.962652898e+00;
+  feedback_gains_.psi = +4.651437048e+00;
 
-  feedback_gains_.psi_integral = +2.193718812e+00 / feedback_gains_.psi;
+  feedback_gains_.psi_integral = +2.297100566e+00 * DT / feedback_gains_.psi;
 
   feedback_gains_.x_dot = 0.17;
   feedback_gains_.x = 0.1;
   feedback_gains_.x_integral = 0.02 * DT;
 
-  feedback_gains_.w_dot = 0.0;
-  feedback_gains_.w = 3.0;
-  feedback_gains_.z = 5.0;
-  feedback_gains_.z_integral = 3.2 * DT * actuation_inverse_[0][3];
+  feedback_gains_.w_dot = +0.000000000e+00;
+  feedback_gains_.w = +2.500000000e+00;
+  feedback_gains_.z = +2.500000000e+00;
+  feedback_gains_.z_integral = +1.424969065e+00 * DT * actuation_inverse_[0][3];
 
   kalman_coefficients_.A11 = +8.943955582e-01;
   kalman_coefficients_.A13 = +7.392310928e-03;
@@ -547,7 +547,6 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
   float position[3] = { 0.0 }, velocity[3] = { 0.0 }, velocity_cmd[3] = { 0.0 };
   float position_error[3] = { 0.0 }, velocity_error[3] = { 0.0 };
   float model_error[3] = { 0.0 };
-  float position_error_limit = MIN_TRANSIT_SPEED;
   float baro_altitude_thrust_offset = 0;
 
   switch (ControlMode())
@@ -621,11 +620,6 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
       Vector3Subtract(velocity_cmd, velocity, velocity_error);
       Vector3Subtract(model->position, position, model_error);
 
-      // Form an error limit such that the position error cannot lead to an
-      // unreasonably high speed.
-      position_error_limit = FloatLimit(TransitSpeed() + 1.0, MIN_TRANSIT_SPEED,
-        MAX_TRANSIT_SPEED) * k_x_velocity_to_position_error_;
-
       // Heading:
 
       // Form an integral command based on the difference between the current
@@ -672,11 +666,6 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
       Vector3Subtract(state->position_cmd, position, position_error);
       Vector3Subtract(velocity_cmd, velocity, velocity_error);
       Vector3Subtract(model->position, position, model_error);
-
-      // Form an error limit such that the position error cannot lead to an
-      // unreasonably high speed.
-      position_error_limit = 1.5 * MAX_VERTICAL_SPEED
-        * k_x_velocity_to_position_error_;  // 50% margin
 
       // Offset the thrust command so that vertical speed commands don't affect
       // the raw thrust command.
@@ -736,20 +725,6 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
   state->position_integral[D_WORLD_AXIS] = FloatSLimit(
     state->position_integral[D_WORLD_AXIS] + (model_error[D_WORLD_AXIS])
     * k->z_integral, 0.15 * THRUST_CMD_RANGE);
-
-  // If the position error limit is exceeded, then switch to velocity control.
-  position_error[D_WORLD_AXIS] *= k_vertical_limit_to_horizontal_limit;
-  float position_error_norm = Vector3Norm(position_error);
-  if (position_error_norm > position_error_limit)
-  {
-    Vector3ScaleSelf(position_error, position_error_limit
-      / position_error_norm);
-    position_error[D_WORLD_AXIS] *= k_horizontal_limit_to_vertical_limit;
-  }
-  else
-  {
-    position_error[D_WORLD_AXIS] *= k_horizontal_limit_to_vertical_limit;
-  }
 
   // Limit the navigation command to half the maximum manual command.
   float a_w_cmd[2];  // acceleration command in world N-E plane
