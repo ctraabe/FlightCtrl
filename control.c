@@ -581,7 +581,7 @@ static void CommandsForPositionControl(const struct FeedbackGains * k,
       {
         ResetModel(position, velocity, model);
         Vector3Copy(position, state->position_cmd);
-        state->heading_cmd = *heading_cmd;
+        state->heading_cmd = HeadingAngle();
       }
 
       // Position:
