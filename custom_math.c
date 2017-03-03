@@ -188,6 +188,6 @@ uint16_t U16RoundRShiftU32(uint32_t input, uint8_t power)
 float WrapToPlusMinusPi(float angle)
 {
   while (angle > M_PI) angle -= 2.0 * M_PI;
-  while (angle < -M_PI) angle += 2.0 * M_PI;
+  while (angle <= -M_PI) angle += 2.0 * M_PI;
   return angle;
 }
