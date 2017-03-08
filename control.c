@@ -303,22 +303,22 @@ void ControlInit(void)
   k_motor_lag_ = 1.0 / 0.07;
 #elif defined HEXA690
   // control proportion: 0.500000
-  feedback_gains_.p_dot = +1.039864973e+00;
-  feedback_gains_.p = +2.593568008e+01;
-  feedback_gains_.phi = +1.266384385e+02;
-  feedback_gains_.r = +4.176320607e+00;
-  feedback_gains_.psi = +1.047113846e+01;
+  feedback_gains_.p_dot = +1.077064337e+00;
+  feedback_gains_.p = +2.689024117e+01;
+  feedback_gains_.phi = +1.336937583e+02;
+  feedback_gains_.r = +4.270252606e+00;
+  feedback_gains_.psi = +1.105450976e+01;
 
-  feedback_gains_.psi_integral = +6.988058653e+00 * DT / feedback_gains_.psi;
+  feedback_gains_.psi_integral = +7.547131788e+00 * DT / feedback_gains_.psi;
 
   feedback_gains_.x_dot = 0.17;
   feedback_gains_.x = 0.1;
   feedback_gains_.x_integral = 0.02 * DT;
 
-  feedback_gains_.w_dot = 0.0;
-  feedback_gains_.w = 4.7;
-  feedback_gains_.z = 5.6;
-  feedback_gains_.z_integral = 3.4 * DT * actuation_inverse_[0][3];
+  feedback_gains_.w_dot = +0.000000000e+00;
+  feedback_gains_.w = +4.100000000e+00;
+  feedback_gains_.z = +6.000000000e+00;
+  feedback_gains_.z_integral = +3.321652089e+00 * DT * actuation_inverse_[0][3];
 
   kalman_coefficients_.A11 = +8.943955582e-01;
   kalman_coefficients_.A13 = +7.392310928e-03;
