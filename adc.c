@@ -37,6 +37,7 @@ static int16_t accelerometer_sum_[3], gyro_sum_[3];
 static int16_t acc_offset_[3];
 static int16_t gyro_offset_[3] = { -ADC_MIDDLE_VALUE * ADC_N_SAMPLES,
   -ADC_MIDDLE_VALUE * ADC_N_SAMPLES, ADC_MIDDLE_VALUE * ADC_N_SAMPLES };
+static int8_t gyro_fine_offset_[2];
 
 
 // =============================================================================
@@ -254,6 +255,29 @@ void ProcessSensorReadings(void)
   gyro_sum_[X_BODY_AXIS] = -SumRecords(ADC_GYRO_X) - gyro_offset_[X_BODY_AXIS];
   gyro_sum_[Y_BODY_AXIS] = -SumRecords(ADC_GYRO_Y) - gyro_offset_[Y_BODY_AXIS];
   gyro_sum_[Z_BODY_AXIS] = SumRecords(ADC_GYRO_Z) - gyro_offset_[Z_BODY_AXIS];
+
+  // On average, the X and Y gyros should read zero. Constantly adjust the
+  // offset in that direction.
+  if (gyro_sum_[X_BODY_AXIS] > 0 && --gyro_fine_offset_[X_BODY_AXIS] == -127)
+  {
+    gyro_offset_[X_BODY_AXIS]--;
+    gyro_fine_offset_[X_BODY_AXIS] = 0;
+  }
+  if (gyro_sum_[X_BODY_AXIS] > 0 && ++gyro_fine_offset_[X_BODY_AXIS] == 127)
+  {
+    gyro_offset_[X_BODY_AXIS]++;
+    gyro_fine_offset_[X_BODY_AXIS] = 0;
+  }
+  if (gyro_sum_[Y_BODY_AXIS] > 0 && --gyro_fine_offset_[Y_BODY_AXIS] == -127)
+  {
+    gyro_offset_[Y_BODY_AXIS]--;
+    gyro_fine_offset_[Y_BODY_AXIS] = 0;
+  }
+  if (gyro_sum_[Y_BODY_AXIS] > 0 && ++gyro_fine_offset_[Y_BODY_AXIS] == 127)
+  {
+    gyro_offset_[Y_BODY_AXIS]++;
+    gyro_fine_offset_[Y_BODY_AXIS] = 0;
+  }
 
   // Convert raw gyro reading to rad/s.
   angular_rate_[X_BODY_AXIS] = (float)gyro_sum_[X_BODY_AXIS] / GYRO_SCALE
