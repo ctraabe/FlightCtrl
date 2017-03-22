@@ -316,9 +316,9 @@ void ControlInit(void)
   feedback_gains_.x_integral = 0.02 * DT;
 
   feedback_gains_.w_dot = +0.000000000e+00;
-  feedback_gains_.w = +4.100000000e+00;
-  feedback_gains_.z = +6.000000000e+00;
-  feedback_gains_.z_integral = +3.321652089e+00 * DT * actuation_inverse_[0][3];
+  feedback_gains_.w = +4.2e+00;
+  feedback_gains_.z = +5.7e+00;
+  feedback_gains_.z_integral = +3.0e+00 * DT * actuation_inverse_[0][3];
 
   kalman_coefficients_.A11 = +8.943955582e-01;
   kalman_coefficients_.A13 = +7.392310928e-03;
